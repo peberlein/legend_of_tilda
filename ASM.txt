@@ -1,0 +1,179 @@
+A	add words (src, dst)
+AB	add bytes (src, dst)
+ABS	absolute value
+AI	add immediate (wr, imm)
+ANDI	and immediate (wr, imm)
+B	branch
+BL	branch and link
+BLWP	branch and load WP
+C	compare words
+CB	compare bytes
+CI	compare immediate (wr, imm)
+CKOF	clock off
+CKON	clock on
+CLR	clear operand
+COC	compare ones corresponding (OR) (src, wr)
+CZC	compare zeros corresponding (AND) (src, wr)
+DEC	decrement
+DECT	decrement by two
+DIV	divide (src, wr dst) (div 32-bit dst+1 & dst by src, with rem in dst+1)
+IDLE	idle
+INC	increment
+INCT	increment by two
+INV	invert
+JEQ	jump equal
+JGT	jump greater than
+JH	jump if logical high
+JHE	jump high or equal
+JL	jump if logical low
+JLE	jump if low or equal
+JLT	jump less than
+JMP	unconditional jump
+JNC	jump no carry
+JNE	jump not equal
+JNO	jump no overflow
+JOC	jump on carry
+JOP	jump odd parity
+LDCR	load CRU
+LI	load immediate (wr dst, imm)
+LIMI	load interrupt mask register
+LREX	load or restart execution
+LWPI	load WP immediate
+MOV	move words (src, dst)
+MOVB	move bytes (src, dst)
+MPY	multiply (src, wr dst) (wr dst+1 gets lower 16 bits)
+NEG	negate
+NOP	no operation (pseudo: JMP $+2)
+ORI	or immediate (wr, imm)
+RSET	reset
+RT	return (pseudo: B *R11)
+RTWP	return with WP
+S	subtract words (src, dst)
+SB	subtract bytes (src, dst)
+SBO	set CRU bit to one
+SBZ	set CRU bit to zero
+SETO	set to one
+SLA	shift left arithmetic (wr, scnt) (use WR0 lower nibble if scnt=0)
+SOC	set ones corresponding (OR) (src, dst)
+SOCB	set ones corresponding byte (src, dst)
+SRA	shift right arithmetic (wr, scnt) (use WR0 lower nibble if scnt=0)
+SRC	shift right circular (wr, scnt) (use WR0 lower nibble if scnt=0)
+SRL	shift right logical (wr, scnt) (use WR0 lower nibble if scnt=0)
+STCR	store CRU
+STST	store status (wr)
+STWP	store workspace pointer (wr)
+SWPB	swap bytes
+SZC	set zeros corresponding (AND) (src, dst)
+SZCB	set zeros corresponding byte (src, dst)
+TB	test CRU bit
+X	execute
+XOP	extended operation
+XOR	exclusive or (src, wrdst)
+
+
+Directives:
+AORG	absolute origin
+RORG	relocatable origin
+DORG	dummy origin
+BSS	block starting with symbol
+BES	block ending with symbol
+EVEN	word boundary
+PSEG	program segment
+PEND	program segment end
+
+CSEG	common segment
+CEND	common segment end
+DSEG	data segment
+DEND	data segment end
+
+UNL	no source list
+LIST	list source
+PAGE	page eject
+TITL	page title
+IDT	program identifier
+
+EQU	define assembly-time constant
+BYTE	initialize byte
+DATA	initialize word
+TEXT	initialize text
+
+DEF	external definition
+REF	external reference
+COPY	copy
+LOAD	force load
+SREF	secondary reference
+
+DXOP	define extended operation
+END	program end
+
+
+CPU RAM is 256 bytes (sidecar expansion is 32k)
+VPU RAM is 16k on TI994a
+
+Memory Map: 8k blocks in 64k address space
+0000-  Console ROM
+2000-  Low Memory Expansion (lower 8k, when connected)
+4000-  Peripheral mapped ROMs for DSR
+6000-  Application ROMs in command module (cartridge)
+8000-  Memory mapped devices
+A000-  High memory expansion (upper 24k)
+
+8300-83FF  256 bytes RAM
+8800   VDP RAM read data register
+8802   VDP RAM read status register
+8C00   VDP RAM write data register
+8C02   VDP RAM write address register
+
+
+VDP Registers
+0  000000xx 0=M3 1=Ext vid enable
+1  xxxx0xxx 0=sprite mag 1=sprite size 3=M2 4=M1 5=Int enable 6=Blank enable 7=4/16k
+2  Screen Image Table address times >400 (0000,0400 ... 3C00)
+3  Color Table address times >40 (0000,0040 ... 3FC0)
+4  Pattern Descriptor Table times >800 (0000,0800 ... 3800)
+5  Sprite Attribute List times >80 (0000,0080 ... 3F80)
+6  Sprite Descriptor Table times >800 (0000,0800 ... 3800)
+7  Foreground and background color nibbles
+
+M3 M2 M1
+ 0  0  0  Graphics Mode I (32x24)
+ 0  0  1  Text Mode (40x24)
+ 0  1  0  Multicolor Mode (64x48 blocks, block is 4x4 pixels)
+ 1  0  0  Bitmap Mode (32x24)
+
+Colors
+0 Transparent	8 Medium Red
+1 Black		9 Light Red
+2 Medium Green	A Dark Yellow
+3 Light Green	B Light Yellow
+4 Dark Blue	C Dark Green
+5 Light Blue	D Magenta
+6 Dark Red	E Gray
+7 Cyan		F White
+
+Screen Image Table
+32x24 1 byte per character
+
+Color Table
+32 bytes fg and bg color nibbles per 8 characters (Gfx Mode I)
+256*8*3 bytes fg and bg color nibbles per 8 pixels! (Gfx Mode II)
+
+Pattern Descriptor Table
+256*8 pixel bitmask (Gfx Mode I)
+256*8*3 pixel bitmask (Gfx Mode II)
+
+Sprite Attribute List (up to 32 entries)
+4 bytes per sprite
+ Y veritical position FF,00..BE  (or D0 for end-of-list)
+ X horizontal position 00..FF
+ pattern code 00..FF (times 8 offset into Sprite Pattern Table)
+ color and early clock bit (32 pixel shift left)
+
+Sprite Descriptor Table (Sprite Pattern Table) (2048 bytes limit)
+8 bytes per sprite for 8x8  (up to 256 entries)
+32 bytes per sprite for 16x16  (up to 64 entries)
+(in 8x8 chunks: upper-left, lower-left, upper-right, lower right)
+
+Sprite Motion Table (fixed at 0780)
+(Number of moving sprites programmed to 837A)
+
