@@ -65,7 +65,7 @@ MAIN
        MOVB R0,@RUPEES
        MOVB R0,@KEYS
        MOVB R0,@BOMBS
-       MOV R0,@FLAGS0
+       MOV R0,@FLAGS
        MOV R0,@MOVE12
 
        LI R13,>7078        * Link Y X position in pixels

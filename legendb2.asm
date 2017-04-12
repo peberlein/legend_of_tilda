@@ -237,23 +237,23 @@ MT00   DATA >A0A1,>A2A3  * Brown brick
        DATA >0000,>0000  * Ground
        DATA >0809,>0809  * Blue Ladder
        DATA >A4A5,>ABAC  * Brown top
-       DATA >B5B6,>B77B  * Brown corner SE
+       DATA >A7AE,>AF7B  * Brown corner SE
        DATA >A57A,>ACAD  * Brown corner NE
-       DATA >B2B3,>79B4  * Brown corner SW
+       DATA >A8A9,>79A6  * Brown corner SW
        DATA >2020,>2020  * Black doorway
        DATA >78A4,>AAAB  * Brown corner NW
-       DATA >A6A7,>AEAF  * Brown rock
-       DATA >3041,>7A7B
-       DATA >3042,>7E7F
-       DATA >3043,>7A7B
-       DATA >3044,>7E7F
-       DATA >3045,>7A7B
-       DATA >3046,>7E7F
+       DATA >B4B5,>B6B7  * Brown rock
+       DATA >E6E7,>E5E1  * Water corner NW
+       DATA >E5E0,>E4E1  * Water edge W
+       DATA >E4E0,>E3E2  * Water corner SW
+       DATA >E7E7,>E1E1  * Water edge N
+       DATA >E0E0,>E1E1  * Water Brown
+       DATA >E0E0,>E2E2  * Water edge S
 
-MT10   DATA >3130,>5253
+MT10   DATA >00ED,>0071  * Water inner corner NE
        DATA >3131,>5657
        DATA >3132,>5A5B
-       DATA >3133,>5E5F
+       DATA >E0E9,>E1EA  * Water edge E
        DATA >3134,>6263
        DATA >3135,>6667
        DATA >3136,>6A6B
@@ -274,43 +274,43 @@ MT20   DATA >3230,>5253
        DATA >3234,>6263
        DATA >3235,>6667
        DATA >3236,>6A6B
-       DATA >3237,>6E6F
-       DATA >3238,>7273
-       DATA >6060,>6060  * Grey Ground
-       DATA >3241,>7A7B
-       DATA >3242,>7E7F
-       DATA >3243,>7A7B
-       DATA >3244,>7E7F
+       DATA >C0C1,>C2C3  * Grey brick
+       DATA >C7CE,>CF6B  * Grey corner SE
+       DATA >6161,>6161  * Grey Ground
+       DATA >D4D5,>D6D7  * Gravestone
+       DATA >C4C5,>CBCC  * Gray top
+       DATA >6465,>6667  * Grey stairs
+       DATA >D0D1,>D2D3  * Grey bush
        DATA >3245,>7A7B
        DATA >3246,>7E7F
 
 MT30   DATA >3330,>5253
        DATA >3331,>5657
        DATA >3332,>5A5B
-       DATA >3333,>5E5F
-       DATA >A8A9,>B0B1  * Brown bush
-       DATA >3335,>6667
-       DATA >3336,>6A6B
-       DATA >3337,>6E6F
-       DATA >3338,>7273
-       DATA >8889,>9091  * Green bush
+       DATA >7200,>EE00  * Water inner corner SW
+       DATA >B0B1,>B2B3  * Brown bush
+       DATA >E7E7,>E1E1  * Water edge N
+       DATA >E0E0,>E1E1  * Water Green
+       DATA >E7E8,>E1E9  * Water edge NE
+       DATA >E0E9,>E1EA  * Water edge E
+       DATA >9091,>9293  * Green bush
        DATA >1011,>1213  * Green Steps
        DATA >0405,>0607  * Sand
        DATA >3343,>7A7B
        DATA >2425,>2425  * White Ladder
-       DATA >3345,>7A7B
-       DATA >3346,>7E7F
+       DATA >C8C9,>69C6  * Grey corner SW
+       DATA >68C4,>CACB  * Grey corner NW
 
-MT40   DATA >3430,>5253
+MT40   DATA >C56A,>CBCC  * Grey corner NE
        DATA >3431,>5657
-       DATA >3432,>5A5B
-       DATA >3433,>5E5F
-       DATA >3434,>6263
-       DATA >3435,>6667
-       DATA >3436,>6A6B
-       DATA >3437,>6E6F
+       DATA >1C1C,>1D1D  * Red Bridge
+       DATA >E6E7,>E5E1  * Water corner NW
+       DATA >E5E0,>E4E1  * Water edge W
+       DATA >E4E0,>E3E2  * Water corner SW
+       DATA >E0E0,>E2E2  * Water edge S
+       DATA >E0EA,>E2EB  * Water corner SE
        DATA >8081,>8283  * Green brick
-       DATA >9596,>977B  * Green corner SE
+       DATA >878E,>8F7B  * Green corner SE
        DATA >857A,>8C8D  * Green corner NE
        DATA >8485,>8B8C  * Green top
        DATA >3443,>7A7B
@@ -320,7 +320,7 @@ MT40   DATA >3430,>5253
        
 MT50   DATA >3530,>5253
        DATA >3531,>5657
-       DATA >9293,>7994  * Green corner SW
+       DATA >8889,>7986  * Green corner SW
        DATA >7884,>8A8B  * Green corner NW
        DATA >3534,>6263
        DATA >3535,>6667
@@ -333,14 +333,14 @@ MT50   DATA >3530,>5253
        DATA >3543,>7A7B
        DATA >3544,>7E7F
        DATA >3545,>7A7B
-       DATA >3546,>7E7F
+       DATA >EC00,>7000  * Water inner corner NW
 
-MT60   DATA >8687,>8E8F  * Green rock
-       DATA >3631,>5657
-       DATA >3632,>5A5B
+MT60   DATA >9495,>9697  * Green rock
+       DATA >00ED,>0071  * Water inner corner NE
+       DATA >1414,>1515  * Green Bridge
        DATA >3633,>5E5F
        DATA >3634,>6263
-       DATA >3635,>6667
+       DATA >0073,>00EF  * Water inner corner SE
        DATA >3636,>6A6B
        DATA >3637,>6E6F
        DATA >3638,>7273

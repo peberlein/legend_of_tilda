@@ -34,6 +34,10 @@ HEARTX EQU  WRKSP+41        * Max hearts
 MOVE12 EQU  WRKSP+42        * Movement by 1 or 2
 LEVELP EQU  WRKSP+44        * Level Pointer in VDP RAM (768 bytes)
 FLAGS  EQU  WRKSP+46        * Flags
+DOOR   EQU  WRKSP+48        * YYXX position of doorway or secret
+SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
+
+
 
 * Flags:
 *  Blue ring (take 1/2 damage)
