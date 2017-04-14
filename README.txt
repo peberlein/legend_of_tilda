@@ -101,6 +101,20 @@ Overworld map is 16x8 rooms, 128 in total, total memory 22k!!
 2 enemy types, flag if zora present
 
 Cave contains message, character and items (always 2 fires)
+Cave data, 3 bytes?
+  events: old man giving item (wood sword, white sword, magic sword, letter)
+          money making game
+          old woman selling potions (needs letter)
+          merchant selling various items
+            magic shield 160  key 100  blue candle 60
+            magic shield 130  bombs 20  arrows 80
+            magic shield 90  monster bait 100  heart 10
+            magic shield 130  bombs 20  arrows 80
+            key 80  blue ring 250  monster bait 60
+          goriya  (or moblin) giving money
+          old woman with message
+          
+
 
 
 Input Priority
@@ -126,7 +140,6 @@ TektiteB .5	1
 Zola	.5	2/1/1
 
 
-Music
 
 
 
