@@ -69,7 +69,6 @@ MAIN
        MOV R0,@MOVE12
 
        LI R13,>7078        * Link Y X position in pixels
-INFLP
 
 DRAW
 
@@ -92,6 +91,7 @@ DRAW
        
        LIMI 2                 * Enable interrupts
 
+INFLP
        
        BL @VSYNC
 

@@ -235,14 +235,14 @@ WORLDE
 
 MT00   DATA >A0A1,>A2A3  * Brown brick
        DATA >0000,>0000  * Ground
-       DATA >0809,>0809  * Blue Ladder
+       DATA >7475,>7475  * Blue/brown Ladder
        DATA >A4A5,>ABAC  * Brown top
        DATA >A7AE,>AF7B  * Brown corner SE
        DATA >A57A,>ACAD  * Brown corner NE
        DATA >A8A9,>79A6  * Brown corner SW
        DATA >2020,>2020  * Black doorway
        DATA >78A4,>AAAB  * Brown corner NW
-       DATA >B4B5,>B6B7  * Brown rock
+       DATA >9C9D,>9E9F  * Brown rock
        DATA >E6E7,>E5E1  * Water corner NW
        DATA >E5E0,>E4E1  * Water edge W
        DATA >E4E0,>E3E2  * Water corner SW
@@ -251,58 +251,58 @@ MT00   DATA >A0A1,>A2A3  * Brown brick
        DATA >E0E0,>E2E2  * Water edge S
 
 MT10   DATA >00ED,>0071  * Water inner corner NE
-       DATA >3131,>5657
-       DATA >3132,>5A5B
+       DATA >EC00,>7000  * Water inner corner NW
+       DATA >E7E8,>E1E9  * Water corner NE
        DATA >E0E9,>E1EA  * Water edge E
-       DATA >3134,>6263
-       DATA >3135,>6667
-       DATA >3136,>6A6B
-       DATA >3137,>6E6F
-       DATA >3138,>7273
-       DATA >3139,>7677
+       DATA >E0EA,>E2EB  * Water corner SE
+       DATA >00F8,>FAC8  * Brown Dungeon NW
+       DATA >FBC9,>CBCA  * Brown Dungeon SW
+       DATA >C0C1,>C2C3  * Brown Dungeon two eyes
+       DATA >F900,>CCFA  * Brown Dungeon NE
+       DATA >CDFB,>CECB  * Brown Dungeon SE
        DATA >1819,>1A1B  * Red Steps
-       DATA >3142,>7E7F
-       DATA >3143,>7A7B
-       DATA >3144,>7E7F
-       DATA >3145,>7A7B
-       DATA >3146,>7E7F
+       DATA >C0C1,>C2C3  * Brown Dungeon two eyes
+       DATA >7CB0,>7DB0  * Brown Tree NW
+       DATA >00B2,>00B3  * Brown Tree SW
+       DATA >B400,>B500  * Brown Tree NE
+       DATA >B67E,>B77F  * Brown Tree SE
 
-MT20   DATA >3230,>5253
-       DATA >3231,>5657
-       DATA >3232,>5A5B
-       DATA >3233,>5E5F
-       DATA >3234,>6263
-       DATA >3235,>6667
-       DATA >3236,>6A6B
-       DATA >C0C1,>C2C3  * Grey brick
-       DATA >C7CE,>CF6B  * Grey corner SE
+MT20   DATA >D8D9,>DADB  * Waterfall
+       DATA >D8D9,>7777  * Waterfall bottom
+       DATA >7CB0,>7DB0  * Green Tree NW
+       DATA >00B2,>00B3  * Green Tree SW
+       DATA >B400,>B500  * Green Tree NE
+       DATA >B67E,>B77F  * Green Tree SE
+       DATA >B8B9,>BABB  * Green Tree face
+       DATA >8081,>8283  * Grey brick
+       DATA >878E,>8F61  * Grey corner SE
        DATA >6161,>6161  * Grey Ground
-       DATA >D4D5,>D6D7  * Gravestone
-       DATA >C4C5,>CBCC  * Gray top
+       DATA >F4F5,>F6F7  * Gravestone
+       DATA >8485,>8B8C  * Grey top
        DATA >6465,>6667  * Grey stairs
-       DATA >D0D1,>D2D3  * Grey bush
-       DATA >3245,>7A7B
-       DATA >3246,>7E7F
+       DATA >F0F1,>F2F3  * Grey bush
+       DATA >6162,>FAC8  * White Dungeon NW
+       DATA >FBC9,>CBCA  * White Dungeon SW
 
-MT30   DATA >3330,>5253
-       DATA >3331,>5657
-       DATA >3332,>5A5B
+MT30   DATA >C4C5,>C6C7  * White Dungeon one eye
+       DATA >6361,>CCFA  * White Dungeon NE
+       DATA >CDFB,>CECB  * Brown Dungeon SE
        DATA >7200,>EE00  * Water inner corner SW
-       DATA >B0B1,>B2B3  * Brown bush
+       DATA >9899,>9A9B  * Brown bush
        DATA >E7E7,>E1E1  * Water edge N
        DATA >E0E0,>E1E1  * Water Green
-       DATA >E7E8,>E1E9  * Water edge NE
+       DATA >E7E8,>E1E9  * Water corner NE
        DATA >E0E9,>E1EA  * Water edge E
        DATA >9091,>9293  * Green bush
        DATA >1011,>1213  * Green Steps
        DATA >0405,>0607  * Sand
-       DATA >3343,>7A7B
-       DATA >2425,>2425  * White Ladder
-       DATA >C8C9,>69C6  * Grey corner SW
-       DATA >68C4,>CACB  * Grey corner NW
+       DATA >C0C1,>C2C3  * White Dungeon two eyes
+       DATA >5C5D,>5C5D  * White Ladder
+       DATA >8889,>6186  * Grey corner SW
+       DATA >6184,>8A8B  * Grey corner NW
 
-MT40   DATA >C56A,>CBCC  * Grey corner NE
-       DATA >3431,>5657
+MT40   DATA >8561,>8C8D  * Grey corner NE
+       DATA >B8B9,>BABB  * Tree face
        DATA >1C1C,>1D1D  * Red Bridge
        DATA >E6E7,>E5E1  * Water corner NW
        DATA >E5E0,>E4E1  * Water edge W
@@ -313,13 +313,13 @@ MT40   DATA >C56A,>CBCC  * Grey corner NE
        DATA >878E,>8F7B  * Green corner SE
        DATA >857A,>8C8D  * Green corner NE
        DATA >8485,>8B8C  * Green top
-       DATA >3443,>7A7B
-       DATA >3444,>7E7F
-       DATA >3445,>7A7B
-       DATA >3446,>7E7F
+       DATA >00F8,>FAC8  * Green Dungeon NW
+       DATA >FBC9,>CBCA  * Green Dungeon SW
+       DATA >C0C1,>C2C3  * Green Dungeon two eyes
+       DATA >7475,>7475  * Blue/green Ladder
        
-MT50   DATA >3530,>5253
-       DATA >3531,>5657
+MT50   DATA >F900,>CCFA  * Green Dungeon NE
+       DATA >CDFB,>CECB  * Green Dungeon SE
        DATA >8889,>7986  * Green corner SW
        DATA >7884,>8A8B  * Green corner NW
        DATA >3534,>6263
@@ -332,13 +332,13 @@ MT50   DATA >3530,>5253
        DATA >3542,>7E7F
        DATA >3543,>7A7B
        DATA >3544,>7E7F
-       DATA >3545,>7A7B
+       DATA >C4C5,>C6C7  * Green Dungeon one eye
        DATA >EC00,>7000  * Water inner corner NW
 
 MT60   DATA >9495,>9697  * Green rock
        DATA >00ED,>0071  * Water inner corner NE
        DATA >1414,>1515  * Green Bridge
-       DATA >3633,>5E5F
+       DATA >6C6D,>6E6F  * Brown brick Hidden path
        DATA >3634,>6263
        DATA >0073,>00EF  * Water inner corner SE
        DATA >3636,>6A6B
