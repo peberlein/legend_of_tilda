@@ -12,31 +12,35 @@ VDPSTA EQU  >8802             * VDP status
 VDPWM  EQU  >4000             * VDP address write mask
 VDPRM  EQU  >8000             * VDP address register mask
 
+ISRCTL EQU  >83C2             * Four flags: disable all, skip sprite, skip sound, skip QUIT
+USRISR EQU  >83C4             * Interrupt service routine hook address
+
 WRKSP  EQU  >8300             * Workspace memory in fast RAM
 R0LB   EQU  WRKSP+1           * Register zero low byte address
 
+NAMTAB EQU  >0000             * Name Table
 CLRTAB EQU  >0380             * Color Table address in VDP RAM - 32 bytes
 PATTAB EQU  >0800             * Pattern Table address in VDP RAM - 256*8 bytes
 SPRPAT EQU  >1000             * Sprite Pattern Table address in VDP RAM - 256*8 bytes
-SPRLST EQU  >0300             * Sprite List Table address in VDP RAM - 32*4 bytes
-LEVELA EQU  >1800
-LEVELB EQU  >1AC0
+SPRLST EQU  >0400             * Sprite List Table address in VDP RAM - 32*4 bytes
+SPRLS2 EQU  >0480             * Sprite List Table address in VDP RAM - 32*4 bytes
+LEVELA EQU  >1800           * Name table for level A (copied to NAMTAB)
 
 MUSICV EQU  >3000           * Music Pointer in VDP RAM (4k space)
 MUSICC EQU  WRKSP+34        * Music Counter
 
-MAPLOC EQU  WRKSP+36        * Map location 16x8
+MAPLOC EQU  WRKSP+36        * Map location XY 16x8
 RUPEES EQU  WRKSP+37        * Rupee count
 KEYS   EQU  WRKSP+38        * Key count
 BOMBS  EQU  WRKSP+39        * Bomb count
 HEARTS EQU  WRKSP+40        * Hearts
 HEARTX EQU  WRKSP+41        * Max hearts
 MOVE12 EQU  WRKSP+42        * Movement by 1 or 2
-LEVELP EQU  WRKSP+44        * Level Pointer in VDP RAM (768 bytes)
-FLAGS  EQU  WRKSP+46        * Flags
-DOOR   EQU  WRKSP+48        * YYXX position of doorway or secret
-SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
+SPRLSP EQU  WRKSP+44        * Sprite List Pointer in VDP RAM (32*4 bytes)
+DOOR   EQU  WRKSP+46        * YYXX position of doorway or secret
+FLAGS  EQU  WRKSP+58        * Flags
 
+SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
 
 
 * Flags:
@@ -44,17 +48,62 @@ SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
 *  Red ring (take 1/4 damage)
 *  Page flipping A or B
 
+* Sprite function array (64 bytes), for each sprite:
+*   index byte of sprite function to call
+*   other byte of data (counter, direction, hit points, etc)
+  
+*   function called with data in registers:
+*        data from sprite function array (function idx, counter, etc)
+*   YYXX word
+*   IDCL sprite index, color and early bit
+  
+*   (direction could be encoded in sprite index if done carefully)
+
+* Sprite patterns (total of 64)
+* 16 (link fg and outline, 2 animations, four directions)
+* 8 (link attack and outline, four directions)
+* 4 (link holding item 1 or 2 hands, cave or triforce room only)
+* 4 (sword)
+* 4 (sword projectile pop)
+* 2 (or 4, boomerang)
+* 4 (arrow, four directions)
+* 1 map dot (status bar)
+* 1 half-heart (status bar)
+* 1 bomb
+* 1 rupee
+* 1 heart
+* 1 key
+* 3 cloud puff / explosion
+* 1 spark (arrow hitting bush)
+* 2 disappearing enemy / pop
+
+
+* enemy sprites loaded on demand per level
+
+
+* level data
+*  number and type of enemies (2 or 3 kinds)
+*  special palette changes (white bricks, trees or dungeon)
+*  door/secret location and trigger (bomb, candle, pushblock, etc)
+
+* game keeps track of which secret locations are opened, and items obtained,
+* and number of enemies remaining on each screen
+
+
+
 
 
 * VDP Map
-* 0000:02ff Screen Table
-* 0300:037f Sprite List
+* 0000:031f Screen Table (32*25)
+* 0320:037f
 * 0380:039f Color Table
-* 0380:07ff
+* 0400:047f Sprite List A (double buffered)
+* 0480:04ff Sprite List B
+* 0500:07ff
 * 0800:0fff Pattern Table
 * 1000:17ff Sprite Pattern Table
-* 1800:1abf Level A Screen Table
-* 1ac0:1d7f Level B Screen Table
+* 1800:1a77 Level A Screen Table (32*21 chars)
+
 
 * 3000:3fff Music Sound List
 
@@ -114,6 +163,15 @@ VDPRB  MOVB @R0LB,@VDPWA      * Send low byte of VDP RAM write address
        MOVB @VDPRD,R1
        RT
 
+* Read R2 bytes to R1 from VDP address R0 (R0 is preserved)
+VDPR   MOVB @R0LB,@VDPWA      * Send low byte of VDP RAM write address
+       MOVB R0,@VDPWA         * Send high byte of VDP RAM write address
+!      MOVB @VDPRD,*R1+
+       DEC R2
+       JNE -!
+       RT
+       
+       
 * Write VDP register R0HB data R0LB
 VDPREG MOVB @R0LB,@VDPWA      * Send low byte of VDP Register Data
        ORI  R0,>8000          * Set register access bit

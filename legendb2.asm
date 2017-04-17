@@ -9,21 +9,33 @@
        
 * Load a map into VRAM
 * Load map screen from MAPLOC
-* Use transition in R2 (0=wipe from center, 1=scroll up, 2=down, 3=left, 4=right)
+* Use transition in R2 (0=none, 1=scroll up, 2=down, 3=left, 4=right, 5=wipe from center)
+* Modifies R0-R12
 MAIN
        CLR  R3
        MOVB @MAPLOC,R3
        SRL  R3,4            * Calculate offset into WORLD map
        AI   R3,WORLD        * R3 is map screen address in ROM
 
-       LI   R4, 16          * 16 strips
-       LI   R0,32*3+>4000   * R0 is screen table address in VRAM (with write bits)
+       LI R0,>4000+SPRLST+(2*4)   * Set Map Dot YYXX  (YY=16,20...76 XX=-13,-10,-7,-4,-1,2,5,8)
+       MOVB @R0LB,@VDPWA      * Send low byte of VDP RAM write address
+       MOVB R0,@VDPWA         * Send high byte of VDP RAM write address
 
-*      MOV @LEVELP,R0       * R0 is screen table address in VRAM (with write bits)
-*      LI R1,>02C0
-*      XOR R1,R0
-*      MOV R0,@LEVELP
-*      ORI R0,>4000
+       CLR R0
+       MOVB @MAPLOC,R0      * Mapdot Y = MAPDOT[(MAPLOC & 0x7000) >> 12]
+       ANDI R0,>7000
+       SRL  R0,12
+       AI   R0,MAPDOT
+       MOVB *R0,@VDPWD      * Send YY
+       
+       MOVB @MAPLOC,R0      * Mapdot X = ((MAPLOC & 0x0F00) << 2) + 16
+       ANDI R0,>0F00
+       SLA  R0,2
+       AI   R0,>1000
+       MOVB R0,@VDPWD       * Send XX
+
+       LI   R4, 16          * 16 strips
+       LI   R0,LEVELA+>4000   * R0 is screen table address in VRAM (with write bits)
 
        LI   R5,VDPWA        * Keep VDPWA address in R5
        LI   R7,VDPWD        * Keep VDPWD address in R7
@@ -51,8 +63,6 @@ MTLOOP
        MOVB R1,*R7
        AI   R0,32           * Next row
 
-       DEC  R6              * Don't draw 2nd half of last row (overwrites sprite list)
-       JEQ  !
        
        MOV  *R8+,R1         * R1 is second two metatile characters
        
@@ -62,167 +72,325 @@ MTLOOP
        SWPB R1
        MOVB R1,*R7
        AI   R0,32           * Next row
-       JMP  MTLOOP
+
+       DEC  R6              * Don't draw 2nd half of last row (overwrites sprite list)
+       JNE  MTLOOP
 
 !
-       AI   R0,2-(21*32)    * Back to top and 1 metatile right
+       AI   R0,2-(22*32)    * Back to top and 1 metatile right
 
        DEC  R4
        JNE  STLOOP
 
+       MOV R11,R12
+       LI   R5,VDPWA        * Keep VDPWA address in R5
+       LI   R6,VDPRD        * Keep VDPRD address in R6
+       LI   R7,VDPWD        * Keep VDPWD address in R7
+       
+       DEC  R2
+       JEQ  SCRLUP
+       
+       DEC  R2
+       JEQ  SCRLDN
+       
+       DEC  R2
+       JNE  !
+       B    @SCRLLT
+       
+!      DEC  R2
+       JNE  !
+       B    @SCRLRT
+       
+!      DEC  R2
+       JNE  DONE
+       B    @WIPE
 
-       LI   R0,BANK0         * Load bank 0
-       MOV  R11,R1           * Jump to our return address
+DONE   LI   R0,BANK0         * Load bank 0
+       MOV  R12,R1           * Jump to our return address
        B    @BANKSW
 
+DOSPRT
+       MOV R11,R14
+       AI R13,>FF00
+       LI R0,SPRLST
+       LI R1,WRKSP+(R13*2)
+       LI R2,2
+       BL @VDPW
 
-* Scroll screen right
-* R3 - pointer to old screen in VRAM
-* R4 - pointer to new screen in VRAM
-SCRLRT
-       LI   R5,VDPWA        * Keep VDPWA address in R5
-       LI   R7,VDPWD        * Keep VDPWD address in R7
-       LI   R6,VDPRD        * Keep VDPRD address in R6
-       LI   R8,31           * Scroll through 31 columns
+       LI R0,SPRLST+4
+       LI R1,WRKSP+(R13*2)
+       LI R2,2
+       BL @VDPW
+       AI R13,>0100
+       B *R14
 
-       
-* Copy R8 bytes from old screen and (32-R8) from new screen
-SCRLR2 
-       LI   R10,32*3+>4000  * R10 is screen table address in VRAM (with write bits)
-       INC R3               * 
-       LI R12,21            * Each 21 lines
-       
-SCRLR3
-       LI R2,WRKSP+64       * Scratchpad 32 bytes
-       
-       MOV R0,R3     * Pointer to old screen
-       AI R3, 32     * Move pointer to next line
-       MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
-       MOVB R0,*R5          * Send high byte of VDP RAM read address
+GETSCR
 
-       MOV R8,R9
-!      MOVB *R6,*R2+
+* Copy scratchpad to the screen at R0 (with write mask already)
+PUTSCR
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
+       MOVB R0,*R5         * Send high byte of VDP RAM read address
+       LI R1,SCRTCH        * Source pointer to scratchpad ram
+       LI R2,8             * Write 32 bytes from scratchpad
+!      MOVB *R1+,*R7
+       MOVB *R1+,*R7
+       MOVB *R1+,*R7
+       MOVB *R1+,*R7
+       DEC R2
+       JNE -!
+       RT
+
+SCRLDN
+       LI R8,22        * Scroll through 22 rows
+       LI R4,LEVELA
+SCRLD2
+       BL @MUSIC
+       BL @VSYNC
+       
+       AI R13,>F900
+       BL @DOSPRT
+       
+       LI R9,21        * Move 21 lines up
+       LI R10,(32*4)     * Scroll up
+
+!      MOV R10,R0      * Source from screen
+       LI R1,SCRTCH    * Dest pointer to scratchpad ram
+       LI R2,32
+       BL @VDPR        * Read 32 bytes into scratchpad
+      
+       MOV R10,R0      * Dest to screen
+       LI R1,SCRTCH    * Source pointer from scratchpad ram
+       LI R2,32
+       S  R2,R0,
+       BL @VDPW        * Write 32 bytes from scratchpad
+
+       AI R10,32
+
        DEC R9
        JNE -!
+       
+       MOV R4,R0       * Source from new screen pointer
+       LI R1,SCRTCH    * Dest pointer to scratchpad ram
+       LI R2,32
+       BL @VDPR        * Read 32 bytes into scratchpad
 
-       MOV R0,R4     * Pointer to new screen
-       AI R4, 32     * Move pointer to next line
-       MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
-       MOVB R0,*R5          * Send high byte of VDP RAM read address
+       LI R0,(32*24)
+       LI R1,SCRTCH    * Source pointer to scratchpad ram
+       LI R2,32
+       BL @VDPW        * Write 32 bytes from scratchpad
        
-       LI R9,32
-       S R8,R9       * R9 = 32 - R8
+       AI R4,32
        
-!      MOVB *R6,*R2+
-       DEC R9
-       JNE -!
-       
-       LI R2,WRKSP+64       * Scratchpad 32 bytes
-       MOV R10,R0     * Pointer to screen table
-       AI R10,32      * Move pointer to next line
-       MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
-       MOVB R0,*R5          * Send high byte of VDP RAM read address
-       LI R9,32
-!      MOVB *R2+,*R7
-       DEC R9
-       JNE -!
-
-       DEC R12
-       JNE SCRLR3
-       
-       AI R3,-(21*32)
-       AI R4,-(21*32)
-
        DEC R8
-       JNE SCRLR2
+       JNE SCRLD2
+
+       B @DONE
+       
+SCRLUP
+       LI R8,22        * Scroll through 22 rows
+       LI R4,LEVELA+(32*21)
+SCRLU2
+       BL @MUSIC
+       BL @VSYNC
+
+       AI R13,>0700
+       BL @DOSPRT
+
+       LI R9,21         * Move 21 lines down
+       LI R10,32*23     * Scroll down
+
+!      MOV R10,R0       * Source from screen
+       LI R1,SCRTCH    * Dest pointer to scratchpad ram
+       LI R2,32
+       BL @VDPR        * Read 32 bytes into scratchpad
+      
+       MOV R10,R0       * Dest to screen
+       LI R1,SCRTCH    * Dest pointer to scratchpad ram
+       LI R2,32
+       A  R2,R0
+       BL @VDPW        * Read 32 bytes into scratchpad
+       
+       AI R10,-32
+
+       DEC R9
+       JNE -!
+       
+       MOV R4,R0       * Source from new screen pointer
+       LI R1,SCRTCH    * Dest pointer to scratchpad ram
+       LI R2,32
+       BL @VDPR        * Read 32 bytes into scratchpad
+      
+       LI R0,32*3      * Dest to top of screen
+       LI R1,SCRTCH    * Source pointer to scratchpad ram
+       LI R2,32
+       BL @VDPW        * Write 32 bytes from scratchpad
+       
+       AI R4,-32
+       
+       DEC R8
+       JNE SCRLU2
+
+       B @DONE
 
 * Scroll screen left
-* R3 - pointer to old screen in VRAM
 * R4 - pointer to new screen in VRAM
 SCRLLT
-       LI   R5,VDPWA        * Keep VDPWA address in R5
-       LI   R7,VDPWD        * Keep VDPWD address in R7
-       LI   R6,VDPRD        * Keep VDPRD address in R6
-       LI   R8,31           * Scroll through 31 columns
+       LI   R8,32           * Scroll through 32 columns
+       LI R4,LEVELA+31
 
-       
-* Copy R8 bytes from old screen and (32-R8) from new screen
+* Shift 31 columns to the right, fill in leftmost column from new
 SCRLL2 
-       LI R12,21            * Each 21 lines
-       LI   R10,32*3+>4000  * R10 is screen table address in VRAM (with write bits)
+       BL @MUSIC
+       BL @VSYNC
 
-SCRLL3
-       LI R2,WRKSP+64       * Scratchpad 32 bytes
+       AI R13,8
+       BL @DOSPRT
 
-       MOV R0,R4     * Pointer to new screen
-       AI R4, 32     * Move pointer to next line
-       AI R0,R8      * Shift right
+       LI  R9,22
+       LI  R10,(3*32)
+
+!      MOV R4,R0
+       LI  R1,SCRTCH
        MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
        MOVB R0,*R5          * Send high byte of VDP RAM read address
+       MOVB *R6,*R1+        * Copy byte from new screen
+
+       MOV R10,R0
+       LI R2,31
+       BL @VDPR        * Read 31 bytes into scratchpad
        
-       LI R9,32
-       S R8,R9       * R9 = 32 - R8
+       MOV R10,R0
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW        * Write 32 bytes from scratchpad
        
-!      MOVB *R6,*R2+
+       AI R4,32
+       AI R10,32
+
        DEC R9
        JNE -!
        
-       MOV R0,R3     * Pointer to old screen
-       AI R3, 32     * Move pointer to next line
-       MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
-       MOVB R0,*R5          * Send high byte of VDP RAM read address
-
-       MOV R8,R9
-!      MOVB *R6,*R2+
-       DEC R9
-       JNE -!
-
+       AI R4,(-32*22)-1
        
-       LI R2,WRKSP+64       * Scratchpad 32 bytes
-       MOV R10,R0     * Pointer to screen table
-       AI R10,32      * Move pointer to next line
-       MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
-       MOVB R0,*R5          * Send high byte of VDP RAM read address
-       LI R9,32
-!      MOVB *R2+,*R7
-       DEC R9
-       JNE -!
-
-       DEC R12
-       JNE SCRLL3
-       
-       AI R3,-(21*32)
-       AI R4,-(21*32)
-
        DEC R8
        JNE SCRLL2
+       B @DONE
+       
+       
+* Scroll screen right
+* R4 - pointer to new screen in VRAM
+SCRLRT
+       LI   R8,32           * Scroll through 31 columns
+       LI R4,LEVELA
+       
+* Shift 31 columns to the left, fill in rightmost column from new
+SCRLR2
+       BL @MUSIC
+       BL @VSYNC
 
+       AI R13,-8
+       BL @DOSPRT
+
+       LI  R9,22
+       LI R10,(3*32)
+
+!      MOV R10,R0
+       INC R0
+       LI R1,SCRTCH
+       LI R2,31
+       BL @VDPR        * Read 31 bytes into scratchpad
+       
+       MOV R4,R0
+       MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
+       MOVB R0,*R5          * Send high byte of VDP RAM read address
+       MOVB *R6,*R1         * Copy byte from new screen
+       
+       MOV R10,R0
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW        * Write 32 bytes from scratchpad
+       
+       AI R4,32
+       AI R10,32
+       
+       DEC R9
+       JNE -!
+       
+       AI R4,(-32*22)+1
+       
+       DEC R8
+       JNE SCRLR2
+       B @DONE
+       
+
+
+       
+       
 
 * Wipe screen from center
 * R4 - pointer to new screen in VRAM
 WIPE
-       LI   R5,VDPWA        * Keep VDPWA address in R5
-       LI   R7,VDPWD        * Keep VDPWD address in R7
-       LI   R6,VDPRD        * Keep VDPRD address in R6
        LI   R8,16           * Scroll through 16 columns
 WIPE2
 
+       BL @VSYNC
+       BL @VSYNC
+       BL @VSYNC
 
-WIPE3
 * Copy two vertical strips from new screen to screen table
 
+       LI  R4,LEVELA-1    * Calculate left column source pointer
+       A   R8,R4
+       
+       LI  R3,(32*3)-1+>4000  * Calculate left column dest pointer with write flag
+       A   R8,R3
+       
+       LI R9,22           * Copy 22 characters
+!      MOV R4,R0
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
+       MOVB R0,*R5         * Send high byte of VDP RAM read address
+       MOVB *R6,R1
+       AI R4,32
 
-       LI R9,21
-       MOV R4,R0
-
-!      MOVB @R0LB,R5      * Send low byte of VDP RAM write address
-       MOVB R0,R5         * Send high byte of VDP RAM write address
-       MOVB *R6,*R1+
+       MOV R3,R0
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM write address
+       MOVB R0,*R5         * Send high byte of VDP RAM write address
+       MOVB R1,*R7
+       AI R3,32
+       
        DEC R9
        JNE -!
 
-*       DEC 
+       LI  R4,LEVELA+32    * Calculate right column source pointer
+       S   R8,R4
+       
+       LI  R3,(32*3)+32+>4000  * Calculate right column dest pointer with write flag
+       S   R8,R3
+       
+       LI R9,21           * Copy 21 characters
+!      MOV R4,R0
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
+       MOVB R0,*R5         * Send high byte of VDP RAM read address
+       MOVB *R6,R1
+       AI R4,32
 
+       MOV R3,R0
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM write address
+       MOVB R0,*R5         * Send high byte of VDP RAM write address
+       MOVB R1,*R7
+       AI R3,32
+       
+       DEC R9
+       JNE -!
+
+       DEC R8
+       JNE WIPE2
+
+       B    @DONE
+
+
+MAPDOT BYTE -14,-11,-8,-5,-2,1,4,7
+       
        
 * Overworld map consists of 16x8 screens, each screen is 16 bytes
 * Each byte is into an index into an array of 11 metatile tall strips
@@ -322,16 +490,16 @@ MT50   DATA >F900,>CCFA  * Green Dungeon NE
        DATA >CDFB,>CECB  * Green Dungeon SE
        DATA >8889,>7986  * Green corner SW
        DATA >7884,>8A8B  * Green corner NW
-       DATA >3534,>6263
-       DATA >3535,>6667
-       DATA >3536,>6A6B
-       DATA >3537,>6E6F
-       DATA >3538,>7273
-       DATA >3539,>7677
-       DATA >3541,>7A7B
-       DATA >3542,>7E7F
-       DATA >3543,>7A7B
-       DATA >3544,>7E7F
+       DATA >9899,>9A9B  * Brown bush
+       DATA >0809,>0A07  * Sand NW
+       DATA >0A05,>0A07  * Sand W
+       DATA >0A05,>0B0C  * Sand SW
+       DATA >0909,>0607  * Sand N
+       DATA >0405,>0607  * Sand
+       DATA >0405,>0C0C  * Sand S
+       DATA >090D,>060E  * Sand NE
+       DATA >040E,>060E  * Sand E
+       DATA >040E,>0C0F  * Sand SE
        DATA >C4C5,>C6C7  * Green Dungeon one eye
        DATA >EC00,>7000  * Water inner corner NW
 

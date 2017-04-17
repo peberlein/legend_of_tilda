@@ -29,14 +29,14 @@ MAIN
        
        LI   R0,SPRPAT         * Sprite Pattern Table
        LI   R1,SPR0
-       LI   R2,SPR47-SPR0
+       LI   R2,SPR63-SPR0+4
        BL   @VDPW
 
      
        
 *                               Draw the screen
        CLR  R0                * Start at top left corner of the screen
-       LI   R2,768            * Number of bytes to write
+       LI   R2,32*3            * Number of bytes to write
        LI   R1,MD0
        BL   @VDPW
 
@@ -46,19 +46,19 @@ MAIN
        CLR  R2               * Overworld song is 0
        BL   @BANKSW
 
+       LI   R0,SPRLST         * Sprite List Table
+       LI   R1,SPRL0
+       LI   R2,SPRLE-SPRL0
+       BL   @VDPW
+       
        LI   R0,>7700         * Initial map location is 7,7
        MOVB R0,@MAPLOC
        
        LI   R0,BANK2         * Overworld is in bank 2
        LI   R1,HDREND        * First function in bank 1
-       CLR  R2               * Use wipe from center 0
+       LI   R2,5             * Use wipe from center 5
        BL   @BANKSW
 
-       LI   R0,SPRLST         * Sprite List Table
-       LI   R1,SPRL0
-       LI   R2,12
-       BL   @VDPW
-       
        LIMI 2                 * Enable interrupts
        
        CLR  R0
@@ -139,7 +139,6 @@ INFLP
        JEQ !
        BL @SCRLRT
 !
-
 
        LI R1,>0600
        LI R12, >0024
@@ -327,12 +326,12 @@ SCRLLT LI   R0,>FF00           * Add -1 to MAPLOC X
        JMP !
 
 SCRLDN LI   R0,>1000           * Add 1 to MAPLOC Y
-       AI   R13,-19*8*256
+*       AI   R13,-19*8*256
        LI   R2,2             * Use scroll down 2
        JMP !
 
 SCRLUP LI   R0,>F000           * Add -1 to MAPLOC Y
-       AI   R13,19*8*256
+*       AI   R13,19*8*256
        LI   R2,1             * Use scroll up 1
 
 !      AB   R0,@MAPLOC
@@ -352,7 +351,7 @@ TESTCH
        SRL R0,3
        MOV R11,R10   * Save return address
        BL @VDPRB
-       CI R1,>7F00
+       CI R1,>7FFF
        JH !
        B *R10        * Jump saved return address
 !      B *R2
@@ -360,19 +359,35 @@ TESTCH
 
 
 
-
-SPRL0  BYTE 120-8
-       BYTE 128-8
+SPRL0  BYTE >D0
+       BYTE >D0
        BYTE 0
        BYTE 3
 SPRL1  BYTE 120-8
        BYTE 128-8
        BYTE 4
        BYTE 1
-SPRL2  BYTE >D0
+SPRL2  BYTE 0
+       BYTE 0
+       BYTE >CC
+       BYTE 2
+SPRL3  BYTE 4
+       BYTE 124
+       BYTE >74
+       BYTE 4
+SPRL4  BYTE 4
+       BYTE 148
+       BYTE >91
+       BYTE 8
+SPRL5  BYTE >D0
        BYTE >D0
        BYTE 0
        BYTE 1
+SPRL6  BYTE >D0
+       BYTE >D0
+       BYTE 0
+       BYTE 1
+SPRLE
 
        COPY 'overworld.asm'
 
