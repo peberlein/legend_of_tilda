@@ -119,10 +119,14 @@ Memory Map: 8k blocks in 64k address space
 A000-  High memory expansion (upper 24k)
 
 8300-83FF  256 bytes RAM
+83C2   ISRCTL * Four flags: disable all, skip sprite, skip sound, skip QUIT
+83C4   USRISR * Interrupt service routine hook address
+
 8800   VDP RAM read data register
 8802   VDP RAM read status register
 8C00   VDP RAM write data register
 8C02   VDP RAM write address register
+
 
 
 VDP Registers
@@ -176,4 +180,13 @@ Sprite Descriptor Table (Sprite Pattern Table) (2048 bytes limit)
 
 Sprite Motion Table (fixed at 0780)
 (Number of moving sprites programmed to 837A)
+(Only works if interrupt is enabled)
+
+A note on reading the VDP status register: polling VSYNC and collision 
+may miss due to clearing the register as is updated by the VDP.
+Might be better to use the ISR instead, or do a delay between reading the
+status register.
+
+Interrupts must be disabled (LIMI 0) while doing anything with VDP, since ISR
+will read the status register and disrupt any concurrent VDP read/writes.
 
