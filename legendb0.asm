@@ -6,9 +6,11 @@
        
        COPY 'legend.asm'
 MAIN
-       LIMI 0                 * Disable interrupts
+       LIMI 0                 * Disable interrupts, always
 
-       LI   R0,>01C2          * VDP Register 1: 16x16 Sprites, disable interrupt
+       LI   R0,>01E2          * VDP Register 1: 16x16 Sprites
+       BL   @VDPREG
+       LI   R0,>0300+(CLRTAB/>40)  * VDP Register 3: Color Table
        BL   @VDPREG
        LI   R0,>0500+(SPRLST/>80)  * VDP Register 5: Sprite List Table
        BL   @VDPREG
@@ -36,10 +38,15 @@ MAIN
        
 *                               Draw the screen
        CLR  R0                * Start at top left corner of the screen
-       LI   R2,32*3            * Number of bytes to write
        LI   R1,MD0
+       LI   R2,32*3            * Number of bytes to write
        BL   @VDPW
 
+       LI   R0,SCRTB2
+       LI   R1,MD0
+       LI   R2,32*3            * Number of bytes to write
+       BL   @VDPW
+       
       
        LI   R0,BANK1         * Music is in bank 1
        LI   R1,HDREND        * First function in bank 1
@@ -47,6 +54,11 @@ MAIN
        BL   @BANKSW
 
        LI   R0,SPRLST         * Sprite List Table
+       LI   R1,SPRL0
+       LI   R2,SPRLE-SPRL0
+       BL   @VDPW
+
+       LI   R0,SPRLS2         * Sprite List Table
        LI   R1,SPRL0
        LI   R2,SPRLE-SPRL0
        BL   @VDPW
@@ -59,7 +71,6 @@ MAIN
        LI   R2,5             * Use wipe from center 5
        BL   @BANKSW
 
-       LIMI 2                 * Enable interrupts
        
        CLR  R0
        MOVB R0,@RUPEES
@@ -68,11 +79,13 @@ MAIN
        MOV R0,@FLAGS
        MOV R0,@MOVE12
 
+       LI R0,(SCRTB2-SCRTB1)
+       MOV R0,@SCRPTR
+
        LI R13,>7078        * Link Y X position in pixels
 
 DRAW
 
-       LIMI 0                 * Disable interrupts
        
        AI R13,>FF00
        LI R0,SPRLST
@@ -89,12 +102,13 @@ DRAW
 *       LI   R0,>07F1          * VDP Register 7: White on Black
 *       BL   @VDPREG
        
-       LIMI 2                 * Enable interrupts
 
 INFLP
        
        BL @VSYNC
 
+       
+       
        BL @MUSIC
 
 
@@ -316,12 +330,12 @@ MOVEU2 AI R13,>FF00   * Move Y coordinate up
        JMP MOVE2      * Update the sprite animation
 
 SCRLRT LI   R0,>0100           * Add 1 to MAPLOC X
-       AI   R13,->00F0
+*       AI   R13,->00F0
        LI   R2,4             * Use scroll right 4
        JMP !
 
 SCRLLT LI   R0,>FF00           * Add -1 to MAPLOC X
-       AI   R13,>00F0
+*       AI   R13,>00F0
        LI   R2,3             * Use scroll left 3
        JMP !
 

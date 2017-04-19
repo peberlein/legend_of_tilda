@@ -18,26 +18,42 @@ USRISR EQU  >83C4             * Interrupt service routine hook address
 WRKSP  EQU  >8300             * Workspace memory in fast RAM
 R0LB   EQU  WRKSP+1           * Register zero low byte address
 
-NAMTAB EQU  >0000             * Name Table
-CLRTAB EQU  >0380             * Color Table address in VDP RAM - 32 bytes
+
+* VDP Map
+* 0000:031f Screen Table A (32*25)
+* 0340:037f Color Table
+* 0380:03ff Sprite List A (double buffered)
+* 0400:071f Screen Table B (32*25)
+* 0780:07ff Sprite List B
+* 0800:0fff Pattern Descriptor Table
+* 1000:17ff Sprite Pattern Table
+* 1800:1abf Level Screen Table (32*22 chars)
+
+* 3000:3fff Music Sound List (would it be better in banked ROM?)
+
+SCRTB1 EQU  >0000
+SCRTB2 EQU  >0400
+NAMTAB EQU  >0000             * Name Table 32*24 bytes
+CLRTAB EQU  >0340             * Color Table address in VDP RAM - 32 bytes
 PATTAB EQU  >0800             * Pattern Table address in VDP RAM - 256*8 bytes
 SPRPAT EQU  >1000             * Sprite Pattern Table address in VDP RAM - 256*8 bytes
-SPRLST EQU  >0400             * Sprite List Table address in VDP RAM - 32*4 bytes
-SPRLS2 EQU  >0480             * Sprite List Table address in VDP RAM - 32*4 bytes
+SPRLST EQU  >0380             * Sprite List Table address in VDP RAM - 32*4 bytes
+SPRLS2 EQU  >0780             * Sprite List Table address in VDP RAM - 32*4 bytes
 LEVELA EQU  >1800           * Name table for level A (copied to NAMTAB)
 
 MUSICV EQU  >3000           * Music Pointer in VDP RAM (4k space)
 MUSICC EQU  WRKSP+34        * Music Counter
 
 MAPLOC EQU  WRKSP+36        * Map location XY 16x8
-RUPEES EQU  WRKSP+37        * Rupee count
+RUPEES EQU  WRKSP+37        * Rupee count (max 255)
 KEYS   EQU  WRKSP+38        * Key count
-BOMBS  EQU  WRKSP+39        * Bomb count
-HEARTS EQU  WRKSP+40        * Hearts
-HEARTX EQU  WRKSP+41        * Max hearts
+BOMBS  EQU  WRKSP+39        * Bomb count (max 8,12,16)
+HP     EQU  WRKSP+40        * Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
+HEARTX EQU  WRKSP+41        * Max hearts - 1 (min 2, max 15)
 MOVE12 EQU  WRKSP+42        * Movement by 1 or 2
 SPRLSP EQU  WRKSP+44        * Sprite List Pointer in VDP RAM (32*4 bytes)
 DOOR   EQU  WRKSP+46        * YYXX position of doorway or secret
+SCRPTR EQU  WRKSP+48        * Screen pointer in VRAM for page flipping
 FLAGS  EQU  WRKSP+58        * Flags
 
 SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
@@ -46,7 +62,8 @@ SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
 * Flags:
 *  Blue ring (take 1/2 damage)
 *  Red ring (take 1/4 damage)
-*  Page flipping A or B
+*  Full hearts (able to use sword projectile)
+*  
 
 * Sprite function array (64 bytes), for each sprite:
 *   index byte of sprite function to call
@@ -59,26 +76,30 @@ SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
   
 *   (direction could be encoded in sprite index if done carefully)
 
-* Sprite patterns (total of 64)
-* 16 (link fg and outline, 2 animations, four directions)
-* 8 (link attack and outline, four directions)
-* 4 (link holding item 1 or 2 hands, cave or triforce room only)
-* 4 (sword)
-* 4 (sword projectile pop)
-* 2 (or 4, boomerang)
-* 4 (arrow, four directions)
-* 1 map dot (status bar)
-* 1 half-heart (status bar)
-* 1 bomb
-* 1 rupee
-* 1 heart
-* 1 key
-* 3 cloud puff / explosion
-* 1 spark (arrow hitting bush)
-* 2 disappearing enemy / pop
-
+* Sprite patterns (16x16 pixels, total of 64) (four per line, 4*8 bytes per sprite)
+* 0x Link (fg and outline, 2 frame animation)  (replaced when changing direction)
+* 1x Link Attack (fg and outline)    ladder, raft
+* 2x Sword N,S,E,W
+* 3x Sword projectile pop
+* 4x Boomerang N,S,E,W
+* 5x Arrow N,S,E,W
+* 6x Magic N,S,E,W
+* 7x rupee, bomb, heart, key
+* 8x cloud puff (3 frames), spark (arrow hitting bush)
+* 9x map dot, half-heart (status bar), disappearing enemy (2 frames)
+* Ax Flame (4 frames) 
+* Bx zora (front or back), bullet, pulsing ground (2 frames)
+* Cx reserved for enemies
+* Dx reserved for enemies
+* Ex reserved for enemies
+* Fx reserved for enemies
 
 * enemy sprites loaded on demand per level
+
+* Sprite patterns are limited, that's why only one link pattern
+* per direction active at a time.
+* New pattern uploaded upon changing direction
+* Pattern takes into account magic shield or not
 
 
 * level data
@@ -87,25 +108,15 @@ SCRTCH EQU  WRKSP+64        * 32 bytes scratchpad for screen scrolling
 *  door/secret location and trigger (bomb, candle, pushblock, etc)
 
 * game keeps track of which secret locations are opened, and items obtained,
-* and number of enemies remaining on each screen
+* number of rupees, keys and bombs, max hearts,
+* and number of enemies remaining on each screen (reset at game start)
+
+* Game saved as password (36 values per character A-Z 0-9, or 32 without 01IO)
+* slightly encrypted to prevent value hacking
 
 
 
 
-
-* VDP Map
-* 0000:031f Screen Table (32*25)
-* 0320:037f
-* 0380:039f Color Table
-* 0400:047f Sprite List A (double buffered)
-* 0480:04ff Sprite List B
-* 0500:07ff
-* 0800:0fff Pattern Table
-* 1000:17ff Sprite Pattern Table
-* 1800:1a77 Level A Screen Table (32*21 chars)
-
-
-* 3000:3fff Music Sound List
 
 
 BANK0  EQU  >6000
@@ -179,10 +190,22 @@ VDPREG MOVB @R0LB,@VDPWA      * Send low byte of VDP Register Data
        RT
 
 * Note: The interrupt is disabled in VDP Reg 1 so we can poll it here
-VSYNC  MOVB @VDPSTA,R0
-       ANDI R0, >8000
-       JEQ VSYNC
-       RT                   * Note: VDP Interrupt flag is now cleared after reading it
+* There could be a race condition where the interrupt flag could be cleared before we read it,
+* resulting it a missed vsync interrupt, and polling the status register increases that chance.
+* VSYNC  MOVB @VDPSTA,R0     * Note: VDP Interrupt flag is now cleared after reading it
+*        ANDI R0, >8000
+*        JEQ VSYNC
+*        RT
+
+* Reading the VDP INT bit from the CRU doesn't clear the status register, so it should be safe to poll.
+* The CRU bit appears to updated even with interrupts disabled (LIMI 0)
+VSYNC  MOV R12,R0
+       LI R12,>0004         * CRU Address bit 0002 - VDP INT
+!      TB 0
+       JEQ -!
+       MOVB @VDPSTA,R12      * Clear interrupt flag manually since we polled CRU
+       MOV R0,R12
+       RT
 
 *
 * Play some music!

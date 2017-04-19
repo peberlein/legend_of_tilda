@@ -87,27 +87,15 @@ MTLOOP
        LI   R6,VDPRD        * Keep VDPRD address in R6
        LI   R7,VDPWD        * Keep VDPWD address in R7
        
-       DEC  R2
-       JEQ  SCRLUP
-       
-       DEC  R2
-       JEQ  SCRLDN
-       
-       DEC  R2
-       JNE  !
-       B    @SCRLLT
-       
-!      DEC  R2
-       JNE  !
-       B    @SCRLRT
-       
-!      DEC  R2
-       JNE  DONE
-       B    @WIPE
+       SLA  R2,1
+       MOV  @JMPLST(R2),R2
+       B    *R2
 
 DONE   LI   R0,BANK0         * Load bank 0
        MOV  R12,R1           * Jump to our return address
        B    @BANKSW
+       
+JMPLST DATA DONE,SCRLUP,SCRLDN,SCRLLT,SCRLRT,WIPE
 
 DOSPRT
        MOV R11,R14
@@ -126,8 +114,10 @@ DOSPRT
 
 GETSCR
 
-* Copy scratchpad to the screen at R0 (with write mask already)
+
+* Copy scratchpad to the screen at R0
 PUTSCR
+       ORI R0,>4000
        MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
        MOVB R0,*R5         * Send high byte of VDP RAM read address
        LI R1,SCRTCH        * Source pointer to scratchpad ram
@@ -140,29 +130,59 @@ PUTSCR
        JNE -!
        RT
 
+* Copy screen at R0 into scratchpad 32 bytes
+READ32
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
+       MOVB R0,*R5         * Send high byte of VDP RAM read address
+       LI R1,SCRTCH        * Dest pointer to scratchpad ram
+       LI R2,8             * Read 32 bytes to scratchpad
+!      MOVB *R6,*R1+
+       MOVB *R6,*R1+
+       MOVB *R6,*R1+
+       MOVB *R6,*R1+
+       DEC R2
+       JNE -!
+       RT
+
+* Copy screen at R0 into R1 31 bytes
+READ31
+       MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
+       MOVB R0,*R5         * Send high byte of VDP RAM read address
+       LI R2,8             * Read 31 bytes to scratchpad
+       JMP READ3
+!      MOVB *R6,*R1+
+READ3  MOVB *R6,*R1+
+       MOVB *R6,*R1+
+       MOVB *R6,*R1+
+       DEC R2
+       JNE -!
+       RT
+
+FLIP   LI R1,(SCRTB2-SCRTB1)
+       LI   R0,>8200+(SCRTB2/>400)  * VDP Register 2: Screen Table
+       XOR @SCRPTR,R1
+       MOV R1,@SCRPTR
+       JEQ !
+       LI   R0,>8200+(SCRTB1/>400)  * VDP Register 2: Screen Table
+!      MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
+       MOVB R0,*R5         * Send high byte of VDP RAM read address
+       RT
+       
 SCRLDN
        LI R8,22        * Scroll through 22 rows
        LI R4,LEVELA
 SCRLD2
-       BL @MUSIC
-       BL @VSYNC
-       
-       AI R13,>F900
-       BL @DOSPRT
-       
        LI R9,21        * Move 21 lines up
-       LI R10,(32*4)     * Scroll up
+       MOV @SCRPTR,R10  * Set dest to flipped screen
+       AI R10,(32*3)   * Scroll up
 
-!      MOV R10,R0      * Source from screen
-       LI R1,SCRTCH    * Dest pointer to scratchpad ram
-       LI R2,32
-       BL @VDPR        * Read 32 bytes into scratchpad
-      
+!      LI R0,(SCRTB2-SCRTB1)
+       XOR R10,R0      * Source from current screen
+       AI R0,32
+       BL @READ32      * Read 32 bytes into scratchpad
+
        MOV R10,R0      * Dest to screen
-       LI R1,SCRTCH    * Source pointer from scratchpad ram
-       LI R2,32
-       S  R2,R0,
-       BL @VDPW        * Write 32 bytes from scratchpad
+       BL @PUTSCR      * Write 32 bytes from scratchpad       
 
        AI R10,32
 
@@ -170,17 +190,22 @@ SCRLD2
        JNE -!
        
        MOV R4,R0       * Source from new screen pointer
-       LI R1,SCRTCH    * Dest pointer to scratchpad ram
-       LI R2,32
-       BL @VDPR        * Read 32 bytes into scratchpad
+       BL @READ32      * Read 32 bytes into scratchpad
 
-       LI R0,(32*24)
-       LI R1,SCRTCH    * Source pointer to scratchpad ram
-       LI R2,32
-       BL @VDPW        * Write 32 bytes from scratchpad
+       MOV R10,R0      * Dest to bottom of screen
+       BL @PUTSCR      * Write 32 bytes from scratchpad       
        
        AI R4,32
+
+       BL @VSYNC
+       BL @FLIP
+       BL @MUSIC
+       BL @VSYNC
+       BL @MUSIC
        
+       AI R13,>F900
+       BL @DOSPRT
+
        DEC R8
        JNE SCRLD2
 
@@ -190,25 +215,18 @@ SCRLUP
        LI R8,22        * Scroll through 22 rows
        LI R4,LEVELA+(32*21)
 SCRLU2
-       BL @MUSIC
-       BL @VSYNC
+       LI R9,21        * Move 21 lines down
+       MOV @SCRPTR,R10  * Set dest to flipped screen
+       AI R10,32*24    * Scroll down
 
-       AI R13,>0700
-       BL @DOSPRT
-
-       LI R9,21         * Move 21 lines down
-       LI R10,32*23     * Scroll down
-
-!      MOV R10,R0       * Source from screen
-       LI R1,SCRTCH    * Dest pointer to scratchpad ram
-       LI R2,32
-       BL @VDPR        * Read 32 bytes into scratchpad
+!
+       LI R0,(SCRTB2-SCRTB1)
+       XOR R10,R0      * Set source to current screen
+       AI R0,-32
+       BL @READ32      * Read 32 bytes into scratchpad
       
-       MOV R10,R0       * Dest to screen
-       LI R1,SCRTCH    * Dest pointer to scratchpad ram
-       LI R2,32
-       A  R2,R0
-       BL @VDPW        * Read 32 bytes into scratchpad
+       MOV R10,R0      * Dest to screen
+       BL @PUTSCR      * Write 32 bytes from scratchpad       
        
        AI R10,-32
 
@@ -216,17 +234,22 @@ SCRLU2
        JNE -!
        
        MOV R4,R0       * Source from new screen pointer
-       LI R1,SCRTCH    * Dest pointer to scratchpad ram
-       LI R2,32
-       BL @VDPR        * Read 32 bytes into scratchpad
+       BL @READ32      * Read 32 bytes into scratchpad
       
-       LI R0,32*3      * Dest to top of screen
-       LI R1,SCRTCH    * Source pointer to scratchpad ram
-       LI R2,32
-       BL @VDPW        * Write 32 bytes from scratchpad
+       MOV R10,R0      * Dest to top of screen
+       BL @PUTSCR      * Write 32 bytes from scratchpad       
        
        AI R4,-32
-       
+
+       BL @VSYNC
+       BL @FLIP
+       BL @MUSIC
+       BL @VSYNC
+       BL @MUSIC
+
+       AI R13,>0700
+       BL @DOSPRT
+
        DEC R8
        JNE SCRLU2
 
@@ -240,14 +263,9 @@ SCRLLT
 
 * Shift 31 columns to the right, fill in leftmost column from new
 SCRLL2 
-       BL @MUSIC
-       BL @VSYNC
-
-       AI R13,8
-       BL @DOSPRT
-
        LI  R9,22
-       LI  R10,(3*32)
+       MOV @SCRPTR,R10  * Set dest to flipped screen
+       AI  R10,(3*32)
 
 !      MOV R4,R0
        LI  R1,SCRTCH
@@ -255,14 +273,12 @@ SCRLL2
        MOVB R0,*R5          * Send high byte of VDP RAM read address
        MOVB *R6,*R1+        * Copy byte from new screen
 
-       MOV R10,R0
-       LI R2,31
-       BL @VDPR        * Read 31 bytes into scratchpad
+       LI R0,(SCRTB2-SCRTB1)
+       XOR R10,R0      * Set source to current screen
+       BL @READ31      * Read 31 bytes into scratchpad
        
        MOV R10,R0
-       LI R1,SCRTCH
-       LI R2,32
-       BL @VDPW        * Write 32 bytes from scratchpad
+       BL @PUTSCR      * Write 32 bytes from scratchpad       
        
        AI R4,32
        AI R10,32
@@ -271,6 +287,18 @@ SCRLL2
        JNE -!
        
        AI R4,(-32*22)-1
+
+       BL @VSYNC
+       BL @FLIP
+       BL @MUSIC
+       BL @VSYNC
+       BL @MUSIC
+
+       AI R13,8
+       MOV R8,R0
+       ANDI R0,1
+       S R0,R13
+       BL @DOSPRT
        
        DEC R8
        JNE SCRLL2
@@ -285,20 +313,15 @@ SCRLRT
        
 * Shift 31 columns to the left, fill in rightmost column from new
 SCRLR2
-       BL @MUSIC
-       BL @VSYNC
-
-       AI R13,-8
-       BL @DOSPRT
-
        LI  R9,22
-       LI R10,(3*32)
+       MOV @SCRPTR,R10  * Set dest to flipped screen
+       AI R10,(3*32)
 
-!      MOV R10,R0
+!      LI R0,(SCRTB2-SCRTB1)
+       XOR R10,R0  * Set source to current screen
        INC R0
-       LI R1,SCRTCH
-       LI R2,31
-       BL @VDPR        * Read 31 bytes into scratchpad
+       LI R1,SCRTCH        * Dest pointer to scratchpad ram
+       BL @READ31        * Read 31 bytes into scratchpad
        
        MOV R4,R0
        MOVB @R0LB,*R5       * Send low byte of VDP RAM read address
@@ -306,9 +329,7 @@ SCRLR2
        MOVB *R6,*R1         * Copy byte from new screen
        
        MOV R10,R0
-       LI R1,SCRTCH
-       LI R2,32
-       BL @VDPW        * Write 32 bytes from scratchpad
+       BL @PUTSCR      * Write 32 bytes from scratchpad       
        
        AI R4,32
        AI R10,32
@@ -318,6 +339,18 @@ SCRLR2
        
        AI R4,(-32*22)+1
        
+       BL @VSYNC
+       BL @FLIP
+       BL @MUSIC
+       BL @VSYNC
+       BL @MUSIC
+
+       AI R13,-8
+       MOV R8,R0
+       ANDI R0,1
+       A R0,R13
+       BL @DOSPRT
+
        DEC R8
        JNE SCRLR2
        B @DONE
@@ -367,7 +400,7 @@ WIPE2
        LI  R3,(32*3)+32+>4000  * Calculate right column dest pointer with write flag
        S   R8,R3
        
-       LI R9,21           * Copy 21 characters
+       LI R9,22           * Copy 22 characters
 !      MOV R4,R0
        MOVB @R0LB,*R5      * Send low byte of VDP RAM read address
        MOVB R0,*R5         * Send high byte of VDP RAM read address
@@ -389,6 +422,7 @@ WIPE2
        B    @DONE
 
 
+* For calculating Y coordinate of MAPDOT sprite (Y*3)-14
 MAPDOT BYTE -14,-11,-8,-5,-2,1,4,7
        
        
