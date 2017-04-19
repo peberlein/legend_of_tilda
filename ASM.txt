@@ -129,14 +129,14 @@ A000-  High memory expansion (upper 24k)
 
 
 
-VDP Registers
-0  000000xx 0=M3 1=Ext vid enable
-1  xxxx0xxx 0=sprite mag 1=sprite size 3=M2 4=M1 5=Int enable 6=Blank enable 7=4/16k
-2  Screen Image Table address times >400 (0000,0400 ... 3C00)
-3  Color Table address times >40 (0000,0040 ... 3FC0)
-4  Pattern Descriptor Table times >800 (0000,0800 ... 3800)
-5  Sprite Attribute List times >80 (0000,0080 ... 3F80)
-6  Sprite Descriptor Table times >800 (0000,0800 ... 3800)
+VDP Registers  (bit indexes are reversed)
+0  000000xx 6=M3 7=Ext vid enable
+1  xxxx0xxx 0=4/16k 1=Blank enable 2=Int enable 3=M1 4=M2 5=Rsv 6=sprite size 7=sprite mag
+2  Screen Image Table address div >400 (0000,0400 ... 3C00)
+3  Color Table address div >40 (0000,0040 ... 3FC0)
+4  Pattern Descriptor Table div >800 (0000,0800 ... 3800)
+5  Sprite Attribute List div >80 (0000,0080 ... 3F80)
+6  Sprite Descriptor Table div >800 (0000,0800 ... 3800)
 7  Foreground and background color nibbles
 
 M3 M2 M1
