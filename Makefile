@@ -1,11 +1,15 @@
 AS=../endlos99-xdt99-1aab4a6/xas99.py
 
+ifneq ($(shell uname -s),Darwin)
+  QUIET := status=none
+endif
+
 legend_8.bin: legendb0_6000.bin legendb1_6000.bin legendb2_6000.bin legendb3_6000.bin
-	@dd status=none if=legendb0_6000.bin of=$@ bs=8K
-	@dd status=none if=legendb1_6000.bin of=$@ bs=8K seek=1
-	@dd status=none if=legendb2_6000.bin of=$@ bs=8K seek=2
-	@dd status=none if=legendb3_6000.bin of=$@ bs=8K seek=3
-	@dd status=none if=/dev/null of=$@ bs=8K seek=4
+	@dd $(QUIET) if=legendb0_6000.bin of=$@ bs=8192
+	@dd $(QUIET) if=legendb1_6000.bin of=$@ bs=8192 seek=1
+	@dd $(QUIET) if=legendb2_6000.bin of=$@ bs=8192 seek=2
+	@dd $(QUIET) if=legendb3_6000.bin of=$@ bs=8192 seek=3
+	@dd $(QUIET) if=/dev/null         of=$@ bs=8192 seek=4
 
 legendb0_6000.bin: legendb0.asm legend.asm overworld.asm dungeon.asm
 	$(AS) -b -R $< -L legendb0.lst
