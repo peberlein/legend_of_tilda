@@ -1,4 +1,4 @@
-http://anonymous-function.com/zelda-canvas/
+http://anonymous-function.com/zelda-canvas/  (not a good emulation)
 
 https://www.spriters-resource.com/nes/legendofzelda/
 http://www.nesmaps.com/maps/Zelda/sprites/ZeldaSprites.html
@@ -31,9 +31,20 @@ The left, right, and bottom -most 8 pixels of the screen are not displayed
 Some enemies appear from offscreen 
 Enemies disappear during scrolling
 Enemies appearing on-screen appear in a puff of smoke (enemies cannot be harmed during smoke)
-Some enemies appear from beneath the surface of the ground
+Some enemies appear from beneath the surface of the ground (leever)
 Clock powerup freezes enemies onscreen
 Bombs produce screen flash and 5 smoke
+     () ()
+  ()[]   []()   []=bomb location
+   ()     ()
+ (attack anim for 8 frames, 40 frames detonate,
+  clouds toggle V formation 2 frames,
+  palette change all grey, 4 frames
+  clouds toggle V formation, 1 frame
+  palette change all grey, 4 frames
+  clouds toggle V formation, 13 frames
+  dissolve toggle V formation, 12 frames
+  
 Old man disappears when item is selected (2 fires stay, even when cave is reentered)
 Cave with rupees (It's a secret to everyone) prints the number below the rupees
  (Link doesn't hold up anything) (Rupee counter continues counting up after leaving cave)
@@ -48,8 +59,8 @@ Collecting triforce does a few screen flashes, then wipe to black (from left/rig
   (link is still visible holding triforce, blinking yellow and light blue)
 After dungeon, black screen, then cut to overworld, Link rises from entrance
 When link gets hurt, he blinks blue/white between green/brown
-Heart pickups blink red/blue
-1 Rupee pickups blink yellow/lightblue
+Heart pickups blink red/blue (2 frames on/off for 24 frames, 8 frames red/blue)
+1 Rupee pickups blink yellow/lightblue (color change every 8 frames, 2 frame flicker when appearing 8 blinks)
 5 Rupee pickups solid lightblue
 Before moving in a new direction, Link will align to 8-pixel grid
 Walking animation changes every 6 frames (10Hz) (Fire also)
@@ -66,7 +77,7 @@ wipe out from left/right
 bright flash (palette: black becomes gray, others become white)
 draw sprite bitmap on character map
 scroll map up/down/left/right
-sprite sink/down rise/up (while animating) (use solid higher-priority sprite over it)
+sprite sink/down rise/up (while animating) (use solid higher-priority sprite over it, won't work for dithered ground though)
 update hearts (use sprite for half-heart)
 potions fill hearts to full (slowly, half-heart each time) (red potion turns to blue when used)
 
@@ -77,7 +88,7 @@ Only use sprite-character map as needed (5+ sprites on a line)
 
 in cave, use sprites for fire, old man and sword, with 2nd color in bg chars
 
-
+Menu screen - selector changes blue/red 8 frames
 
 Investigate 3-color sprites (flipping two sprite priority every field)
 This should work great for fire (flickering is fine!)
@@ -91,10 +102,9 @@ Overworld map is 16x8 rooms, 128 in total, total memory 22k!!
 
 > The Zelda 1 overworld is made of 16x8 screens, each made of 16x176 pixel "columns".
 > http://forums.nesdev.com/viewtopic.php?t=5122
-
-
 > https://forums.nesdev.com/viewtopic.php?f=2&t=9245
-
+> http://userpages.monmouth.com/~colonel/videogames/zelda/moonmap.html
+> https://shockingvideogamesecrets.files.wordpress.com/2011/12/ouqjc.gif
 
 1 word xy location for secret exit (cave, bomb hole, stairs, etc)
 4 side transitions (some are not consistent, such as puzzle mazes)
@@ -118,7 +128,61 @@ Cave data, 3 bytes?
 
 
 Input Priority
-Sword, Up/Down (unless blocked), Right/Left
+Sword, Up/Down (unless wall), Right/Left
+
+Sword is attack sprite for 4 frames, then add sword for 8 frames
+Then walk sprite, and sword retract in 2 frames
+Note: can change direction while attacking!
+Can fire sword beam, arrow, boomerang, flame at same time (only one of each though)
+
+Bombs take 40 frames to detonate (http://tasvideos.org/2091S.html)
+
+Link hurt, knockback last 12 frames, then invincibility 12 more frames
+Can attack while being knocked back (but not turn or move)
+When link is flashing, enemies can't hurt him (invincibility frames)
+When enemies are flashing or stunned, they can't hurt link
+hurt palette: 2 frames each
+  dark blue, white
+  green, black  (normal colors)
+  black, red
+  red, white
+Zora bullet: red black lightblue(or grey) darkblue
+Zora pulse: 2 11 11 8
+Zora appears: 19
+Bullet appears: 16, then bullet shoots
+Zora disappears after 30 more frames
+Zora pulse: 11 11 11 11 11 11 11 11 8
+Destroy animation: small 6 big 6 small 6
+Destroy colors: red red red2 red2 white white white2 white2
+Tektite animation 17 frames
+Enemy knockback 17 frames then flash/move for 16 more frames?
+Enemy hurt colors: 2 frames each: green black orange blue
+
+Leever pulsing 8 frames 
+Red Leever coming up 8 frames
+Leever spin 5 frames
+Red Leever going down 8 frames, 3 frames pulse, 8 frames pulse, 5 vanish
+Blue Leever going down 8 11 11 11 11 11 11 11 8 
+Moving by 6 then 7 etc
+Blue Leever going up 4 11 11 7 (15 frames half-up)
+Multiple Blue Leever appearance delayed by 16 frames
+
+Peahat Moving by 2 2 1 2 1
+Peahat spin up 8 8 8 5 4 4 4 4 4 4 4 3 3 3 2 3 3 2 3 3 2 3 3 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 1 2 1 2 1
+Peahat sits for 73 frames
+
+Octorok enemy appearing in cloud/puff:
+Full cloud: 1 frame  (octoroks 32,32+24,32+48,etc frames?)
+Half cloud: 6 frames  
+Low cloud: 6 frames (enemy appears underneath on last frame)
+Delay before next half cloud: 6 frames 
+Lynel clouds appear simultaneously
+
+Monster flags: hurt/stun=1bit
+Hurt state: 2 bits direction, 6 bits counter (stored in VDP)
+Stun state: 6 bits counter (stored in VDP)
+(can be hurt or stunned independently: stun can wear off during hurt, etc)
+HP (stored in VDP)
 
 
 
@@ -139,7 +203,62 @@ TektiteR .5	1
 TektiteB .5	1
 Zola	.5	2/1/1
 
+Weapon Damage [http://zelda.gamepedia.com/Weapon_Strength#The_Legend_of_Zelda]
+Wooden Sword    1
+White Sword     2
+Magical Sword   4
+Arrow 	        2
+Silver Arrow    4
+Candle          1
+Boomerang       1
+Bomb            4
+Magic Rod       2
+Book of Magic Fire  2
 
 
 
+Menu screen - 3 rows of sprites and colors
+Raft (brown) Book (red/blue) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (Red)
+Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (Red/Blue)
+Flute (brown) Meat (red) Potion(red/blue)/Scroll(brown) Wand (red/blue)
 
+
+TODO:
+Enemy hurt animation
+Enemy stun
+Hero hurt animation
+Hero HP decrement
+Hero game over animation
+Fix peahats
+Fix leevers
+Add octorok bullets (stationary 24 frames before shooting)
+Add moblin arrows
+Add lynel swords
+Add Zora & bullet
+Add Armos
+Menu screen
+Title screen & music
+Game over screen
+Status bar - gems,keys,bombs + hearts
+Cloud/edge spawning for octorok/moblin/lynel
+Rewrite sound player
+  Sound effect playback
+  Pattern music 4 channel
+Drops: hearts, gems, gemsX5, bombs, fairy, stopwatch
+Bombs
+Boomerang
+Arrows
+Fairy pond - filling hearts
+Sprite flickering
+Sprite compression
+Enemy respawn (8 screen list)
+Save enemy count per screen
+Fix sprite screen edge transitions (early start bit)
+Implement raft, ladder, flute
+Fix & Fill caves with items
+Implement forest maze and up up up mountain
+Dungeons & music
+Pushable rock to open cave
+
+DONE:
+Enemy HP decrement
