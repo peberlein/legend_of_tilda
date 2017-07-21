@@ -21,19 +21,19 @@ IDLE	idle
 INC	increment
 INCT	increment by two
 INV	invert
-JEQ	jump equal
-JGT	jump greater than
-JH	jump if logical high
-JHE	jump high or equal
-JL	jump if logical low
-JLE	jump if low or equal
-JLT	jump less than
+JEQ	jump equal              (EQ=1)
+JGT	jump greater than       (A>=1, signed)
+JH	jump if logical high    (L>=1 and EQ=0)
+JHE	jump high or equal      (L>=1 or EQ=1)
+JL	jump if logical low     (L>=0 and EQ=0)
+JLE	jump if low or equal    (L>=0 or EQ=1)
+JLT	jump less than          (A>=0 and EQ=0)
 JMP	unconditional jump
-JNC	jump no carry
-JNE	jump not equal
-JNO	jump no overflow
-JOC	jump on carry
-JOP	jump odd parity
+JNC	jump no carry           (C=0)
+JNE	jump not equal          (EQ=0)
+JNO	jump no overflow        (OV=0)
+JOC	jump on carry           (C=1)
+JOP	jump odd parity         (OP=1)
 LDCR	load CRU
 LI	load immediate (wr dst, imm)
 LIMI	load interrupt mask register
@@ -63,7 +63,7 @@ STCR	store CRU
 STST	store status (wr)
 STWP	store workspace pointer (wr)
 SWPB	swap bytes
-SZC	set zeros corresponding (AND) (src, dst)
+SZC	set zeros corresponding (NAND) (src, dst)
 SZCB	set zeros corresponding byte (src, dst)
 TB	test CRU bit
 X	execute (indirect instruction in register or memory)
@@ -190,3 +190,22 @@ status register.
 Interrupts must be disabled (LIMI 0) while doing anything with VDP, since ISR
 will read the status register and disrupt any concurrent VDP read/writes.
 
+
+Reading Keyboard or joystick  (see http://www.unige.ch/medecine/nouspikel/ti99/keyboard.htm)
+To read a key, set R12 and CRU, then set R12 and TB or read CRU
+Set column scan line: 
+LI R1, X        * See chart below
+LI R12,>0024    * Select address lines starting at line 18
+LDCR R1,3       * Send 3 bits to set one 8 of output lines enabled
+LI R12,>0006    * Select address lines to read starting at line 3
+TB X            * Test key bits, see chart
+
+R1      TB 0	TB 1	TB 2	TB 3	TB 4	TB 5	TB 6	TB 7
+0000	=	space	enter		fctn	shift	ctrl
+0100	.	L	O	9	2	S	W	X
+0200	,	K	I	8	3	D	E	C
+0300	M	J	U	7	4	F	R	V
+0400	N	H	Y	6	5	G	T	B
+0500	/	;	P	0	1	A	Q	Z
+0600	Fire1	Left1	Right1	Down1	Up1
+0700	Fire2	Left2	Right2	Down2	Up2
