@@ -209,3 +209,17 @@ R1      TB 0	TB 1	TB 2	TB 3	TB 4	TB 5	TB 6	TB 7
 0500	/	;	P	0	1	A	Q	Z
 0600	Fire1	Left1	Right1	Down1	Up1
 0700	Fire2	Left2	Right2	Down2	Up2
+
+
+Joystick controller pinout
+TI Pin           Wire    Pin
+1     NC         Red     7
+2 OUT Test J2    White   8
+3 IN  UP         Brown   3
+4 IN  Fire       Yellow  4
+5 IN  Left       Blue    2
+6     NC         Black   5
+7 OUT Test J1    Grey    1
+8 IN  Down       Orange  9
+9 IN  Right      Green   6
+

@@ -22,6 +22,7 @@ https://www.spriters-resource.com/nes/legendofzelda/
 http://www.nesmaps.com/maps/Zelda/sprites/ZeldaSprites.html
 http://www.finalfantasykingdom.net/z1worldmap.php
 
+
 http://www.piskelapp.com/
 
 Playthroughs
@@ -35,7 +36,7 @@ http://forums.famitracker.com/viewtopic.php?t=1399#p11179
 https://www.seventhstring.com/resources/notefrequencies.html
 
 
-Name: "Legend of Tilda"  (Matilda)
+Name: "Legend of Tilda"  (Princess Matilda)
 Idea: TIforce instead of triforce (shape of texas instead of triangle)
 
 Start of game, black screen, wipe in (from center to left/right) (after which link just appears in the center)
@@ -51,7 +52,7 @@ Enemies disappear during scrolling
 Enemies appearing on-screen appear in a puff of smoke (enemies cannot be harmed during smoke)
 Some enemies appear from beneath the surface of the ground (leever)
 Clock powerup freezes enemies onscreen
-Bombs produce screen flash and 5 smoke
+Bombs produce screen flash and smoke
      () ()
   ()[]   []()   []=bomb location
    ()     ()
@@ -82,11 +83,6 @@ Heart pickups blink red/blue (2 frames on/off for 24 frames, 8 frames red/blue)
 5 Rupee pickups solid lightblue
 Before moving in a new direction, Link will align to 8-pixel grid
 Walking animation changes every 6 frames (10Hz) (Fire also)
-32,34,35,37,38,
-40,41,43,44,46,47,
-48,49,51,52,54,55,
-56,57,59,60,62,63,
-64,65,67,68,70,71
 
 
 Functions:
@@ -155,7 +151,7 @@ Can fire sword beam, arrow, boomerang, flame at same time (only one of each thou
 
 Bombs take 40 frames to detonate (http://tasvideos.org/2091S.html)
 
-Link hurt, knockback last 12 frames, then invincibility 12 more frames
+Link hurt, knockback last 8 frames, then invincibility 40 more frames
 Can attack while being knocked back (but not turn or move)
 When link is flashing, enemies can't hurt him (invincibility frames)
 When enemies are flashing or stunned, they can't hurt link
@@ -164,6 +160,55 @@ hurt palette: 2 frames each
   green, black  (normal colors)
   black, red
   red, white
+Dead, Face South, 30-ish frames flashing
+(animation continues to 1016 if walking when died)
+878 1 hearts gone
+879 32 face down, enemies disappeared, hurt blinking
+911 26 finished blinking, normal colors
+937 2 brown on yellow palette
+939 2 brown on dark red palette
+941 5 face right
+946 5 face up
+951 5 face left
+956 5 face down
+961 5 face right
+966 5 face up
+971 5 face left
+976 5 face down
+981 5 face right
+986 5 face up
+991 5 face left
+996 5 face down
+1001 5 face right
+1006 5 face up
+1011 5 face left
+1016 2 face down
+1018 10 brown on lightred palette
+1028 10 dark brown on darkred palette
+1038 10 black on darkred palette
+1048 1 all black palette
+1049 24 link gray (sword too)
+1073 10 small star (white/blue)
+1083 4 big star (white/blue)
+1087 46 disappear
+1133 96 GAME OVER (G below X's) centered vertically
+1229 3 black screen, status bar disappears
+1232
+    * CONTINUE   (* red heart)
+
+
+      SAVE
+
+
+      RETRY
+selection blinks red and white 4 frames each, total 63 frames
+3976 red
+3980 white
+...
+4039 black screen
+4050 status bar appears
+4051 loading level wipe starts
+
 Zora bullet: red black lightblue(or grey) darkblue
 Zora pulse: 2 11 11 8
 Zora appears: 19
@@ -181,9 +226,40 @@ Red Leever coming up 8 frames
 Leever spin 5 frames
 Red Leever going down 8 frames, 3 frames pulse, 8 frames pulse, 5 vanish
 Blue Leever going down 8 11 11 11 11 11 11 11 8 
-Moving by 6 then 7 etc
+Moving by 6 then 7 etc when under, by 2 when normal
 Blue Leever going up 4 11 11 7 (15 frames half-up)
 Multiple Blue Leever appearance delayed by 16 frames
+
+1045 31 enemies appear
+1076 6 leever pulse 1
+1082 11 leever pulse 2
+1093 11 leever pulse 1
+1104 4 leever pulse 2
+1108 15 leever half up
+1123 5 leever 1
+1128 5 leever 2
+1133 5 leever 1
+1138 5 leever 2
+1143 5 leever 1
+1148 5 leever 2
+1153 5 leever 1
+1158 5 leever 2
+1378 16 leever half down
+1394 11 leever pulse 1
+1406 11 leever pulse 2
+1416 11 leever pulse 1
+1427 11 leever pulse 2
+1439 11 leever pulse 1
+1449 11 leever pulse 2
+1460 11 leever pulse 1
+1471 11 leever pulse 2
+1482 8 leever pulse 1
+1490 129 disappear
+1619 3 leever pulse 1
+1621   leever pulse 2
+
+
+
 
 Peahat Moving by 2 2 1 2 1
 Peahat spin up 8 8 8 5 4 4 4 4 4 4 4 3 3 3 2 3 3 2 3 3 2 3 3 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 2 1 2 1 2 1
@@ -225,7 +301,7 @@ Weapon Damage [http://zelda.gamepedia.com/Weapon_Strength#The_Legend_of_Zelda]
 Wooden Sword    1
 White Sword     2
 Magical Sword   4
-Arrow 	        2
+Arrow	        2
 Silver Arrow    4
 Candle          1
 Boomerang       1
@@ -236,47 +312,137 @@ Book of Magic Fire  2
 
 
 Menu screen - 3 rows of sprites and colors
-Raft (brown) Book (red/blue) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (Red)
-Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (Red/Blue)
-Flute (brown) Meat (red) Potion(red/blue)/Scroll(brown) Wand (red/blue)
+Raft (brown) Book (red/blue) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
+Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (red/blue)
+Flute (brown) Meat (red) Scroll(brown)/Potion(red/blue) Magic Rod (blue)
 
+
+Title Screen
+Waterfall toggle - 8 frames (toggle on 2nd frame of first row)
+3 rows of waterfall sprites
+First row, 4 frames, 4 frames,
+Bottom 2 rows, 8 frames  (move down 2 pixels each frame)
+Tiforce - yellow x12, orange 6, red 6, red 16, orange 6,
+
+
+Startup frames
+0 black
+1,2 gray
+3-33 peach
+34 graphics in
+
+34 triforce orange    6
+40 triforce yellow    12
+52 triforce orange    6
+58 triforce red       6
+64 triforce dark red  12
+76 triforce red       16
+
+92 triforce orange    6
+98 triforce yellow    12
+110 triforce orange   6
+116 triforce red      6
+122 triforce dark red 12
+134 triforce red      16
+
+150 triforce orange   6
+156 triforce yellow   12
+168 triforce orange   6
+174 triforce red
+...
+553 bg light green
+561 bg light blue
+567 bg cyan
+572 bg light green, sword grey
+576 bg med blue
+579 bg dark cyan
+581 bg dark blue
+583 bg darker blue, sword dark grey, zelda purple
+585 bg black, rocks dark grey, zelda dark blue, foliage dark blue, waterfall gray on dark blue
+777 waterfall darker
+783 rocks black, zelda black, waterfall bg black
+787 all black
+1030 scrolling text
+
+THE LEGEND OF TILDA
+LONG AGO, GANROM, PRINCE
+OF DARKNESS, STOLE THE
+TIFORCE OF POWER.
+PRINCESS TILDA OF TYRULE
+BROKE THE TIFORCE OF
+WISDOM INTO EIGHT PIECES
+AND HID THEM FROM GANROM
+BEFORE SHE WAS KIDNAPPED
+BY GANROM'S MINIONS.
+HERO, YOU MUST FIND THE
+PIECES AND SAVE  TILDA.
+
+GANROM & 's '- red
+PRINCESS & TILDA - blue
+HERO - green
+other text - white
+Updated cave text from 2003 release:
+https://tcrf.net/The_Legend_of_Zelda/Console_Differences
+
+
+
+
+TODO: High priority
+Fix leevers
+Fix menu
 
 TODO:
-Enemy hurt animation
-Enemy stun
-Hero hurt animation
-Hero HP decrement
-Hero game over animation
-Fix peahats
-Fix leevers
 Add octorok bullets (stationary 24 frames before shooting)
 Add moblin arrows
-Add lynel swords
+Add lynel swords (same as sword beam)
+Bullets/arrows bounce off shield
+Cloud/edge spawning for octorok/moblin/lynel
+Smooth scrolling text after title screen
+Animate going up/down cave (animate in bank 3) (move up/down 1 pixel every 4 frames, animate every 6 frames)
+
+Enemy stun (requires boomerang or clock)
 Add Zora & bullet
 Add Armos
-Menu screen
-Title screen & music
-Game over screen
-Status bar - gems,keys,bombs + hearts
-Cloud/edge spawning for octorok/moblin/lynel
+Menu screen items and selection
+Title screen music
 Rewrite sound player
   Sound effect playback
   Pattern music 4 channel
-Drops: hearts, gems, gemsX5, bombs, fairy, stopwatch
+Drops: bombs, fairy, clock
 Bombs
 Boomerang
 Arrows
+Candle
+Magic Rod
+Ladder
+Raft
+Flute
 Fairy pond - filling hearts
-Sprite flickering
 Sprite compression
-Enemy respawn (8 screen list)
+Enemy respawn (8 screen LRU)
 Save enemy count per screen
-Fix sprite screen edge transitions (early start bit)
-Implement raft, ladder, flute
 Fix & Fill caves with items
 Implement forest maze and up up up mountain
+Secrets opened by bombs/flame/power bracelet
+Caves and stores
 Dungeons & music
 Pushable rock to open cave
+Continue/save/retry
+FG99 saving
+Disk save/load
 
 DONE:
+Status bar - gems,keys,bombs + hearts
+Enemy hurt animation
 Enemy HP decrement
+Menu screen
+Sprite flickering
+Fix sprite screen edge transitions (early start bit) (sword beam splash only)
+Title screen
+Hide secrets in overworld.txt
+Hero hurt animation
+Hero HP decrement
+Hero game over animation
+Game over screen
+Sword beam only works at full hearts
+Drops: hearts, gems, gemsX5
