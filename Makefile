@@ -24,7 +24,7 @@ legendb1_6000.bin: legendb1.asm legend.asm music.snd dungeon.snd title.snd
 legendb2_6000.bin: legendb2.asm legend.asm overworld.bin
 	$(AS) -b -R $< -L legendb2.lst
 
-legendb3_6000.bin: legendb3.asm legend.asm 
+legendb3_6000.bin: legendb3.asm legend.asm tilda.asm
 	$(AS) -b -R $< -L legendb3.lst
 
 
@@ -40,6 +40,7 @@ music/ft2asm: LDLIBS=-lm
 overmap: LDLIBS+=-lpng
 overmap: CFLAGS+=-g
 
+# This is disabled since we made changes to overworld.txt
 #overworld.txt: overmap levels/z1map.png
 #	./overmap levels/z1map.png > /dev/null
 
@@ -47,6 +48,8 @@ overworld.bin: overmap overworld.txt
 	./overmap > $@
 
 
+dbgmame:
+	mame ti99_4a -cart legend.rpk -w -nomax -nomouse -debug -resolution 840x648
 playmame:
 	mame ti99_4a -cart legend.rpk -w -nomax -nomouse
 playmac:
@@ -54,6 +57,16 @@ playmac:
 	./mame64 ti99_4a -cart ~/Dropbox/ti994a/legend/legend.rpk \
 	-w -nomax -nomouse -resolution 840x648)
 #	-w -nomax -nomouse -resolution 562x434)
+dbgmac:
+	( cd ~/Downloads/mame0186b_macOS/; \
+	./mame64 ti99_4a -cart ~/Dropbox/ti994a/legend/legend.rpk \
+	-w -nomax -nomouse -resolution 840x648 -debug)
+winemac:
+	( cd ~/.wine/drive_c ; \
+	FREETYPE_PROPERTIES="truetype:interpreter-version=35" \
+	wine classic99/classic99.exe legend_8.bin   )
+	
+
 
 zeldanes:
 	mame nes -nomax -nomouse -cart "music/Legend of Zelda, The (USA).nes"
