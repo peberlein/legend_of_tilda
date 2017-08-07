@@ -1,7 +1,7 @@
 ;
 ; Legend of Tilda
 ; 
-; Bank 2: overworld map
+; Bank 2: overworld map and transition functions
 ;
 
        COPY 'legend.asm'
@@ -18,11 +18,12 @@
 ;      5=wipe from center
 ;      6=cave in
 ;      7=cave out
-;      8=item select (menu)
+;      8=item select in (menu)
+;      9=item select out (menu)
 ; Modifies R0-R12,R15
 MAIN
        MOV R11,R12          ; Save return address for later
-       
+
        LI R0,>D100
        LI R3,SPRTAB+(6*4)   ; Clear VDP sprite list
        ORI R3,>4000
@@ -32,10 +33,13 @@ MAIN
 !      MOVB R0,*R15
        DEC R1
        JNE -!
-       
+
        CI R2,8
        JNE !
-       B @MENU      	   ; Do item select screen
+       B @MENUDN      	   ; Do item select screen
+!      CI R2,9
+       JNE !
+       B @MENUUP      	   ; Do item select screen
 !
        LI R0,OBJECT+12      ; Clear objects[6..31]
        LI R1,32-6
@@ -76,7 +80,9 @@ MAIN
        CI R2, 6
        JNE !
        CLR  @DOOR            ; Clear door location inside cave
-       LI   R13,>B078        ; Put hero at cave entrance
+       LI   R0,>B178        ; Put hero at cave entrance
+       MOV  R0,@HEROSP      ; Update color sprite
+       MOV  R0,@HEROSP+4    ; Update outline sprite
        LI   R0,LEVELA+VDPWM  ; R0 is screen table address in VRAM (with write bits)
        LI   R3,CAVE          ; Use cave layout
        JMP  STINIT
@@ -268,6 +274,10 @@ DONE2
 DONE3
        LI   R0,BANK0         ; Load bank 0
        MOV  R12,R1           ; Jump to our return address
+
+       MOV @HEROSP,R5         ; Get hero YYXX
+       AI R5,>0100            ; Move Y down one
+
        B    @BANKSW
 
 
@@ -276,22 +286,14 @@ MAPDOT BYTE -14,-11,-8,-5,-2,1,4,7
        
 JMPLST DATA DONE,SCRLUP,SCRLDN,SCRLLT,SCRLRT,WIPE,CAVEIN,CAVOUT
 
-
+; Add R1 to hero sprite YYXX, and update VDP sprite list
 DOSPRT
-       AI R13,>FF00
-       LI R0,SPRTAB+VDPWM
-       MOVB @R0LB,*R14
-       MOVB R0,*R14
-       MOVB R13,*R15
-       MOVB @R13LB,*R15
-
-       LI R0,SPRTAB+VDPWM+4
-       MOVB @R0LB,*R14
-       MOVB R0,*R14
-       MOVB R13,*R15
-       MOVB @R13LB,*R15
-       AI R13,>0100
-       RT
+       A R1,@HEROSP
+       A R1,@HEROSP+4
+       LI R0,SPRTAB+(HEROSP-SPRLST)
+       LI R1,HEROSP
+       LI R2,8
+       B @VDPW
 
 ; Test for vsync and play music if set
 VMUSIC
@@ -329,6 +331,7 @@ READ32
        MOVB R0,*R14         ; Send high byte of VDP RAM read address
        LI R1,SCRTCH        ; Dest pointer to scratchpad ram
        LI R2,8             ; Read 32 bytes to scratchpad
+       LI R6,VDPRD        ; Keep VDPRD address in R6
 !      MOVB *R6,*R1+
 READ3  MOVB *R6,*R1+
        MOVB *R6,*R1+
@@ -411,7 +414,7 @@ SCRLD2
        LI R10,32*3     ; Dest start at top
        BL @SCROLL      ; Scroll down
 
-       AI R13,>F900
+       LI R1,>F900
        BL @DOSPRT
 
        DEC R8
@@ -428,7 +431,7 @@ SCRLU2
        LI R10,32*24    ; Dest start at at bottom
        BL @SCROLL      ; Scroll down
 
-       AI R13,>0700
+       LI R1,>0700
        BL @DOSPRT
 
        DEC R8
@@ -477,10 +480,10 @@ SCRLL2
        BL @FLIP
        BL @MUSIC
 
-       AI R13,8
-       MOV R8,R0
-       ANDI R0,1
-       S R0,R13
+       MOV R8,R1
+       ANDI R1,1
+       NEG R1
+       AI R1,8
        BL @DOSPRT
        
        DEC R8
@@ -530,10 +533,9 @@ SCRLR2
        BL @FLIP
        BL @MUSIC
 
-       AI R13,-8
-       MOV R8,R0
-       ANDI R0,1
-       A R0,R13
+       MOV R8,R1
+       ANDI R1,1
+       AI R1,-8
        BL @DOSPRT
 
        DEC R8
@@ -572,7 +574,11 @@ STEPDN LI R4, 4             ; Step downward first four sprites
        
        JMP !
 CAVOUT
-       MOV  @DOOR,R13        ; Move link to door location
+       MOV  @DOOR,R5        ; Move link to door location
+       AI R5,->0100         ; Move Y up one
+       MOV R5,@HEROSP	    ; Update color sprite
+       MOV R5,@HEROSP+4    ; Update outline sprite
+
 !
        LI R0,SCRFLG
        XOR @FLAGS,R0  ; Set dest to flipped screen
@@ -619,6 +625,8 @@ CUT
        BL @VSYNC
        BL @FLIP
        BL @MUSIC
+
+       CLR R1
        BL @DOSPRT
 
        B @DONE
@@ -691,51 +699,41 @@ WIPE2
 
        B @DONE
 
-MENU
-       LI R6,VDPRD        ; Keep VDPRD address in R6
+MENUDN
+       LI R0,SCHSAV
+       BL @PUTSCR      ; Save a backup of scratchpad
+
+       LI R6,VDPRD     ; Keep VDPRD address in R6
        LI R8,21        ; Scroll through 21 rows
        LI R4,MENUSC+(32*20)    ; Menu screen VDP address
-MENU2
+!
        LI R5,-32       ; Direction down
        LI R9,23        ; Move 23 lines
        LI R10,32*23    ; Dest start at at bottom
        BL @SCROLL      ; Scroll down
 
        DEC R8
-       JNE MENU2
+       JNE -!
 
-       MOV R12,R10
+       LI R0,SCHSAV
+       BL @READ32      ; Restore saved scratchpad
+       B @DONE3
 
-!      BL @MUSIC
-       BL @VSYNC
-       LI R1,>0500
-       LI R12, >0024
-       LDCR R1,3            ; Turn on Keyboard Col 5
-       LI R12, >0006
-       TB 0                 ; Key /
-       JNE -!               ; Start key down
-       
-!      BL @MUSIC
-       BL @VSYNC
-       LI R1,>0500
-       LI R12, >0024
-       LDCR R1,3            ; Turn on Keyboard Col 5
-       LI R12, >0006
-       TB 0                 ; Key /
-       JEQ -!               ; Start key down
+MENUUP
+       LI R0,SCHSAV
+       BL @PUTSCR      ; Save a backup of scratchpad
 
-       MOV R10,R12
-
+       LI R6,VDPRD     ; Keep VDPRD address in R6
        LI R8,21        ; Scroll through 21 rows
        LI R4,LEVELA
-MENU3
+!
        LI R5,32        ; Direction up
        LI R9,23        ; Move 23 lines
        CLR R10         ; Dest start at at top
        BL @SCROLL      ; Scroll up
 
        DEC R8
-       JNE MENU3
+       JNE -!
 
        LI R9,3        ; Copy 3 lines from current to flipped
        MOV @FLAGS,R10  ; Set dest to flipped screen
@@ -754,6 +752,8 @@ MENU3
        DEC R9
        JNE -!
 
+       LI R0,SCHSAV
+       BL @READ32      ; Restore saved scratchpad
        B @DONE3
        
 ; Load enemies
@@ -1018,7 +1018,6 @@ DOORS  BYTE >00,>19,>00,>47,>1C,>65,>00,>4A,>00,>00,>12,>47,>18,>19,>45,>48
 ;    white Sword - master using it and you can have this.
 ;    dungeon entrance
 ;    raft ride
-
 ;     (pay me and I'll talk. / This ain't enough to talk)
        
        
@@ -1063,7 +1062,7 @@ MT20   DATA >D8D9,>DADB  ; Waterfall
        DATA >9899,>9A9B  ; Bush
        DATA >1A00,>EE00  ; Water inner corner SW
        DATA >1011,>1213  ; Sand
-       DATA >7474,>7575  ; Bridge
+       DATA >6C6C,>6D6D  ; Bridge
        DATA >878E,>8F60  ; Grey corner SE
        DATA >6060,>6060  ; Grey Ground
        DATA >F4F5,>F6F7  ; Gravestone
@@ -1078,12 +1077,12 @@ MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
        DATA >2020,>2020  ; Black square
        DATA >DCDD,>DEDF  ; Armos
        DATA >001B,>00EF  ; Water inner corner SE
-       DATA >6C6D,>6E6F  ; Brown brick Hidden path
+       DATA >7475,>7677  ; Brown brick Hidden path
        DATA >E0E9,>E1EA  ; Water edge E
 
 MTGREY ; white metatiles
        DATA >6060,>6060  ; Grey Ground
-       DATA >5C5D,>5C5D  ; White Ladder
+       DATA >6263,>6263  ; Grey Ladder
        DATA >878E,>8F67  ; Green corner SE
        DATA >8566,>8C8D  ; Green corner NE
        DATA >8889,>6586  ; Green corner SW
@@ -1110,66 +1109,12 @@ PALMTW BYTE >01,>02,>04,>05,>06,>08,>24,>1A,>15,>18  ; white conversions
 PALMTG BYTE >00,>03,>04,>05,>06,>08,>09,>1A,>24,>27  ; green conversions
 PALMTE
 
-;       DATA >E7E7,>E1E1  ; Water edge N
-;       DATA >E0E0,>E1E1  ; Water Green
-;       DATA >E7E8,>E1E9  ; Water corner NE
-;       DATA >E0E9,>E1EA  ; Water edge E
-;       DATA >9091,>9293  ; Green bush
-;       DATA >1011,>1213  ; Green Steps
-;       DATA >0405,>0607  ; Sand
-;       DATA >C0C1,>C2C3  ; White Dungeon two eyes
-;       DATA >5C5D,>5C5D  ; White Ladder
-;       DATA >8889,>6086  ; Grey corner SW
-;       DATA >6084,>8A8B  ; Grey corner NW
-;
-;MT40   DATA >8560,>8C8D  ; Grey corner NE
-;       DATA >B8B9,>BABB  ; Tree face
-;       DATA >1C1C,>1D1D  ; Red Bridge
-;       DATA >E6E7,>E5E1  ; Water corner NW
-;       DATA >E5E0,>E4E1  ; Water edge W
-;       DATA >E4E0,>E3E2  ; Water corner SW
-;       DATA >E0E0,>E2E2  ; Water edge S
-;       DATA >E0EA,>E2EB  ; Water corner SE
-;       DATA >8081,>8283  ; Green brick
-;       DATA >878E,>8F7B  ; Green corner SE
-;       DATA >857A,>8C8D  ; Green corner NE
-;       DATA >8485,>8B8C  ; Green top
-;       DATA >00F8,>FAC8  ; Green Dungeon NW
-;       DATA >FBC9,>CBCA  ; Green Dungeon SW
-;       DATA >C0C1,>C2C3  ; Green Dungeon two eyes
-;       DATA >7475,>7475  ; Blue/green Ladder
-;       
-;MT50   DATA >F900,>CCFA  ; Green Dungeon NE
-;       DATA >CDFB,>CECB  ; Green Dungeon SE
-;       DATA >8889,>7986  ; Green corner SW
-;       DATA >7884,>8A8B  ; Green corner NW
-;       DATA >9899,>9A9B  ; Brown bush
-;       DATA >0809,>0A07  ; Sand NW
-;       DATA >0A05,>0A07  ; Sand W
-;       DATA >0A05,>0B0C  ; Sand SW
-;       DATA >0909,>0607  ; Sand N
-;       DATA >0405,>0607  ; Sand
-;       DATA >0405,>0C0C  ; Sand S
-;       DATA >090D,>060E  ; Sand NE
-;       DATA >040E,>060E  ; Sand E
-;       DATA >040E,>0C0F  ; Sand SE
-;       DATA >C4C5,>C6C7  ; Green Dungeon one eye
-;       DATA >EC00,>7000  ; Water inner corner NW
-;
-;MT60   DATA >9495,>9697  ; Green rock
-;       DATA >00ED,>0071  ; Water inner corner NE
-;       DATA >1414,>1515  ; Green Bridge
-;
-;       DATA >2020,>2020  ; Black cave floor
-;       DATA >0073,>00EF  ; Water inner corner SE
-;       DATA >DCDD,>DEDF  ; Armos
-      
+
        
 
 ****************************************
 * Colorset Definitions                  
 ****************************************
-CLRNUM DATA 32                         ;
 CLRSET BYTE >1B,>1B,>6B,>4B            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
@@ -1182,16 +1127,16 @@ CLRSET BYTE >1B,>1B,>6B,>4B            ;
 * Character Patterns                    
 ****************************************
 PAT0   DATA >0000,>0000,>0000,>0000    ;
-PAT1   DATA >9301,>0101,>0183,>C7EF    ;
-PAT2   DATA >E0C2,>8203,>0709,>7317    ;
-PAT3   DATA >F1EC,>EEF6,>E9DF,>AF5F    ;
+PAT1   DATA >0003,>0F3C,>1030,>60C0    ;
+PAT2   DATA >CEFF,>3900,>0000,>0000    ;
+PAT3   DATA >8000,>0040,>C080,>0000    ;
 PAT4   DATA >0000,>0000,>0303,>070F    ;
 PAT5   DATA >1F0F,>0700,>0000,>0000    ;
 PAT6   DATA >0000,>0000,>0000,>0038    ;
 PAT7   DATA >8080,>8080,>0000,>0000    ;
-PAT8   DATA >0003,>0F3C,>1030,>60C0    ;
-PAT9   DATA >CEFF,>3900,>0000,>0000    ;
-PAT10  DATA >8000,>0040,>C080,>0000    ;
+PAT8   DATA >9301,>0101,>0183,>C7EF    ;
+PAT9   DATA >E0C2,>8203,>0709,>7317    ;
+PAT10  DATA >F1EC,>EEF6,>E9DF,>AF5F    ;
 PAT11  DATA >8080,>0000,>2030,>0006    ;
 PAT12  DATA >0000,>0000,>0000,>0024    ;
 PAT13  DATA >00C0,>FC08,>0000,>0C02    ;
@@ -1279,8 +1224,8 @@ PAT94  DATA >0000,>0107,>0703,>0000    ;
 PAT95  DATA >0000,>80E0,>E0C0,>0000    ;
 PAT96  DATA >0000,>0000,>0000,>0000    ;
 PAT97  DATA >0000,>0000,>0000,>0000    ;
-PAT98  DATA >0000,>0000,>0000,>0000    ;
-PAT99  DATA >0000,>0000,>0000,>0000    ;
+PAT98  DATA >80AA,>95AA,>80AA,>95AA    ;
+PAT99  DATA >02AA,>56AA,>02AA,>56AA    ;
 PAT100 DATA >0000,>0000,>0303,>070F    ;
 PAT101 DATA >1F0F,>0700,>0000,>0000    ;
 PAT102 DATA >0000,>0000,>0000,>0038    ;
@@ -1289,18 +1234,18 @@ PAT104 DATA >9F9F,>9F9F,>9F9F,>81FF    ;
 PAT105 DATA >C3E7,>E7E7,>E7E7,>C3FF    ;
 PAT106 DATA >819F,>9F83,>9F9F,>9FFF    ;
 PAT107 DATA >819F,>9F83,>9F9F,>81FF    ;
-PAT108 DATA >56AD,>5CAD,>5A29,>5AA9    ;
-PAT109 DATA >B44E,>AD57,>AD53,>A64A    ;
-PAT110 DATA >5A39,>7AA3,>54CB,>14A9    ;
-PAT111 DATA >954B,>D74A,>D68A,>F766    ;
+PAT108 DATA >0145,>0101,>0101,>0101    ;
+PAT109 DATA >0101,>0101,>0145,>01FF    ;
+PAT110 DATA >FFFF,>FF81,>FFFF,>FFFF    ;
+PAT111 DATA >9301,>0101,>0183,>C7EF    ;
 PAT112 DATA >007F,>1F3F,>513B,>553B    ;
 PAT113 DATA >00FE,>FEFE,>FEFE,>1EBE    ;
 PAT114 DATA >553B,>553B,>553B,>5500    ;
 PAT115 DATA >50BA,>54BA,>54BA,>5400    ;
-PAT116 DATA >0145,>0101,>0101,>0101    ;
-PAT117 DATA >0101,>0101,>0145,>01FF    ;
-PAT118 DATA >FFFF,>FF81,>FFFF,>FFFF    ;
-PAT119 DATA >9301,>0101,>0183,>C7EF    ;
+PAT116 DATA >56AD,>5CAD,>5A29,>5AA9    ;
+PAT117 DATA >B44E,>AD57,>AD53,>A64A    ;
+PAT118 DATA >5A39,>7AA3,>54CB,>14A9    ;
+PAT119 DATA >954B,>D74A,>D68A,>F766    ;
 PAT120 DATA >007F,>1F3F,>513B,>553B    ;
 PAT121 DATA >00FE,>FEFE,>FEFE,>1EBE    ;
 PAT122 DATA >553B,>553B,>553B,>5500    ;

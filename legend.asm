@@ -7,7 +7,7 @@
 
 VDPWD  EQU  >8C00             ; VDP write data
 VDPWA  EQU  >8C02             ; VDP set read/write address
-VDPRD  EQU  >8800             ; VDP read data
+VDPRD  EQU  >8800             ; VDP read data (don't forget NOP after address)
 VDPSTA EQU  >8802             ; VDP status
 VDPWM  EQU  >4000             ; VDP address write mask
 VDPRM  EQU  >8000             ; VDP address register mask
@@ -33,13 +33,14 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 
 ; VDP Map
 ; 0000:031F Screen Table A (32*25 = 320)
-; 0340:037F Color Table (32 bytes = 20)
+; 0340:035F Color Table (32 bytes = 20)
 ; 0360:037F Bright Color Table (32 bytes = 20)
 ; 0380:03FF Sprite List Table (32*4 bytes = 80)
 ; 0400:071F Screen Table B (32*25 = 320)
 ; 0720:073F Enemy HP (32 bytes = 20)
 ; 0740:077F Enemy Hurt/Stun Counters interleaved (64 bytes = 40)
-; 0780:07FF
+; 0780:079F Save area scratchpad/sprite list
+; 07A0:07FF
 ; 0800:0FFF Pattern Descriptor Table
 ; 1000:17FF Sprite Pattern Table
 ; 1800:1ABF Level Screen Table (32*22 chars = 2C0)
@@ -53,6 +54,7 @@ CLRTAB EQU  >0340           ; Color Table address in VDP RAM - 32 bytes
 BCLRTB EQU  >0360           ; Bright Color Table address in VDP RAM - 32 bytes
 SPRTAB EQU  >0380           ; Sprite List Table address in VDP RAM - 32*4 bytes
 SCR2TB EQU  >0400           ; Name Table 32*24 bytes (double-buffered)
+SCHSAV EQU  >0780           ; Save area for SCRTCH scratchpad/screen list
 PATTAB EQU  >0800           ; Pattern Table address in VDP RAM - 256*8 bytes
 SPRPAT EQU  >1000           ; Sprite Pattern Table address in VDP RAM - 256*8 bytes
 LEVELA EQU  >1800           ; Name table for level A (copied to SCRTB1 or 2)
@@ -77,7 +79,7 @@ ENEMHS EQU  >0740    ; Enemy hurt/stun counters interleaved:
 ; 10: workspace
 ; 20: globals
 ; 30: globals
-; 40: sprites 0-3    (unused - in VDP RAM only)
+; 40: sprites 0-3    (could be unused - in VDP RAM only)
 ; 50: sprites 4-7
 ; 60: sprites 8-11
 ; 70: sprites 12-15
@@ -105,38 +107,70 @@ DOOR   EQU  WRKSP+46        ; YYXX position of doorway or secret
 FLAGS  EQU  WRKSP+48        ; Screen pointer in VRAM for page flipping
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
-SWORDP EQU  >0004            ; Sword button pressed
-ITEMP  EQU  >0008            ; Item button pressed
-MENUP  EQU  >0010            ; Menu button pressed
-ENEDGE EQU  >0020            ; Enemies load from edge of screen
+ENEDGE EQU  >0004            ; Enemies load from edge of screen
 SCRFLG EQU  >0400           ; NOTE must be equal to SCR2TB
+;TODO Facing bits in here
 
-HFLAGS EQU  WRKSP+54        ; Hero Flags
+HFLAGS EQU  WRKSP+50        ; Hero Flags
 BLURNG EQU  >0001            ; Blue Ring (take 1/2 damage)
 REDRNG EQU  >0002            ; Red Ring (take 1/4 damage)
 MAGSHD EQU  >0004            ; Magic Shield
-WSWORD EQU  >0100            ; White Sword 2x damage
-MSWORD EQU  >0200            ; Magic Sword 4x damage
-       ; Raft
-       ; Book of Magic
-       ; Red Candle
-       ; Blue Candle
-       ; Ladder
-       ; Power Bracelet
+BCANDL EQU  >0008            ; Blue candle (once per screen)
+RCANDL EQU  >0010            ; Red candle (unlimited)
+BMRANG EQU  >0020            ; Boomerang (brown)
+MAGBMR EQU  >0040            ; Magic Boomerang (blue)
+ASWORD EQU  >0080            ; Wood  Sword 1x damage (brown)
+WSWORD EQU  >0100            ; White Sword 2x damage (white)
+MSWORD EQU  >0200            ; Magic Sword 4x damage (white slanted)
+ARROWS EQU  >0400            ; Arrows (brown)
+BOW    EQU  >0800            ; Bow (brown)
+FLUTE  EQU  >1000            ; Flute (brown)
+PBRACE EQU  >2000            ; Power Bracelet (red)
+LADDER EQU  >4000            ; Ladder (brown)
+RAFT   EQU  >8000            ; Raft (brown)
+
+HFLAG2 EQU  WRKSP+52         ; More hero flags
+MAGROD EQU  >0001            ; Magic Rod (blue)
+BOOKMG EQU  >0002            ; Book of Magic (adds flames to magic rod)
+MAGKEY EQU  >0004            ; Magic Key (opens all doors, appears as XA)
+REDPOT EQU  >0008            ; Red potion (refills hearts, turns into blue potion when used)
+BLUPOT EQU  >0010            ; Blue potion (refills hearts, turns into letter when used)
+LETTER EQU  >0020            ; Letter from old man (give to woman allows buying potions)
+LETPOT EQU  >0040            ; Gave the letter to old woman, potions available
+BAIT   EQU  >0080            ; Bait (lures monsters or give to grumble grumble)
+SARROW EQU  >0100            ; Silver arrows (appear blue, double damage)
+
+SELITM EQU  >E000            ; Selected item 0-7
+
+KEY_FL EQU WRKSP+54         ; key press flags
+KEY_UP EQU  >0002           ; J1 Up / W
+KEY_DN EQU  >0005           ; J1 Down / S
+KEY_LT EQU  >0008           ; J1 Left / A
+KEY_RT EQU  >0010           ; J1 Right / D
+KEY_A  EQU  >0020           ; J1 Fire / J2 Left / Enter
+KEY_B  EQU  >0040           ; J2 Fire / J2 Down / Semicolon / E
+KEY_C  EQU  >0080           ; J2 Right/ J2 Up / Slash / Q
+EDG_UP EQU  KEY_UP*256
+EDG_DN EQU  KEY_DN*256
+EDG_LT EQU  KEY_LT*256
+EDG_RT EQU  KEY_RT*256
+EDG_A  EQU  KEY_A*256
+EDG_B  EQU  KEY_B*256
+EDG_C  EQU  KEY_C*256
 
 
 OBJPTR EQU  WRKSP+56        ; Object pointer for processing sprites
-COUNTR EQU  WRKSP+58        ; Count from 6 lower nibble, count from 11 upper nibble
+COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16:[4..0]
 
 RAND16 EQU  WRKSP+60        ; Random state
-SPRSKP EQU  WRKSP+62        ; Sprite skip (flickering)
 
 SPRLST EQU  WRKSP+64
-SCRTCH EQU  SPRLST+96  ; 32 bytes scratchpad for screen scrolling (overlaps sprite list)
+HEROSP EQU  SPRLST          ; Address of hero sprites (color and outline)
+SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps sprite list)
 
 OBJECT EQU  WRKSP+192       ; 64 bytes sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
-SWORDC EQU  OBJECT+0        ; Sword animation counter
-HURTC  EQU  OBJECT+1        ; Link hurt animation counter (12 frames knockback, 12 more frames invincible)
+SWORDC EQU  OBJECT+12       ; Sword animation counter
+HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
 FACING EQU  OBJECT+2        ; Pointer to facing direction sprites
 FACEDN EQU  >0000
 FACELT EQU  >0100
@@ -291,16 +325,16 @@ BANKSW CLR *R0
 
 ; Copy R2 bytes from R1 to VDP address R0
 VDPW   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       ORI  R0,>4000          ; Set read/write bits 14 and 15 to write (01)
+       ORI  R0,VDPWM        ; Set read/write bits 14 and 15 to write (01)
        MOVB R0,*R14         ; Send high byte of VDP RAM write address
-!      MOVB *R1+,*R15          ; Write byte to VDP RAM
-       DEC  R2                ; Byte counter
-       JNE  -!                ; Check if done
+!      MOVB *R1+,*R15       ; Write byte to VDP RAM
+       DEC  R2              ; Byte counter
+       JNE  -!              ; Check if done
        RT
 
 ; Write one byte from R1 to VDP address R0
 VDPWB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       ORI  R0,>4000          ; Set read/write bits 14 and 15 to write (01)
+       ORI  R0,VDPWM        ; Set read/write bits 14 and 15 to write (01)
        MOVB R0,*R14         ; Send high byte of VDP RAM write address
        MOVB R1,*R15
        RT
@@ -308,12 +342,14 @@ VDPWB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
 ; Read one byte to R1 from VDP address R0 (R0 is preserved)
 VDPRB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
        MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       NOP                  ; Very important for 9918A prefetch, otherwise glitches can occur
        MOVB @VDPRD,R1
        RT
 
 ; Read R2 bytes to R1 from VDP address R0 (R0 is preserved)
 VDPR   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
        MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       NOP                  ; Very important for 9918A prefetch, otherwise glitches can occur
 !      MOVB @VDPRD,*R1+
        DEC R2
        JNE -!
@@ -322,7 +358,7 @@ VDPR   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
        
 ; Write VDP register R0HB data R0LB
 VDPREG MOVB @R0LB,*R14      ; Send low byte of VDP Register Data
-       ORI  R0,>8000          ; Set register access bit
+       ORI  R0,VDPRM          ; Set register access bit
        MOVB R0,*R14         ; Send high byte of VDP Register Number
        RT
 
@@ -335,14 +371,15 @@ VDPREG MOVB @R0LB,*R14      ; Send low byte of VDP Register Data
 ;        RT
 
 ; Reading the VDP INT bit from the CRU doesn't clear the status register, so it should be safe to poll.
-; The CRU bit appears to updated even with interrupts disabled (LIMI 0)
-VSYNC  MOV R12,R0
-       MOVB @VDPSTA,R12      ; Clear interrupt now so we catch the edge
-       LI R12,>0004          ; CRU Address bit 0002 - VDP INT
-!      TB 0
-       JEQ -!
+; The CRU bit appears to get updated even with interrupts disabled (LIMI 0)
+; Modifies R0
+VSYNC  MOV R12,R0            ; Save R12 since we use it
+       MOVB @VDPSTA,R12      ; Clear interrupt first so we catch the edge
+       CLR R12
+!      TB 2                  ; CRU Address bit 0002 - VDP INT
+       JEQ -!                ; Loop until set
        MOVB @VDPSTA,R12      ; Clear interrupt flag manually since we polled CRU
-       MOV R0,R12
+       MOV R0,R12            ;
        RT
 
 ;
