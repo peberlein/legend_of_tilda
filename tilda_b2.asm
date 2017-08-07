@@ -4,7 +4,7 @@
 ; Bank 2: overworld map and transition functions
 ;
 
-       COPY 'legend.asm'
+       COPY 'tilda.asm'
 
        
 ; Load a map into VRAM

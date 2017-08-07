@@ -5,7 +5,7 @@
 ;
 
 
-       COPY 'legend.asm'
+       COPY 'tilda.asm'
 
        
 ; Load a song into VRAM, R2 indicates song 0=overworld 1=dungeon

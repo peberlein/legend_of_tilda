@@ -1,431 +1,430 @@
-****************************************
-* Colorset Definitions                  
-****************************************
-CLRNUM DATA 32                         ;
-CLRSET BYTE >E0,>10,>40,>E0            ;
-       BYTE >10,>10,>10,>10            ;
-       BYTE >10,>10,>10,>10            ;
-       BYTE >F0,>E0,>20,>10            ;
-       BYTE >60,>60,>61,>61            ;
-       BYTE >61,>61,>61,>10            ;
-       BYTE >10,>F0,>F0,>E4            ;
-       BYTE >41,>F3,>F3,>F3            ;
-****************************************
-* Character Patterns                    
-****************************************
-PAT32  DATA >0000,>0000,>0000,>0000    ;
-PAT33  DATA >1818,>1818,>1800,>1800    ;
-PAT34  DATA >2424,>2400,>0000,>0000    ;
-PAT35  DATA >0000,>0000,>0000,>0000    ;
-PAT36  DATA >0000,>0000,>0000,>0000    ;
-PAT37  DATA >0000,>0000,>0000,>0000    ;
-PAT38  DATA >7088,>5020,>5088,>7600    ;
-PAT39  DATA >1808,>1000,>0000,>0000    ;
-PAT40  DATA >0000,>0000,>0000,>0000    ;
-PAT41  DATA >0000,>0000,>0000,>0000    ;
-PAT42  DATA >0000,>0000,>0000,>0000    ;
-PAT43  DATA >0000,>0000,>0000,>0000    ;
-PAT44  DATA >0000,>0000,>1808,>1000    ;
-PAT45  DATA >0000,>007E,>0000,>0000    ;
-PAT46  DATA >0000,>0000,>0018,>1800    ;
-PAT47  DATA >0000,>0000,>0000,>0000    ;
-PAT48  DATA >384C,>C6C6,>C664,>3800    ;
-PAT49  DATA >1838,>1818,>1818,>7E00    ;
-PAT50  DATA >7CC6,>0E3C,>78E0,>FE00    ;
-PAT51  DATA >7E0C,>183C,>06C6,>7C00    ;
-PAT52  DATA >1C3C,>6CCC,>FE0C,>0C00    ;
-PAT53  DATA >FCC0,>FC06,>06C6,>7C00    ;
-PAT54  DATA >3C60,>C0FC,>C6C6,>7C00    ;
-PAT55  DATA >FEC6,>0C18,>3030,>3000    ;
-PAT56  DATA >78C4,>E478,>8686,>7C00    ;
-PAT57  DATA >7CC6,>C67E,>060C,>7800    ;
-PAT58  DATA >0000,>0000,>0000,>0000    ;
-PAT59  DATA >0000,>0000,>0000,>0000    ;
-PAT60  DATA >0000,>0000,>0000,>0000    ;
-PAT61  DATA >0000,>0000,>0000,>0000    ;
-PAT62  DATA >0000,>0000,>0000,>0000    ;
-PAT63  DATA >3844,>0408,>1000,>1000    ;
-PAT64  DATA >3C42,>99A1,>A199,>423C    ;
-PAT65  DATA >386C,>C6C6,>FEC6,>C600    ;
-PAT66  DATA >FCC6,>C6FC,>C6C6,>FC00    ;
-PAT67  DATA >3C66,>C0C0,>C066,>3C00    ;
-PAT68  DATA >F8CC,>C6C6,>C6CC,>F800    ;
-PAT69  DATA >FEC0,>C0FC,>C0C0,>FE00    ;
-PAT70  DATA >FEC0,>C0FC,>C0C0,>C000    ;
-PAT71  DATA >3E60,>C0CE,>C666,>3E00    ;
-PAT72  DATA >C6C6,>C6FE,>C6C6,>C600    ;
-PAT73  DATA >3C18,>1818,>1818,>3C00    ;
-PAT74  DATA >1E06,>0606,>C6C6,>7C00    ;
-PAT75  DATA >C6CC,>D8F0,>D8CC,>C600    ;
-PAT76  DATA >6060,>6060,>6060,>7E00    ;
-PAT77  DATA >C6EE,>FEFE,>D6C6,>C600    ;
-PAT78  DATA >C6E6,>F6FE,>DECE,>C600    ;
-PAT79  DATA >7CC6,>C6C6,>C6C6,>7C00    ;
-PAT80  DATA >FCC6,>C6FC,>C0C0,>C000    ;
-PAT81  DATA >7CC6,>C6C6,>DECC,>7A00    ;
-PAT82  DATA >FCC6,>C6FC,>D8CC,>C600    ;
-PAT83  DATA >78CC,>C07C,>06C6,>7C00    ;
-PAT84  DATA >7E18,>1818,>1818,>1800    ;
-PAT85  DATA >C6C6,>C6C6,>C6C6,>7C00    ;
-PAT86  DATA >C6C6,>C6EE,>7C38,>1000    ;
-PAT87  DATA >C6C6,>D6FE,>FEEE,>C600    ;
-PAT88  DATA >C6EE,>7C38,>7CEE,>C600    ;
-PAT89  DATA >CCCC,>CC78,>3030,>3000    ;
-PAT90  DATA >FE0E,>1C38,>70E0,>FE00    ;
-PAT91  DATA >0000,>0000,>0000,>0000    ;
-PAT92  DATA >0000,>0000,>0000,>0000    ;
-PAT93  DATA >0000,>0000,>0000,>0000    ;
-PAT94  DATA >0000,>0000,>0000,>0000    ;
-PAT95  DATA >0000,>0000,>0000,>0000    ;
-PAT96  DATA >0000,>0000,>0000,>0000    ;
-PAT97  DATA >0000,>0000,>0000,>0000    ;
-PAT98  DATA >0000,>0000,>0000,>0000    ;
-PAT99  DATA >0000,>0000,>0000,>0000    ;
-PAT100 DATA >0000,>0000,>0000,>0000    ;
-PAT101 DATA >0000,>0000,>0000,>0000    ;
-PAT102 DATA >0000,>0000,>0000,>0000    ;
-PAT103 DATA >0000,>0000,>0000,>0000    ;
-PAT104 DATA >3F7F,>7FFF,>FFFF,>FFFF    ;
-PAT105 DATA >0000,>0000,>0000,>0000    ;
-PAT106 DATA >0000,>0000,>0000,>0000    ;
-PAT107 DATA >0000,>0000,>0000,>0000    ;
-PAT108 DATA >0000,>0000,>0000,>0000    ;
-PAT109 DATA >0000,>0000,>0000,>0000    ;
-PAT110 DATA >0000,>0000,>0000,>0000    ;
-PAT111 DATA >0000,>0000,>0000,>0000    ;
-PAT112 DATA >189D,>0DF0,>0FB0,>B918    ;
-PAT113 DATA >6A08,>68EB,>D716,>1056    ;
-PAT114 DATA >EEE9,>4B08,>0F31,>3918    ;
-PAT115 DATA >0307,>63E0,>DF11,>1576    ;
-PAT116 DATA >189C,>8CF0,>10D2,>9777    ;
-PAT117 DATA >6EA8,>88FB,>07C6,>E0C0    ;
-PAT118 DATA >0000,>0000,>0000,>0000    ;
-PAT119 DATA >0000,>0000,>0000,>0000    ;
-PAT120 DATA >0000,>001D,>0909,>0909    ;
-PAT121 DATA >0000,>002F,>28EE,>282F    ;
-PAT122 DATA >0000,>0008,>0808,>080F    ;
-PAT123 DATA >0000,>0079,>4272,>427B    ;
-PAT124 DATA >0000,>00DE,>10DC,>50DE    ;
-PAT125 DATA >0000,>00E7,>9494,>9497    ;
-PAT126 DATA >0000,>0003,>8484,>8403    ;
-PAT127 DATA >0000,>003C,>A0B9,>A020    ;
-PAT128 DATA >0000,>0000,>0103,>0307    ;
-PAT129 DATA >0000,>0000,>FFFF,>FFFF    ;
-PAT130 DATA >0000,>0000,>7FBF,>BFBF    ;
-PAT131 DATA >0000,>0000,>F0FC,>FFFF    ;
-PAT132 DATA >0000,>0000,>F0F8,>FCFE    ;
-PAT133 DATA >070F,>0F1F,>1F0F,>0703    ;
-PAT134 DATA >0080,>C0E0,>F0F8,>FCFE    ;
-PAT135 DATA >0000,>0000,>0000,>0001    ;
-PAT136 DATA >1F3F,>3F7F,>7FFF,>FFFF    ;
-PAT137 DATA >0103,>0307,>0F1F,>3F7F    ;
-PAT138 DATA >0001,>0101,>0303,>070F    ;
-PAT139 DATA >0000,>0000,>0000,>0000    ;
-PAT140 DATA >0000,>0000,>0000,>0000    ;
-PAT141 DATA >0000,>0000,>0000,>0000    ;
-PAT142 DATA >0000,>0000,>0000,>0000    ;
-PAT143 DATA >FFFF,>FFFF,>FFFF,>FFFF    ;
-PAT144 DATA >0000,>0000,>C7C7,>C787    ;
-PAT145 DATA >0000,>0000,>FCF8,>F0F0    ;
-PAT146 DATA >0000,>0000,>0F03,>0000    ;
-PAT147 DATA >0000,>0000,>0707,>0707    ;
-PAT148 DATA >FFFF,>FF83,>0307,>070F    ;
-PAT149 DATA >FFFF,>FFFE,>FCFC,>F8F8    ;
-PAT150 DATA >FFFF,>FF1E,>0604,>0000    ;
-PAT151 DATA >BF3F,>3F78,>7000,>0000    ;
-PAT152 DATA >FFFF,>FF7F,>7F7F,>FFFF    ;
-PAT153 DATA >FFFF,>FFC3,>8180,>8000    ;
-PAT154 DATA >8F8F,>0F0F,>1F1F,>1F1F    ;
-PAT155 DATA >E0E0,>E0E0,>C0C0,>C0C0    ;
-PAT156 DATA >7F3F,>3F3F,>3F1F,>1F1F    ;
-PAT157 DATA >FFFF,>FFC0,>C0E0,>E0E0    ;
-PAT158 DATA >FFFF,>FF7F,>1F0F,>0707    ;
-PAT159 DATA >87C3,>E3E3,>F3F3,>F9F9    ;
-PAT160 DATA >F0F0,>E0E0,>C0C0,>8080    ;
-PAT161 DATA >0001,>0101,>0303,>83C7    ;
-PAT162 DATA >FFFF,>FFFE,>FEFE,>FCFC    ;
-PAT163 DATA >0000,>0000,>0000,>0206    ;
-PAT164 DATA >3F3F,>3F3F,>7F7F,>7F7F    ;
-PAT165 DATA >8080,>8080,>0000,>0000    ;
-PAT166 DATA >0000,>0000,>0000,>0103    ;
-PAT167 DATA >1F0F,>0F0F,>0F07,>0787    ;
-PAT168 DATA >E0F0,>F0F0,>F0F0,>F8F8    ;
-PAT169 DATA >0303,>0303,>0303,>070F    ;
-PAT170 DATA >F9F9,>FDFD,>FCFC,>FCFC    ;
-PAT171 DATA >FFFD,>FCFC,>FEFE,>FFFF    ;
-PAT172 DATA >FFFF,>FF7F,>3F1F,>0FFF    ;
-PAT173 DATA >FFFF,>FEFE,>FCFE,>FFFF    ;
-PAT174 DATA >FEFE,>FCFC,>FDF9,>F9F9    ;
-PAT175 DATA >87C3,>C3C3,>C3E7,>E7EF    ;
-PAT176 DATA >FFFF,>FFFF,>FFFF,>FFFE    ;
-PAT177 DATA >FCFC,>F8F8,>F0E0,>8001    ;
-PAT178 DATA >FF7F,>7F7F,>7F7F,>FFFF    ;
-PAT179 DATA >FFFF,>FFFF,>FFFF,>8080    ;
-PAT180 DATA >FFFF,>FFFF,>FFFF,>0F07    ;
-PAT181 DATA >0000,>0000,>0000,>0000    ;
-PAT182 DATA >0000,>0000,>0000,>0000    ;
-PAT183 DATA >0000,>0000,>0000,>0000    ;
-PAT184 DATA >FEFE,>FCFC,>F8F8,>F0F0    ;
-PAT185 DATA >3F1F,>0F07,>0000,>0000    ;
-PAT186 DATA >FFFF,>FFFF,>0000,>0000    ;
-PAT187 DATA >E0F0,>F8F8,>0000,>0000    ;
-PAT188 DATA >0F07,>0300,>0000,>0000    ;
-PAT189 DATA >FFFE,>FCF0,>0000,>0000    ;
-PAT190 DATA >1F1F,>3F7F,>0000,>0000    ;
-PAT191 DATA >FFFF,>E0E0,>0000,>0000    ;
-PAT192 DATA >FFFF,>0301,>0000,>0000    ;
-PAT193 DATA >FEF8,>E080,>0000,>0000    ;
-PAT194 DATA >0000,>0000,>0000,>0000    ;
-PAT195 DATA >0000,>0000,>00FF,>1010    ;
-PAT196 DATA >FEFE,>FCFC,>FEFE,>FFFF    ;
-PAT197 DATA >FFFC,>F8E0,>E0FC,>FFFF    ;
-PAT198 DATA >F804,>5CFC,>FEFE,>FFFF    ;
-PAT199 DATA >F008,>58FC,>FEFE,>FEFC    ;
-PAT200 DATA >0000,>007F,>FF1F,>0000    ;
-PAT201 DATA >0000,>00FF,>FFFF,>0000    ;
-PAT202 DATA >0000,>00FF,>FFFF,>FF00    ;
-PAT203 DATA >1030,>33FF,>FFFF,>FF3B    ;
-PAT204 DATA >0000,>6DFF,>FFFF,>FF6D    ;
-PAT205 DATA >0004,>B6FF,>FFFF,>FFB6    ;
-PAT206 DATA >3838,>1C1C,>0E0F,>0701    ;
-PAT207 DATA >0000,>1038,>1000,>FFFF    ;
-PAT208 DATA >0606,>0E0C,>1C78,>F0C0    ;
-PAT209 DATA >0000,>0000,>0000,>0000    ;
-PAT210 DATA >0000,>0000,>0000,>0000    ;
-PAT211 DATA >0000,>0000,>0000,>0000    ;
-PAT212 DATA >0020,>8200,>4800,>0000    ;
-PAT213 DATA >0004,>0000,>0000,>0000    ;
-PAT214 DATA >0000,>4000,>0000,>0000    ;
-PAT215 DATA >0042,>0024,>0001,>0000    ;
-PAT216 DATA >0000,>0000,>0000,>0000    ;
-PAT217 DATA >667C,>F8F9,>E6C4,>C2F2    ;
-PAT218 DATA >F8F0,>F8F8,>F0F8,>FCFC    ;
-PAT219 DATA >FAF6,>7474,>2828,>7CF4    ;
-PAT220 DATA >781E,>3C7C,>7C70,>78FC    ;
-PAT221 DATA >03E7,>CFCE,>9870,>1000    ;
-PAT222 DATA >183C,>3F7C,>F0F8,>F8F0    ;
-PAT223 DATA >D38F,>1F1B,>0808,>0000    ;
-PAT224 DATA >1141,>C1E0,>3090,>80C0    ;
-PAT225 DATA >0101,>83C3,>8181,>0000    ;
-PAT226 DATA >FFFF,>E7C1,>8100,>0080    ;
-PAT227 DATA >C183,>9199,>88CC,>9890    ;
-PAT228 DATA >C1E1,>E3C3,>8181,>8000    ;
-PAT229 DATA >0000,>0000,>0000,>0000    ;
-PAT230 DATA >0000,>0000,>0000,>0000    ;
-PAT231 DATA >0000,>0000,>0000,>0000    ;
-****************************************
-* Sprite Patterns                       
-****************************************
-SPR0   DATA >070C,>D840,>1F81,>C0C0    ; Color 5
-       DATA >0003,>0E00,>0000,>0000    ; 
-       DATA >80C0,>6020,>3090,>D058    ; 
-       DATA >68B8,>E840,>281C,>1C08    ; 
-SPR1   DATA >E762,>F20F,>F04F,>46E7    ; Color 11
-       DATA >FFFF,>FFFF,>FFFF,>FFFF    ; 
-       DATA >E762,>F20F,>F04F,>46E7    ; 
-       DATA >FFFF,>FFFF,>FFFF,>FFFF    ; 
-SPR2   DATA >E060,>F008,>F048,>40E0    ; Color 11
-       DATA >F8F8,>F8F8,>F8F8,>F8F8    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR3   DATA >FFFF,>FF18,>6B6B,>6B68    ; Color 11
-       DATA >FFFF,>FFFF,>0000,>0000    ; 
-       DATA >FFFF,>FFFC,>7B7B,>7BFC    ; 
-       DATA >FFFF,>FFFF,>3818,>0800    ; 
-SPR4   DATA >FFFF,>FFC3,>5F46,>5FDF    ; Color 11
-       DATA >FFFF,>FFFF,>0301,>0000    ; 
-       DATA >80E0,>FDFF,>FF00,>FFFF    ; 
-       DATA >FFFF,>FFFF,>F0F0,>E040    ; 
-SPR5   DATA >0000,>8EFF,>FF00,>FFFF    ; Color 11
-       DATA >FFFF,>FFFF,>0000,>0000    ; 
-       DATA >0000,>0FFF,>FF00,>FFFF    ; 
-       DATA >FFFF,>FFFF,>0000,>0000    ; 
-SPR6   DATA >0E7F,>FFFF,>FF00,>FFFF    ; Color 11
-       DATA >FFFF,>FFFF,>0F03,>0000    ; 
-       DATA >0000,>C0F6,>FE07,>EFEF    ; 
-       DATA >DFDF,>BFBF,>7040,>8000    ; 
-SPR7   DATA >001C,>3F3F,>7F7F,>FFFF    ; Color 11
-       DATA >FFFE,>7E3E,>3C1C,>0800    ; 
-       DATA >000E,>3EFE,>FCFC,>FC38    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR8   DATA >1F1F,>1F3F,>3F3F,>3D78    ; Color 11
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0080,>C0C0,>8080,>8080    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR9   DATA >0000,>0101,>0303,>0303    ; Color 11
-       DATA >0707,>0707,>0F0F,>0F0F    ; 
-       DATA >70F8,>F8FC,>FCFE,>FEFE    ; 
-       DATA >FEFF,>FFFF,>FFFF,>FEFC    ; 
-SPR10  DATA >0000,>0000,>0000,>001E    ; Color 11
-       DATA >1F0F,>0F0E,>0E0D,>0503    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >8040,>40C0,>C0E0,>E0E0    ; 
-SPR11  DATA >0000,>0000,>FF7F,>7F3F    ; Color 11
-       DATA >1F0F,>0300,>0000,>0000    ; 
-       DATA >0000,>0000,>FFFF,>F8F0    ; 
-       DATA >F0E0,>8000,>0000,>0000    ; 
-SPR12  DATA >0000,>0000,>FFFF,>3F1F    ; Color 11
-       DATA >0F07,>0700,>0000,>0001    ; 
-       DATA >0000,>0080,>FFFF,>FFFF    ; 
-       DATA >FFFF,>FF00,>0000,>00FF    ; 
-SPR13  DATA >0000,>0000,>FFFF,>FFFF    ; Color 11
-       DATA >FFFF,>FF00,>0000,>00FF    ; 
-       DATA >0000,>0000,>FFFF,>FFFF    ; 
-       DATA >FFFF,>FF00,>0000,>00F8    ; 
-SPR14  DATA >0000,>0040,>FFFF,>FFFF    ; Color 11
-       DATA >FFFF,>FE00,>0000,>0000    ; 
-       DATA >0000,>0000,>FEFC,>F8F0    ; 
-       DATA >E080,>0000,>0000,>0000    ; 
-SPR15  DATA >FFFF,>FFFF,>FF7F,>7F3F    ; Color 11
-       DATA >0702,>0203,>0000,>0000    ; 
-       DATA >FFFF,>FFFF,>FFFF,>FFFF    ; 
-       DATA >E762,>F20F,>F00F,>0607    ; 
-SPR16  DATA >F0E0,>C080,>8000,>0000    ; Color 11
-       DATA >0000,>0000,>8000,>40C0    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-****************************************
-* Map Data                              
-****************************************
-MCOUNT DATA 1                          ;
-* == Map #0 ==                          
-MC0    DATA 0                          ;
-MS0    DATA >0020,>0018,>0300          ; Width, Height, Size
-* -- Map Row 0 --                       
-MD0    DATA >2020,>2020,>2073,>7070    ;
-       DATA >7070,>7070,>7070,>7070    ;
-       DATA >7070,>7070,>7070,>7070    ;
-       DATA >7070,>7420,>2020,>2020    ;
-* -- Map Row 1 --                       
-       DATA >DDC6,>2020,>2071,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>7120,>2020,>68DD    ;
-* -- Map Row 2 --                       
-       DATA >D9C4,>2020,>2071,>2020    ;
-       DATA >7879,>7A7B,>7C7D,>7E7F    ;
-       DATA >C3C3,>C3C3,>C320,>2020    ;
-       DATA >2020,>7120,>2020,>DAE0    ;
-* -- Map Row 3 --                       
-       DATA >D9C5,>2020,>2071,>2080    ;
-       DATA >8181,>8182,>8181,>9091    ;
-       DATA >9281,>8183,>9384,>2020    ;
-       DATA >2020,>7120,>2020,>DAE1    ;
-* -- Map Row 4 --                       
-       DATA >D9C4,>2020,>2071,>2085    ;
-       DATA >9495,>9697,>9899,>9A9B    ;
-       DATA >B79C,>9D9E,>9F8F,>8620    ;
-       DATA >2020,>7120,>2020,>DAE1    ;
-* -- Map Row 5 --                       
-       DATA >DBC5,>2020,>2071,>2087    ;
-       DATA >88A0,>B7A1,>A2A3,>A4A5    ;
-       DATA >A6A7,>A8A9,>AAAB,>AC86    ;
-       DATA >2020,>7120,>2020,>DAE3    ;
-* -- Map Row 6 --                       
-       DATA >DBDE,>C720,>2071,>2089    ;
-       DATA >ADB8,>8A8F,>8FAE,>8F8F    ;
-       DATA >8FAF,>8FB0,>B1B2,>B3B4    ;
-       DATA >8620,>7120,>2068,>E2E1    ;
-* -- Map Row 7 --                       
-       DATA >D9DC,>C420,>2071,>20B9    ;
-       DATA >BABB,>BCBA,>BABA,>BABA    ;
-       DATA >BAA6,>BABD,>BEBF,>C0BA    ;
-       DATA >C120,>7120,>20DA,>E1E3    ;
-* -- Map Row 8 --                       
-       DATA >D9E2,>C520,>2071,>20C8    ;
-       DATA >C9CA,>CACA,>CACA,>CACA    ;
-       DATA >CACA,>CACA,>CACA,>CBCC    ;
-       DATA >CD20,>7120,>20DA,>E1E1    ;
-* -- Map Row 9 --                       
-       DATA >D9E0,>C420,>2071,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>CECF    ;
-       DATA >D020,>7120,>20DA,>E1E3    ;
-* -- Map Row 10 --                      
-       DATA >DBE1,>C520,>2072,>7070    ;
-       DATA >7070,>7070,>7070,>7070    ;
-       DATA >7070,>7070,>7070,>7070    ;
-       DATA >7070,>7520,>20DA,>E1E1    ;
-* -- Map Row 11 --                      
-       DATA >D9E1,>C420,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>68DF,>E2E0    ;
-* -- Map Row 12 --                      
-       DATA >D9DE,>DFC6,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>DAD9,>E1E3    ;
-* -- Map Row 13 --                      
-       DATA >D9DC,>D9C4,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>DADB,>E4E0    ;
-* -- Map Row 14 --                      
-       DATA >D9DC,>D9C5,>2020,>2050    ;
-       DATA >5553,>4820,>454E,>5445    ;
-       DATA >5220,>4F52,>2046,>4952    ;
-       DATA >4520,>2020,>DADB,>E1E0    ;
-* -- Map Row 15 --                      
-       DATA >D9DC,>DBE4,>DDC7,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>DADE,>DFE2    ;
-* -- Map Row 16 --                      
-       DATA >DFE2,>D9DE,>DFDF,>C620    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>DADC,>E0E4    ;
-* -- Map Row 17 --                      
-       DATA >E0E4,>DBDC,>D9E0,>DEDD    ;
-       DATA >DDC7,>D4D5,>D6D7,>68DD    ;
-       DATA >DDC6,>2020,>2020,>2020    ;
-       DATA >2020,>68C7,>DCDE,>DFE2    ;
-* -- Map Row 18 --                      
-       DATA >E0E1,>DBDC,>DBE3,>DCD9    ;
-       DATA >E0E1,>F9F0,>F1F2,>DCD9    ;
-       DATA >E0E4,>DDDD,>C720,>68DD    ;
-       DATA >DDDD,>E2E1,>DCDC,>E0E4    ;
-* -- Map Row 19 --                      
-       DATA >E3E1,>D9E2,>DBDE,>DFE2    ;
-       DATA >E3E1,>E8E9,>EAEB,>DCD9    ;
-       DATA >DEDF,>E2D9,>DEDD,>E2D9    ;
-       DATA >E0E0,>DEDF,>DFDE,>DFE2    ;
-* -- Map Row 20 --                      
-       DATA >E4DE,>DFE4,>DBDC,>D9E1    ;
-       DATA >E0E1,>F3FA,>FAF4,>DCDB    ;
-       DATA >DCD9,>E1DB,>DCE0,>E4D9    ;
-       DATA >D9E0,>DCD9,>D9DC,>E0E4    ;
-* -- Map Row 21 --                      
-       DATA >E4DC,>E0DE,>DFDC,>D9E1    ;
-       DATA >E3E1,>ECED,>EEEF,>DCDE    ;
-       DATA >E2D9,>E1D9,>DCDE,>DFE2    ;
-       DATA >DBE3,>DCDE,>DFDC,>E3E1    ;
-* -- Map Row 22 --                      
-       DATA >E4DC,>E0DC,>D9DC,>DBE1    ;
-       DATA >E0E1,>F5F6,>F7F8,>DCDC    ;
-       DATA >E4DB,>DEDF,>DFE2,>D9E1    ;
-       DATA >DBDE,>DFE2,>E0DC,>E3E1    ;
-* -- Map Row 23 --                      
-       DATA >E4E2,>E3DC,>D9E1,>DBE1    ;
-       DATA >E0E1,>ECED,>EEEF,>DCDC    ;
-       DATA >E1E0,>DCDB,>DEDF,>E2E1    ;
-       DATA >DBDC,>E0E1,>DBE2,>E0E4    ;
-* Sprite Locations                      
-SL0    BYTE 55,136,56,11               ; y, x, pattern#, color#
-       BYTE 71,128,64,11               ; 
-       BYTE 31,120,36,11               ; 
-       BYTE 255,104,4,11               ; 
-       BYTE 15,120,16,11               ; 
-       BYTE 15,104,12,11               ; 
-       BYTE 255,120,8,11               ; 
-       BYTE 15,152,24,11               ; 
-       BYTE 15,136,20,11               ; 
-       BYTE 71,112,60,11               ; 
-       BYTE 31,144,40,11               ; 
-       BYTE 55,120,52,11               ; 
-       BYTE 39,104,32,11               ; 
-       BYTE 55,104,48,11               ; 
-       BYTE 55,88,44,11                ; 
-       BYTE 63,176,0,5                 ; 
-       BYTE 39,80,28,11                ; 
+;
+; tilda.asm
+;
+
+; Cartridge header and common functions
+
+
+VDPWD  EQU  >8C00             ; VDP write data
+VDPWA  EQU  >8C02             ; VDP set read/write address
+VDPRD  EQU  >8800             ; VDP read data (don't forget NOP after address)
+VDPSTA EQU  >8802             ; VDP status
+VDPWM  EQU  >4000             ; VDP address write mask
+VDPRM  EQU  >8000             ; VDP address register mask
+
+SNDREG EQU  >8400             ; Sound register address
+
+ISRCTL EQU  >83C2             ; Four flags: disable all, skip sprite, skip sound, skip QUIT
+USRISR EQU  >83C4             ; Interrupt service routine hook address
+
+WRKSP  EQU  >8300             ; Workspace memory in fast RAM
+R0LB   EQU  WRKSP+1           ; Register zero low byte address
+R1LB   EQU  WRKSP+3           ; Register one low byte address
+R2LB   EQU  WRKSP+5           ; Register two low byte address
+R3LB   EQU  WRKSP+7           ; Register three low byte address
+R4LB   EQU  WRKSP+9           ; Register four low byte address
+R5LB   EQU  WRKSP+11          ; Register five low byte address
+R6LB   EQU  WRKSP+13          ; Register six low byte address
+R7LB   EQU  WRKSP+15          ; Register 7 low byte address
+R8LB   EQU  WRKSP+17          ; Register 8 low byte address
+R10LB  EQU  WRKSP+21          ; Register 10 low byte address
+R13LB  EQU  WRKSP+27          ; Register 13 low byte address
+
+
+; VDP Map
+; 0000:031F Screen Table A (32*25 = 320)
+; 0340:035F Color Table (32 bytes = 20)
+; 0360:037F Bright Color Table (32 bytes = 20)
+; 0380:03FF Sprite List Table (32*4 bytes = 80)
+; 0400:071F Screen Table B (32*25 = 320)
+; 0720:073F Enemy HP (32 bytes = 20)
+; 0740:077F Enemy Hurt/Stun Counters interleaved (64 bytes = 40)
+; 0780:079F Save area scratchpad/sprite list
+; 07A0:07FF
+; 0800:0FFF Pattern Descriptor Table
+; 1000:17FF Sprite Pattern Table
+; 1800:1ABF Level Screen Table (32*22 chars = 2C0)
+; 1AC0:1D5F Menu Screen Table (32*21 chars = 2A0)
+; 1D60:255F Enemy sprite patterns (64*32 bytes = 800)
+
+; 3000:3fff Music Sound List (would it be better in banked ROM?)
+
+SCR1TB EQU  >0000           ; Name Table 32*24 bytes (double-buffered)
+CLRTAB EQU  >0340           ; Color Table address in VDP RAM - 32 bytes
+BCLRTB EQU  >0360           ; Bright Color Table address in VDP RAM - 32 bytes
+SPRTAB EQU  >0380           ; Sprite List Table address in VDP RAM - 32*4 bytes
+SCR2TB EQU  >0400           ; Name Table 32*24 bytes (double-buffered)
+SCHSAV EQU  >0780           ; Save area for SCRTCH scratchpad/screen list
+PATTAB EQU  >0800           ; Pattern Table address in VDP RAM - 256*8 bytes
+SPRPAT EQU  >1000           ; Sprite Pattern Table address in VDP RAM - 256*8 bytes
+LEVELA EQU  >1800           ; Name table for level A (copied to SCRTB1 or 2)
+MENUSC EQU  >1AC0           ; Name table for menu screen
+ENESPR EQU  >1D60           ; Enemy sprite patterns (up to 64)
+
+MUSICV EQU  >3000           ; Music Base Address in VDP RAM (4k space)
+
+ENEMHP EQU  >0720    ; Enemy HP
+ENEMHS EQU  >0740    ; Enemy hurt/stun counters interleaved:
+                     ; stun: count=6bits
+                     ; hurt: direction=2bits count=6bits
+
+; CPU RAM layout
+;   0:  32 bytes - workspace
+;  32:  32 bytes - global variables
+;  64: 128 bytes - sprite list
+; 192:  64 bytes - moving object index and data
+; 224:  32 bytes - scratchpad (overlaps object table)       
+
+; 00: workspace
+; 10: workspace
+; 20: globals
+; 30: globals
+; 40: sprites 0-3    (could be unused - in VDP RAM only)
+; 50: sprites 4-7
+; 60: sprites 8-11
+; 70: sprites 12-15
+; 80: sprites 16-19
+; 90: sprites 20-23
+; A0: sprites 24-27
+; B0: sprites 28-31
+; C0: objects 0-7    (0-6 are unused)
+; D0: objects 8-15
+; E0: objects 16-23  (scratchpad)
+; F0: objects 24-31  (scratchpad)
+
+MUSICP EQU  WRKSP+32        ; Music Pointer
+MUSICC EQU  WRKSP+34        ; Music Counter
+
+MAPLOC EQU  WRKSP+36        ; Map location XY 16x8
+RUPEES EQU  WRKSP+37        ; Rupee count (max 255)
+KEYS   EQU  WRKSP+38        ; Key count
+BOMBS  EQU  WRKSP+39        ; Bomb count (max 8,12,16)
+HP     EQU  WRKSP+40        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
+HEARTS EQU  WRKSP+41        ; Max hearts - 1 (min 2, max 15)
+MOVE12 EQU  WRKSP+42        ; Movement by 1 or 2
+SPRLSP EQU  WRKSP+44        ; Sprite List Pointer in VDP RAM (32*4 bytes)
+DOOR   EQU  WRKSP+46        ; YYXX position of doorway or secret
+FLAGS  EQU  WRKSP+48        ; Screen pointer in VRAM for page flipping
+INCAVE EQU  >0001            ; Inside cave
+FULLHP EQU  >0002            ; Full hearts, able to use beam sword
+ENEDGE EQU  >0004            ; Enemies load from edge of screen
+SCRFLG EQU  >0400           ; NOTE must be equal to SCR2TB
+;TODO Facing bits in here
+
+HFLAGS EQU  WRKSP+50        ; Hero Flags
+BLURNG EQU  >0001            ; Blue Ring (take 1/2 damage)
+REDRNG EQU  >0002            ; Red Ring (take 1/4 damage)
+MAGSHD EQU  >0004            ; Magic Shield
+BCANDL EQU  >0008            ; Blue candle (once per screen)
+RCANDL EQU  >0010            ; Red candle (unlimited)
+BMRANG EQU  >0020            ; Boomerang (brown)
+MAGBMR EQU  >0040            ; Magic Boomerang (blue)
+ASWORD EQU  >0080            ; Wood  Sword 1x damage (brown)
+WSWORD EQU  >0100            ; White Sword 2x damage (white)
+MSWORD EQU  >0200            ; Magic Sword 4x damage (white slanted)
+ARROWS EQU  >0400            ; Arrows (brown)
+BOW    EQU  >0800            ; Bow (brown)
+FLUTE  EQU  >1000            ; Flute (brown)
+PBRACE EQU  >2000            ; Power Bracelet (red)
+LADDER EQU  >4000            ; Ladder (brown)
+RAFT   EQU  >8000            ; Raft (brown)
+
+HFLAG2 EQU  WRKSP+52         ; More hero flags
+MAGROD EQU  >0001            ; Magic Rod (blue)
+BOOKMG EQU  >0002            ; Book of Magic (adds flames to magic rod)
+MAGKEY EQU  >0004            ; Magic Key (opens all doors, appears as XA)
+REDPOT EQU  >0008            ; Red potion (refills hearts, turns into blue potion when used)
+BLUPOT EQU  >0010            ; Blue potion (refills hearts, turns into letter when used)
+LETTER EQU  >0020            ; Letter from old man (give to woman allows buying potions)
+LETPOT EQU  >0040            ; Gave the letter to old woman, potions available
+BAIT   EQU  >0080            ; Bait (lures monsters or give to grumble grumble)
+SARROW EQU  >0100            ; Silver arrows (appear blue, double damage)
+
+SELITM EQU  >E000            ; Selected item 0-7
+
+KEY_FL EQU WRKSP+54         ; key press flags
+KEY_UP EQU  >0002           ; J1 Up / W
+KEY_DN EQU  >0005           ; J1 Down / S
+KEY_LT EQU  >0008           ; J1 Left / A
+KEY_RT EQU  >0010           ; J1 Right / D
+KEY_A  EQU  >0020           ; J1 Fire / J2 Left / Enter
+KEY_B  EQU  >0040           ; J2 Fire / J2 Down / Semicolon / E
+KEY_C  EQU  >0080           ; J2 Right/ J2 Up / Slash / Q
+EDG_UP EQU  KEY_UP*256
+EDG_DN EQU  KEY_DN*256
+EDG_LT EQU  KEY_LT*256
+EDG_RT EQU  KEY_RT*256
+EDG_A  EQU  KEY_A*256
+EDG_B  EQU  KEY_B*256
+EDG_C  EQU  KEY_C*256
+
+
+OBJPTR EQU  WRKSP+56        ; Object pointer for processing sprites
+COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16:[4..0]
+
+RAND16 EQU  WRKSP+60        ; Random state
+
+SPRLST EQU  WRKSP+64
+HEROSP EQU  SPRLST          ; Address of hero sprites (color and outline)
+SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps sprite list)
+
+OBJECT EQU  WRKSP+192       ; 64 bytes sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
+SWORDC EQU  OBJECT+12       ; Sword animation counter
+HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
+FACING EQU  OBJECT+2        ; Pointer to facing direction sprites
+FACEDN EQU  >0000
+FACELT EQU  >0100
+FACERT EQU  >0200
+FACEUP EQU  >0300
+
+
+
+;SOUNDP EQU  WRKSP+192       ; Sound effect list pointer (zero when not playing)
+;SOUNDC EQU  WRKSP+194       ; Sound effect counter
+;SOUND0 EQU  WRKSP+196       ; Backup register for music sound generator 0 vzxy
+;SOUND1 EQU  WRKSP+196       ; Backup register for music sound generator 1 vzxy
+;SOUND2 EQU  WRKSP+196       ; Backup register for music sound generator 2 vzxy
+;SOUND3 EQU  WRKSP+196       ; Backup register for music sound generator 3 vn
+
+
+
+
+
+; Sprite function array (64 bytes), for each sprite:
+;   index byte of sprite function to call: 6 bits, flags hurt and stun: 2 bits
+;   other byte of data (counter, direction, etc)
+  
+;   function called with data in registers:
+;   R4   data from sprite function array (function idx, counter, etc)
+;   R5   YYXX word sprite location (Y is adjusted)
+;   R6   IDCL sprite index, color and early bit
+  
+;   (direction could be encoded in sprite index if done carefully, or sprite function index)
+
+; Sprite patterns (16x16 pixels, total of 64) (four per line, 4*8 bytes per sprite)
+; 0x Link (fg and outline, 2 frame animation)  (replaced when changing direction)
+; 1x Link Attack (fg and outline)   Wand (same direction), Ladder/Raft(as needed)
+; 2x reserved for enemies (moblin 1-4, pulsing ground 1-2, peahat 1-2, ghini 1-4
+; 3x reserved for enemies (moblin 5-8, leever 1-3, tektite 1-2, rock 1-2
+; 4x reserved for enemies (octorok 1-4, lynel 1-4,
+; 5x reserved for enemies (octorok 5-8, lynel 5-8,
+; 6x reserved for enemies (octorok bullet, zora 1-2, zora bullet, armos 1-4
+; 7x Sword N,S,E,W
+; 8x Sword projectile pop
+; 9x Boomerang N,S,E,W
+; Ax Arrow N,S,E,W
+; Bx Magic N,S,E,W
+; Cx rupee, bomb, heart, key
+; Dx cloud puff (3 frames), spark (arrow hitting edge of screen)
+; Ex map dot, half-heart (status bar), disappearing enemy (2 frames)
+; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), secondary item, clock
+
+; TODO: Compass, clock, magic book, rings, magic key, power bracelet,
+;       candles, whistle, bait, letter and medicine
+
+; enemy sprites loaded on demand per level
+; 20-27 Peahat 2 sprites
+; 28-2F pulsing ground 2 sprites (with Leever or Zora)
+; 20-2F Ghini 4 sprites
+; 20-3F Moblin 8 sprites
+; 30-3B Leever 3 sprites 
+; 30-37 Tektite 2 sprites
+; 30-37 Rock 2 sprites
+; 40-5F Lynel 8 sprites
+; 40-63 Octorok 9 sprites (2 anim, 4 directions, + bullet)
+; 60-6F Armos 4 sprites
+; 64-6F Zora 3 sprites (bullet, front, back)
+
+; groups 
+; lynel  leever
+; lynel  peahat
+; leever peahat
+; moblin octorok
+; armos peahat
+; armos lynel
+; armos leever
+; rocks zora
+
+; Sprite list layout
+; 0-1  Link, outline
+; 2-5  Mapdot, item, sword, half-heart
+; TODO  0-3  Mapdot, item, sword, half-heart  (keep in VDP RAM only)
+; TODO  4-5  Link, outline
+; 6    Sword/wand
+; 7    Flying sword
+; 8    Arrow
+; 9    Boomerang
+; 10   Magic
+; 11   Flame
+; 12   Bomb
+; 13+  all other objects
+
+
+
+; Screens cleared of enemies are stored in an 8-item cache, 
+; When loading a level if it is not in the cache, then all enemies are loaded normally
+; Each screen keeps a record of how many enemies were killed (when not all)
+; Each screen has a list of enemies to load (only alive enemies are loaded from start of the list)
+
+
+; Sprite patterns are limited, that's why only one link pattern
+; per direction active at a time.
+; New pattern uploaded upon changing direction
+; Pattern takes into account magic shield or not
+
+
+
+; level data
+;  number and type of enemies (2 or 3 kinds)
+;  special palette changes (white bricks, trees or dungeon)
+;  door/secret location and trigger (bomb, candle, pushblock, etc)
+
+; game keeps track of which secret locations are opened, and items obtained,
+; number of rupees, keys and bombs, max hearts,
+; and number of enemies remaining on each screen (reset at game start)
+
+; Game saved as password (36 values per character A-Z 0-9, or 32 without 01IO)
+; slightly obfuscated to prevent value hacking
+
+
+
+
+
+
+BANK0  EQU  >6000
+BANK1  EQU  >6002
+BANK2  EQU  >6004
+BANK3  EQU  >6006
+
+       AORG >6000         ; Cartridge header in all banks
+HEADER
+       BYTE >AA     ; Standard header
+       BYTE >01     ; Version number 1
+       BYTE >01     ; Number of programs (optional)
+       BYTE >00     ; Reserved (for FG99 this can be G,R,or X)
+       DATA >0000   ; Pointer to power-up list
+       DATA PRGLST  ; Pointer to program list
+       DATA >0000   ; Pointer to DSR list
+       DATA >0000   ; Pointer to subprogram list
+
+PRGLST DATA >0000   ; Next program list entry
+       DATA START   ; Program address
+       BYTE CRTNME-CRTNM       ; Length of name
+CRTNM  TEXT 'LEGEND OF TILDA'
+CRTNME
+       EVEN
+
+START
+       LWPI WRKSP             ; Load the workspace pointer to fast RAM
+       LI R0,BANK0            ; Switch to bank 0
+       LI R1,MAIN             ; and go to MAIN
+
+; Select bank in R0 (not inverted) and jump to R1
+BANKSW CLR *R0
+       B *R1
+
+; Copy R2 bytes from R1 to VDP address R0
+VDPW   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       ORI  R0,VDPWM        ; Set read/write bits 14 and 15 to write (01)
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+!      MOVB *R1+,*R15       ; Write byte to VDP RAM
+       DEC  R2              ; Byte counter
+       JNE  -!              ; Check if done
+       RT
+
+; Write one byte from R1 to VDP address R0
+VDPWB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       ORI  R0,VDPWM        ; Set read/write bits 14 and 15 to write (01)
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       MOVB R1,*R15
+       RT
+
+; Read one byte to R1 from VDP address R0 (R0 is preserved)
+VDPRB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       NOP                  ; Very important for 9918A prefetch, otherwise glitches can occur
+       MOVB @VDPRD,R1
+       RT
+
+; Read R2 bytes to R1 from VDP address R0 (R0 is preserved)
+VDPR   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       NOP                  ; Very important for 9918A prefetch, otherwise glitches can occur
+!      MOVB @VDPRD,*R1+
+       DEC R2
+       JNE -!
+       RT
+
+
+; Write VDP register R0HB data R0LB
+VDPREG MOVB @R0LB,*R14      ; Send low byte of VDP Register Data
+       ORI  R0,VDPRM          ; Set register access bit
+       MOVB R0,*R14         ; Send high byte of VDP Register Number
+       RT
+
+; Note: The interrupt is disabled in VDP Reg 1 so we can poll it here
+; There could be a race condition where the interrupt flag could be cleared before we read it,
+; resulting it a missed vsync interrupt, and polling the status register increases that chance.
+; VSYNC  MOVB @VDPSTA,R0     ; Note: VDP Interrupt flag is now cleared after reading it
+;        ANDI R0, >8000
+;        JEQ VSYNC
+;        RT
+
+; Reading the VDP INT bit from the CRU doesn't clear the status register, so it should be safe to poll.
+; The CRU bit appears to get updated even with interrupts disabled (LIMI 0)
+; Modifies R0
+VSYNC  MOV R12,R0            ; Save R12 since we use it
+       MOVB @VDPSTA,R12      ; Clear interrupt first so we catch the edge
+       CLR R12
+!      TB 2                  ; CRU Address bit 0002 - VDP INT
+       JEQ -!                ; Loop until set
+       MOVB @VDPSTA,R12      ; Clear interrupt flag manually since we polled CRU
+       MOV R0,R12            ;
+       RT
+
+;
+; Play some music!
+;
+; Modifies R0,R1,R2
+MUSIC
+       DEC @MUSICC         ; Decrement music counter (once per frame)
+       JNE MUSIC3
+MUSIC0
+       MOV @MUSICP,R0      ; Program the Music Pointer in VRAM
+       MOVB @R0LB,*R14     ; Send low byte of VDP RAM write address
+       MOVB R0,*R14        ; Send high byte of VDP RAM write address
+       CLR R1
+MUSIC1
+       MOVB @VDPRD,R1      ; Read sound list byte from VRAM
+       INC @MUSICP         ; Increment music pointer
+
+       CI R1,>8000         ; Is it a music counter byte?
+       JL MUSIC2
+       CI R1,>E000         ; Is it a noise channel byte?
+       JHE !
+       MOV R1,R2
+       ANDI R2,>1000       ; Is it the upper nibble even? (freq byte, otherwise vol byte)
+       JNE !
+; Bytes with upper nibble >8_, >A_, >C_ are two bytes
+       MOVB R1,@SNDREG     ; Write the byte the sound chip
+       MOVB @VDPRD,R1      ; Read the next byte from VRAM
+       INC @MUSICP         ; Increment music pointer
+
+!      MOVB R1,@SNDREG     ; Write the byte the sound chip
+       JMP MUSIC1
+MUSIC2 SWPB R1
+       MOV R1, @MUSICC     ; Store the music counter
+       JNE MUSIC3
+       INC @MUSICC         ; Set Music counter = 1
+       MOVB @VDPRD,R0      ; Get loop offset low byte
+       SWPB R0
+       MOVB @VDPRD,R0      ; Get loop offset high byte
+       AI R0, MUSICV       ; Add music base pointer
+       MOV R0,@MUSICP
+       JMP MUSIC0
+MUSIC3
+       RT
+
+
+HDREND
+

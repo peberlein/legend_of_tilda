@@ -5,10 +5,13 @@
 ; todo: compressed sprites
 ;
 
-       COPY 'legend.asm'
+       COPY 'tilda.asm'
 
        
 ; Load title screen
+; R2 = 0 title screen
+;      1 game over screen
+;      2 load hero sprites (R3 = direction)
 MAIN
        MOV R11,R13      ; Save return address for later
        CI R2,1
@@ -526,7 +529,7 @@ FGCSET MOV R11,R10  ; Save return address
 LNKSPN DATA FACERT,FACEDN,FACELT,FACEUP
 
 ; 939 2 brown on dark red palette
-DEDCLR BYTE >16,>1B,>86,>96            ;
+DEDCLR BYTE >16,>1B,>16,>96            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >16,>16,>16,>16            ;
@@ -536,7 +539,7 @@ DEDCLR BYTE >16,>1B,>86,>96            ;
        BYTE >96,>96,>16,>16            ;
 
 ; 1018 10 brown on lightred palette
-DEDCL2 BYTE >18,>1B,>18,>98            ;
+DEDCL2 BYTE >18,>1B,>68,>98            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >18,>16,>16,>16            ;
@@ -546,7 +549,7 @@ DEDCL2 BYTE >18,>1B,>18,>98            ;
        BYTE >98,>98,>18,>18            ;
 
 ; 1028 10 dark brown on darkred palette
-DEDCL3 BYTE >16,>1B,>96,>96            ;
+DEDCL3 BYTE >16,>1B,>16,>96            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >16,>16,>16,>16            ;
@@ -562,8 +565,8 @@ DEDCL4 BYTE >16,>1B,>16,>16            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>16,>16            ;
-       BYTE >16,>16,>14,>86            ;
-       BYTE >86,>86,>16,>16            ;
+       BYTE >16,>16,>14,>16            ;
+       BYTE >16,>16,>16,>16            ;
 
 
 
@@ -989,4 +992,4 @@ REVB8
 
 
 
-TILDA  COPY "tilda.asm" 
+TILDA  COPY "title.asm"

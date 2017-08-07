@@ -1,10 +1,10 @@
 ;
 ; Legend of Tilda
-; 
+;
 ; Bank 0: initialization and main loop
 ;
-       
-       COPY 'legend.asm'
+
+       COPY 'tilda.asm'
 MAIN
        LIMI 0                ; Disable interrupts, always
        LI   R14,VDPWA        ; Keep VDPWA address in R14
@@ -208,6 +208,18 @@ INPUT
        LI   R2,8            ; Use item selection
        CLR R0               ; Don't change MAPLOC
        BL @SCROLL
+
+DOMENU
+       BL @VSYNC
+       BL @DOKEYS
+       MOV @KEY_FL, R0
+       SLA R0,1             ; Shift EDG_C bit into carry status
+       JNC DOMENU
+
+       LI   R2,9            ; Exit item selection
+       CLR R0               ; Don't change MAPLOC
+       BL @SCROLL
+
 !
 
 
