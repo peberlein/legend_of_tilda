@@ -272,6 +272,30 @@ Low cloud: 6 frames (enemy appears underneath on last frame)
 Delay before next half cloud: 6 frames 
 Lynel clouds appear simultaneously
 
+483 screen scrolls in
+493 clouds appear frame 1
+494 cloud 1 frame 2
+496 cloud 2 frame 2
+498 cloud 3 frame 2
+499 cloud 4 frame 2
+500 cloud 1 frame 3
+502 cloud 2 frame 3
+504 cloud 3 frame 3
+505 cloud 1 moblin appears, cloud 4 frame 3
+506 cloud 1 gone
+507 cloud 2 moblin appears
+508 cloud 2 gone
+509 cloud 3 moblin appears
+510 cloud 4 moblin appears, cloud 3 gone
+511 cloud 4 gone
+
+541 cloud 5 frame 2
+547 cloud 5 frame 3
+554 cloud 5 gone, octorok appears
+573 cloud 6 frame 2
+579 cloud 6 frame 3
+585 cloud 6 gone, octorok appears
+
 Monster flags: hurt/stun=1bit
 Hurt state: 2 bits direction, 6 bits counter (stored in VDP)
 Stun state: 6 bits counter (stored in VDP)
@@ -296,6 +320,13 @@ Rock	.5
 TektiteR .5	1
 TektiteB .5	1
 Zola	.5	2/1/1
+
+Item drops chart and forced item drops:
+http://www.zeldaspeedruns.com/loz/generalknowledge/item-drops-chart
+http://www.zeldaspeedruns.com/loz/tech/forced-item-drops
+https://kb.speeddemosarchive.com/The_Legend_of_Zelda
+
+
 
 Weapon Damage [http://zelda.gamepedia.com/Weapon_Strength#The_Legend_of_Zelda]
 Wooden Sword    1
@@ -388,10 +419,8 @@ https://tcrf.net/The_Legend_of_Zelda/Console_Differences
 
 
 TODO: High priority
-Fix leevers
-Fix menu
-
-TODO:
+Tektite AI
+Add Zora & bullet
 Add octorok bullets (stationary 24 frames before shooting)
 Add moblin arrows
 Add lynel swords (same as sword beam)
@@ -400,8 +429,8 @@ Cloud/edge spawning for octorok/moblin/lynel
 Smooth scrolling text after title screen
 Animate going up/down cave (animate in bank 3) (move up/down 1 pixel every 4 frames, animate every 6 frames)
 
+TODO:
 Enemy stun (requires boomerang or clock)
-Add Zora & bullet
 Add Armos
 Menu screen items and selection
 Title screen music
@@ -409,6 +438,7 @@ Rewrite sound player
   Sound effect playback
   Pattern music 4 channel
 Drops: bombs, fairy, clock
+Heart container
 Bombs
 Boomerang
 Arrows
@@ -421,15 +451,29 @@ Fairy pond - filling hearts
 Sprite compression
 Enemy respawn (8 screen LRU)
 Save enemy count per screen
-Fix & Fill caves with items
 Implement forest maze and up up up mountain
 Secrets opened by bombs/flame/power bracelet
 Caves and stores
 Dungeons & music
+Dungeon enemies and bosses
 Pushable rock to open cave
 Continue/save/retry
+Character selection / enter your name
 FG99 saving
 Disk save/load
+Press joystick 1 up to start
+Move hero sprites to slot 4-5, status bar sprites to 0-3
+Free up 14 bytes in CPU RAM for unrolled VDP copy (or 8 bytes without unroll)
+!    MOV *R1+,*R15
+     MOV *R1+,*R15
+     MOV *R1+,*R15
+     MOV *R1+,*R15
+     DEC R2
+     JNE -!
+     RT
+Peahat should not hurt link while flashing and not on ground
+Link sword retract
+
 
 DONE:
 Status bar - gems,keys,bombs + hearts
@@ -446,3 +490,5 @@ Hero game over animation
 Game over screen
 Sword beam only works at full hearts
 Drops: hearts, gems, gemsX5
+Leevers
+Peahats
