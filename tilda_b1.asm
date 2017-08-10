@@ -1,6 +1,7 @@
 ;
 ; Legend of Tilda
-; 
+; Copyright (c) 2017 Pete Eberlein
+;
 ; Bank 1: music
 ;
 

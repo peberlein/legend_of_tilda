@@ -1,6 +1,7 @@
 ;
 ; Legend of Tilda
-; 
+; Copyright (c) 2017 Pete Eberlein
+;
 ; Bank 2: overworld map and transition functions
 ;
 
@@ -24,15 +25,9 @@
 MAIN
        MOV R11,R12          ; Save return address for later
 
-       LI R0,>D100
-       LI R3,SPRTAB+(6*4)   ; Clear VDP sprite list
-       ORI R3,>4000
-       MOVB @R3LB,*R14
-       MOVB R3,*R14
-       LI R1,26*4
-!      MOVB R0,*R15
-       DEC R1
-       JNE -!
+       LI R0,SPRTAB+(6*4)
+       LI R1,>D000
+       BL @VDPWB       ; Turn off most sprites
 
        CI R2,8
        JNE !
@@ -261,8 +256,8 @@ DONE
        ANDI R1,>0F00
        SRL  R1,6
        AI   R1,>0010
-       A    R1,R0       ; Set XX
-       MOV  R0,@SPRLST+8    ; Set Map Dot YYXX  (YY=16,20...76 XX=-13,-10,-7,-4,-1,2,5,8)
+       A    R1,R0         ; Set XX
+       MOV  R0,@MPDTSP    ; Set Map Dot YYXX  (YY=16,20...76 XX=-13,-10,-7,-4,-1,2,5,8)
        
        B @LENEMY
 DONE2
@@ -286,6 +281,19 @@ MAPDOT BYTE -14,-11,-8,-5,-2,1,4,7
        
 JMPLST DATA DONE,SCRLUP,SCRLDN,SCRLLT,SCRLRT,WIPE,CAVEIN,CAVOUT
 
+; Test for vsync and play music if set
+VMUSIC
+       MOV R12,R0           ; Save R12
+       CLR R12              ; CRU Address bit 0002 - VDP INT
+       TB 2
+       JEQ !
+       MOVB @VDPSTA,R12     ; Clear interrupt flag manually since we polled CRU
+       MOV R0,R12           ; Restore R12
+       B @MUSIC       
+!      MOV R0,R12           ; Restore R12
+       RT
+
+
 ; Add R1 to hero sprite YYXX, and update VDP sprite list
 DOSPRT
        A R1,@HEROSP
@@ -294,18 +302,6 @@ DOSPRT
        LI R1,HEROSP
        LI R2,8
        B @VDPW
-
-; Test for vsync and play music if set
-VMUSIC
-       MOV R12,R0           ; Save R12
-       LI R12,>0004         ; CRU Address bit 0002 - VDP INT
-       TB 0
-       JEQ !
-       MOVB @VDPSTA,R12     ; Clear interrupt flag manually since we polled CRU
-       MOV R0,R12           ; Restore R12
-       B @MUSIC       
-!      MOV R0,R12           ; Restore R12
-       RT
 
 ; Copy scratchpad to the screen at R0
 ; Modifies R0,R1,R2
@@ -556,9 +552,12 @@ STEPDN LI R4, 4             ; Step downward first four sprites
        MOVB R1,@SCRTCH+16  ; Clear top right edge
        BL @PUTSCR
        
-       AI R0,(->4000)+32   ; Clear write bit and add 32
+       AI R0,-VDPWM+32   ; Clear write bit and add 32
        DEC R4
        JNE -!
+
+       BL @VSYNC
+       BL @MUSIC
 
        BL @VSYNC
        BL @MUSIC
@@ -582,8 +581,8 @@ CAVOUT
 !
        LI R0,SCRFLG
        XOR @FLAGS,R0  ; Set dest to flipped screen
-       ANDI R10,SCRFLG
-       AI R0,(3*32)+>4000
+       ANDI R0,SCRFLG
+       AI R0,(3*32)+VDPWM
        MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
        MOVB R0,*R14         ; Send high byte of VDP RAM write address
 
@@ -651,7 +650,7 @@ WIPE2
        
        MOV @FLAGS,R3  ; Set dest to flipped screen
        ANDI R3,SCRFLG
-       AI  R3,(32*3)-1+>4000  ; Calculate left column dest pointer with write flag
+       AI  R3,(32*3)-1+VDPWM  ; Calculate left column dest pointer with write flag
        A   R8,R3
        
        LI R9,22           ; Copy 22 characters
@@ -675,7 +674,7 @@ WIPE2
        
        MOV @FLAGS,R3  ; Set dest to flipped screen
        ANDI R3,SCRFLG
-       AI  R3,(32*3)+32+>4000  ; Calculate right column dest pointer with write flag
+       AI  R3,(32*3)+32+VDPWM  ; Calculate right column dest pointer with write flag
        S   R8,R3
        
        LI R9,22           ; Copy 22 characters
@@ -699,9 +698,68 @@ WIPE2
 
        B @DONE
 
+; Status sprites move by R0
+STMOVE
+       A R0,@MPDTSP
+       A R0,@ITEMSP
+       A R0,@SWRDSP
+       A R0,@HARTSP
+       LI R0,SPRTAB
+       LI R1,SPRLST
+       LI R2,4*4
+       B @VDPW
+
+;Raft (brown) Book (red) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
+;Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (red/blue)
+;Flute (brown) Meat (red) Scroll(brown)/Potion(red/blue) Magic Rod (blue)
+
+; items that get copied to pattern table
+; 80  ladder  raft   brown
+;     magkey boomer  brown
+;     arrows flute   brown
+;     silver boomer  blue
+;     bombs  candle  blue
+;     letter potion  blue
+;     magrod ring    blue
+;     ring   book    red
+;     powerb candle  red
+;     meat   potion  red
+
+;ITEMS  DATA >A037    ; Ladder
+;       DATA >B831    ; Raft
+
+; 30 32 34 36 38 3A
+; 90  93   96   99
+; D0  D3   D6   D9
+
+ITEMS  DATA >0036  ; Ladder
+       DATA >0030  ; Raft
+       DATA >0038  ; Magic Key
+       DATA >9490  ; Boomerang
+       DATA >0096  ; Arrows
+       DATA >00D0  ; Flute
+       DATA >0096  ; Silver arrows?
+       DATA >9490  ; Magic Boomerang
+       DATA >C493  ; Bombs (is C4, ha!)
+       DATA >0099  ; Blue Candle
+       DATA >00D6  ; Letter
+       DATA >00D6  ; Potion
+       DATA >00D9  ; Magic Rod
+       DATA >0034  ; Blue Ring
+       DATA >0034  ; Red Ring
+       DATA >0032  ; Magic Book
+       DATA >003A  ; Power Bracelet
+       DATA >0099  ; Red Candle
+       DATA >00D3  ; Meat
+       DATA >00D6  ; Red Potion
+
 MENUDN
        LI R0,SCHSAV
        BL @PUTSCR      ; Save a backup of scratchpad
+
+       LI R0,SPRTAB+(4*4)
+       LI R1,>D000
+       BL @VDPWB       ; Turn off hero sprites
 
        LI R6,VDPRD     ; Keep VDPRD address in R6
        LI R8,21        ; Scroll through 21 rows
@@ -711,6 +769,43 @@ MENUDN
        LI R9,23        ; Move 23 lines
        LI R10,32*23    ; Dest start at at bottom
        BL @SCROLL      ; Scroll down
+
+       LI R0,>0800
+       BL @STMOVE      ; Move status sprites down
+
+       DEC R8
+       JNE -!
+
+       LI R5,ITEMS
+       LI R7,PATTAB+(>80*8)
+       LI R8,20       ; Draw 20 items
+       LI R9,>8082    ; Use characters starting at 80
+!
+       MOV *R5+,R4
+
+       ; Copy sprite
+       MOV R4,R0
+       ANDI R0,>FF00
+       SRL R0,5
+       AI R0,SPRPAT
+       BL @READ32
+       MOV R7,R0
+       BL @PUTSCR
+       AI R7,32
+
+       MOV @FLAGS,R0   ; Set dest to flipped screen
+       ANDI R0,SCRFLG
+       ANDI R4,>00FF
+       A R4,R0         ; Add screen pos
+
+       MOV R9,R1       ; Get character number
+       BL @VDPWB
+       MOVB @R1LB,*R15
+       AI R0,>20
+       AI R1,>0101
+       BL @VDPWB
+       MOVB @R1LB,*R15
+       AI R9,>0404
 
        DEC R8
        JNE -!
@@ -723,6 +818,32 @@ MENUUP
        LI R0,SCHSAV
        BL @PUTSCR      ; Save a backup of scratchpad
 
+       LI R5,ITEMS
+       LI R7,PATTAB+(>80*8)
+       LI R8,20       ; Erase 20 items
+       MOV @FLAGS,R9   ; Set dest to flipped screen
+       ANDI R9,SCRFLG
+
+!      MOV *R5+,R0
+       ANDI R0,>00FF
+       A R9,R0         ; Add screen pos
+
+       LI R1,>2020
+       BL @VDPWB
+       MOVB @R1LB,*R15
+       AI R0,>20
+       BL @VDPWB
+       MOVB @R1LB,*R15
+
+       DEC R8
+       JNE -!
+
+       LI R0,PATTAB+(>80*8)
+       LI R1,PAT128
+       LI R2,20*32
+       BL @VDPW        ; Restore tiles used for items
+
+
        LI R6,VDPRD     ; Keep VDPRD address in R6
        LI R8,21        ; Scroll through 21 rows
        LI R4,LEVELA
@@ -731,6 +852,9 @@ MENUUP
        LI R9,23        ; Move 23 lines
        CLR R10         ; Dest start at at top
        BL @SCROLL      ; Scroll up
+
+       LI R0,->0800
+       BL @STMOVE      ; Move status sprites up
 
        DEC R8
        JNE -!

@@ -1,5 +1,6 @@
 ;
 ; Legend of Tilda
+; Copyright (c) 2017 Pete Eberlein
 ;
 ; Bank 0: initialization and main loop
 ;
@@ -39,7 +40,7 @@ MAIN
 RESTRT
        LI   R0,SPRPAT+(28*32)         ; Sprite Pattern Table
        LI   R1,SPR8
-       LI   R2,(SPR43-SPR8)+32
+       LI   R2,(SPREND-SPR8)
        BL   @VDPW
        
 ;                               Draw the screen
@@ -405,9 +406,9 @@ MOVE2
        MOV @FACING,R3
        CLR R1
 MOVE3
-       MOVB R1,@SPRLST+2       ; Set color sprite index
+       MOVB R1,@HEROSP+2       ; Set color sprite index
        AI R1,>0400
-       MOVB R1,@SPRLST+6       ; Set outline sprite index
+       MOVB R1,@HEROSP+6       ; Set outline sprite index
 
 MOVE4  CB R3,@FACING
        LI R11,DRAW
@@ -693,7 +694,7 @@ HEART
        JL SPROFF
 
 !      LI R2,GETITM
-       MOV @SPRLST,R3    ; Get hero pos in R3
+       MOV @HEROSP,R3    ; Get hero pos in R3
        BL @COLIDE
        MOV @SPRLST+24,R3 ; Get sword pos in R3
        BL @COLIDE
@@ -1436,8 +1437,15 @@ LPULS2 BL @ANIM11      ; Pulsing?
        JMP LEMOV6
 
 
-
-
+; R4: 8 bits counter
+;     1 bits reserved
+;     1 bits hurt/stun flag
+;     6 bits object id
+; pulsing  32 frames   anim 11
+; normal   48 frames
+;   bullet appears after 19 frames, then shoots after 16
+; pulsing  96 frames   anim 11
+; move instantly (TODO double-check this)
 ZORA0  MOV R4,R0
        ANDI R0,>00FF
        JNE !
@@ -1512,11 +1520,11 @@ HITES1
        
        S   R5,R3            ; subtract sprite pos from sword pos
        ABS R3               ; absolute difference
-       CI R3,>0D00          ; Y diff <= 13 ?
+       CI R3,>0E00          ; Y diff <= 13 ?
        JH HITES2
        SWPB R3              ; swap to compare X
        ABS R3               ; absolute difference
-       CI R3,>0D00          ; X diff <= 13 ?
+       CI R3,>0E00          ; X diff <= 13 ?
        JH HITES2
        
        CI R7,-4
@@ -1978,8 +1986,8 @@ FILLH
        LI R7,>FFB0            ; Half-heart sprite coordinates
 !      CB  R2,R1              ; Compare counter to HP
        JL FILLH
-HALFH  MOV R7,@SPRLST+20      ; Save sprite coordinates
-       MOV R8,@SPRLST+22      ; Save sprite index and color
+HALFH  MOV R7,@HARTSP         ; Save sprite coordinates
+       MOV R8,@HARTSP+2       ; Save sprite index and color
        SWPB R0                ; Switch hearts
        LI R7,FULLHP
        C R2,R9                ; Compare to max hearts
@@ -2030,12 +2038,12 @@ EMOVEM DATA >FFF8,>FFF8,>F8FF,>F8FF     ; Mask alignment to 8 pixels (inverted f
 
 
 
-SPRL0  DATA >D0D0,>0003  ; Link color
-       DATA >D0D0,>0401  ; Link outline
-       DATA >0000,>E002  ; Map dot
+SPRL0  DATA >D0D0,>E002  ; Map dot
        DATA >047B,>C404  ; Bomb item
        DATA >0494,>7C08  ; Sword item
        DATA >07C8,>E406  ; Half-heart
+       DATA >D0D0,>0003  ; Link color
+       DATA >D0D0,>0401  ; Link outline
        DATA >D800,>3001
        DATA >D810,>3401
        DATA >D820,>3801
@@ -2224,6 +2232,7 @@ SPR43  DATA >0402,>0003,>0709,>0B0D    ; Color 9
        DATA >0408,>0203,>0302,>0202    ; 
        DATA >4080,>4080,>9010,>B060    ; 
        DATA >6030,>80C0,>0000,>0000    ; 
+SPREND
 
 ; Menu screen
 * -- Map Row 0 --

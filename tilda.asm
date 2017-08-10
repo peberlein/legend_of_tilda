@@ -1,6 +1,6 @@
 ;
 ; tilda.asm
-;
+; Copyright (c) 2017 Pete Eberlein
 
 ; Cartridge header and common functions
 
@@ -57,7 +57,7 @@ SCR2TB EQU  >0400           ; Name Table 32*24 bytes (double-buffered)
 SCHSAV EQU  >0780           ; Save area for SCRTCH scratchpad/screen list
 PATTAB EQU  >0800           ; Pattern Table address in VDP RAM - 256*8 bytes
 SPRPAT EQU  >1000           ; Sprite Pattern Table address in VDP RAM - 256*8 bytes
-LEVELA EQU  >1800           ; Name table for level A (copied to SCRTB1 or 2)
+LEVELA EQU  >1800           ; Name table for level A (copied to SCR1TB or SCR2TB)
 MENUSC EQU  >1AC0           ; Name table for menu screen
 ENESPR EQU  >1D60           ; Enemy sprite patterns (up to 64)
 
@@ -75,11 +75,11 @@ ENEMHS EQU  >0740    ; Enemy hurt/stun counters interleaved:
 ; 192:  64 bytes - moving object index and data
 ; 224:  32 bytes - scratchpad (overlaps object table)       
 
-; 00: workspace
-; 10: workspace
+; 00: workspace R0-R7
+; 10: workspace R8-R15
 ; 20: globals
 ; 30: globals
-; 40: sprites 0-3    (could be unused - in VDP RAM only)
+; 40: sprites 0-3    (status sprites could be freed - in VDP RAM only)
 ; 50: sprites 4-7
 ; 60: sprites 8-11
 ; 70: sprites 12-15
@@ -97,21 +97,22 @@ MUSICC EQU  WRKSP+34        ; Music Counter
 
 MAPLOC EQU  WRKSP+36        ; Map location XY 16x8
 RUPEES EQU  WRKSP+37        ; Rupee count (max 255)
-KEYS   EQU  WRKSP+38        ; Key count
+KEYS   EQU  WRKSP+38        ; Key count max 9
 BOMBS  EQU  WRKSP+39        ; Bomb count (max 8,12,16)
 HP     EQU  WRKSP+40        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
 HEARTS EQU  WRKSP+41        ; Max hearts - 1 (min 2, max 15)
 MOVE12 EQU  WRKSP+42        ; Movement by 1 or 2
-SPRLSP EQU  WRKSP+44        ; Sprite List Pointer in VDP RAM (32*4 bytes)
+;SPRLSP EQU  WRKSP+44        ; Sprite List Pointer in VDP RAM (32*4 bytes)
 DOOR   EQU  WRKSP+46        ; YYXX position of doorway or secret
-FLAGS  EQU  WRKSP+48        ; Screen pointer in VRAM for page flipping
+FLAGS  EQU  WRKSP+48        ; Various Flags
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
 ENEDGE EQU  >0004            ; Enemies load from edge of screen
 SCRFLG EQU  >0400           ; NOTE must be equal to SCR2TB
 ;TODO Facing bits in here
+;TODO MOVE12 in here
 
-HFLAGS EQU  WRKSP+50        ; Hero Flags
+HFLAGS EQU  WRKSP+50        ; Hero Flags (part of save data)
 BLURNG EQU  >0001            ; Blue Ring (take 1/2 damage)
 REDRNG EQU  >0002            ; Red Ring (take 1/4 damage)
 MAGSHD EQU  >0004            ; Magic Shield
@@ -119,7 +120,7 @@ BCANDL EQU  >0008            ; Blue candle (once per screen)
 RCANDL EQU  >0010            ; Red candle (unlimited)
 BMRANG EQU  >0020            ; Boomerang (brown)
 MAGBMR EQU  >0040            ; Magic Boomerang (blue)
-ASWORD EQU  >0080            ; Wood  Sword 1x damage (brown)
+SWORD1 EQU  >0080            ; Wood  Sword 1x damage (brown)
 WSWORD EQU  >0100            ; White Sword 2x damage (white)
 MSWORD EQU  >0200            ; Magic Sword 4x damage (white slanted)
 ARROWS EQU  >0400            ; Arrows (brown)
@@ -129,13 +130,23 @@ PBRACE EQU  >2000            ; Power Bracelet (red)
 LADDER EQU  >4000            ; Ladder (brown)
 RAFT   EQU  >8000            ; Raft (brown)
 
-HFLAG2 EQU  WRKSP+52         ; More hero flags
+
+;Raft (brown) Book (red) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
+;Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (red/blue)
+;Flute (brown) Meat (red) Scroll(brown)/Potion(red/blue) Magic Rod (blue)
+
+; Raft  Book  Ring(B/R)  Ladder  MagicKey  PowerBracelet
+; Boomerang(Br/Bl)  Bombs  Bow/Arrow  Candle(B/R)
+; Flute  Meat  Letter/Potion(B/R)  MagicRod
+
+
+HFLAG2 EQU  WRKSP+52         ; More hero flags (part of save data)
 MAGROD EQU  >0001            ; Magic Rod (blue)
 BOOKMG EQU  >0002            ; Book of Magic (adds flames to magic rod)
-MAGKEY EQU  >0004            ; Magic Key (opens all doors, appears as XA)
-REDPOT EQU  >0008            ; Red potion (refills hearts, turns into blue potion when used)
+MAGKEY EQU  >0004            ; Magic Key (opens all doors, appears as A in key count)
+LETTER EQU  >0008            ; Letter from old man (give to woman allows buying potions)
 BLUPOT EQU  >0010            ; Blue potion (refills hearts, turns into letter when used)
-LETTER EQU  >0020            ; Letter from old man (give to woman allows buying potions)
+REDPOT EQU  >0020            ; Red potion (refills hearts, turns into blue potion when used)
 LETPOT EQU  >0040            ; Gave the letter to old woman, potions available
 BAIT   EQU  >0080            ; Bait (lures monsters or give to grumble grumble)
 SARROW EQU  >0100            ; Silver arrows (appear blue, double damage)
@@ -165,7 +176,12 @@ COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16
 RAND16 EQU  WRKSP+60        ; Random state
 
 SPRLST EQU  WRKSP+64
-HEROSP EQU  SPRLST          ; Address of hero sprites (color and outline)
+HEROSP EQU  SPRLST+16       ; Address of hero sprites (color and outline)
+MPDTSP EQU  SPRLST          ; Address of status bar sprites (mapdot, item, sword, half-heart)
+ITEMSP EQU  SPRLST+4
+SWRDSP EQU  SPRLST+8
+HARTSP EQU  SPRLST+12
+
 SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps sprite list)
 
 OBJECT EQU  WRKSP+192       ; 64 bytes sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
@@ -209,18 +225,26 @@ FACEUP EQU  >0300
 ; 4x reserved for enemies (octorok 1-4, lynel 1-4,
 ; 5x reserved for enemies (octorok 5-8, lynel 5-8,
 ; 6x reserved for enemies (octorok bullet, zora 1-2, zora bullet, armos 1-4
-; 7x Sword N,S,E,W
+; 7x Sword S,W,E,N
 ; 8x Sword projectile pop
-; 9x Boomerang N,S,E,W
-; Ax Arrow N,S,E,W
-; Bx Magic N,S,E,W
-; Cx rupee, bomb, heart, key
-; Dx cloud puff (3 frames), spark (arrow hitting edge of screen)
-; Ex map dot, half-heart (status bar), disappearing enemy (2 frames)
-; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), secondary item, clock
+; 9x Boomerang S,W,E,N
+; Ax Arrow S,W,E,N
+; Bx Magic S,W,E,N
+; Cx Rupee, Bomb, Heart, Key
+; Dx Cloud puff (3 frames), Spark (arrow hitting edge of screen)
+; Ex Map dot, Half-heart (status bar), Disappearing enemy (2 frames)
+; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), secondary item, Clock
+;    Flame2, Fairy2, menu selector, Compass
+;    Raft, Book, Ring, Ladder
+;    Magic Key, Power Bracelet, Arrow&Bow, Candle
+;    Flute, Meat, Letter, Potion
+;    Magic Rod, Flame3, Bow, Magic Sword
+;    Old Woman 1&2, Shopkeeper 1&2
+;    Old Man 1&2, Dungeon Man 1&2
+
 
 ; TODO: Compass, clock, magic book, rings, magic key, power bracelet,
-;       candles, whistle, bait, letter and medicine
+;       candle, whistle, bait, letter and medicine
 
 ; enemy sprites loaded on demand per level
 ; 20-27 Peahat 2 sprites
