@@ -1,0 +1,79 @@
+DAN2 (de)COMPRESSION TOOL
+by Daniel Bienvenu aka NewColeco, 2017 Canada
+variant of DAN1 in which bit offsets can be coded into 10 up to 16 bits and no store raw sequences option
+DAN2 can compress better than DAN1 but it is not always the case.
+
+USAGE : dan2 [options] input
+
+> dan2 source
+Compress using default DAN2 settings
+
+> dan2 -m 12 source
+Compress high value offsets encoded into 12 bits size
+
+> dan2 -y source
+Compress and automaticaly say YES to overwrite destination output file
+
+> dan2 -v source
+Compress and verbose every step
+
+> dan2 -d -o destination source
+Decompress input file as output file. Must specify the output file
+
+> dan2 -h
+Show help
+
+
+DATA FORMAT INFORMATION
+
+DAN2 is a LZ77/LZSS variant encoding
+  Length values in Elias Gamma {1 .. 1^16-1} 
+  Relative offset in 1,4,8 or max bits, where max is 10 to 16 bits
+  Uncompressed sequences stored "as-is"
+
+The first bits determine the maximum number of bits for offsets.
+  [1..]0 : OFFSET MAX SIZE IS 10(+NUMBER OF 1s) BITS 
+The next byte is literal
+  BYTE : LITERAL BYTE
+The subsequent bits and bytes are decoded as follow :
+  1 BYTE : LITERAL BYTE
+  0 ELIAS OFFSET : COPY FROM "DICTIONARY"
+  0 00000000 00000000 ( total of 17 times 0s) : END
+
+ELIAS GAMMA
+
+ 1 =  1
+ 2 = 0 10
+ 3 = 0 11
+ 4 = 00 100
+ 5 = 00 101
+ 6 = 00 110
+ 7 = 00 111
+ 8 = 000 1000
+ 9 = 000 1001
+10= 000 1010
+11= 000 1011
+12= 000 1100
+13= 000 1101
+14= 000 1110
+15= 000 1111
+...
+
+OFFSET 4 FIXED SIZES
+
+ IF LEN=1
+    0b ( 1 bit )
+    1bbbb ( 4 bits )
+ IF LEN=2
+    00b (1 bit )
+    01bbbb ( 4 bits )
+    1   BYTE ( 8 bits )
+ ELSE
+    000b ( 1 bit ) 
+    001bbbb ( 4 bits )
+    01 BYTE ( 8 bits )
+    1[b..b] BYTE ( max number of bits )
+
+
+INSPIRED BY LOTS OF (DE)COMPRESSION TOOLS IN EXISTENCE
+LOTS OF TRIALS AND ERRORS DURING 2 YEARS BEFORE FIXING THE DATA FORMAT SPECIFICATIONS

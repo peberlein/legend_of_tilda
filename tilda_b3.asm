@@ -3,56 +3,83 @@
 ; Copyright (c) 2017 Pete Eberlein
 ;
 ; Bank 3: title screen, game over animation, hero sprites
-; todo: compressed sprites
 ;
 
        COPY 'tilda.asm'
 
-       
+
+CLRSAV EQU WRKSP+>20
+
 ; Load title screen
 ; R2 = 0 title screen
 ;      1 game over screen
 ;      2 load hero sprites (R3 = direction)
+;      3 load overworld tiles (after menu screen)
+;      4 load hero sprites up, returns to bank 2
 MAIN
        MOV R11,R13      ; Save return address for later
-       CI R2,1
-       JNE !
-       B @GAMOVR
-!      CI R2,2
-       JNE !
-       LI R11,DONE2
-       B @LNKSPR
-!
+       LI R11,DONE2     ; LNKSPR needs this
+       A R2,R2
+       MOV @JMPTBL(R2),R2
+       B *R2
+
+JMPTBL DATA MAIN2,GAMOVR,LNKSPR,OWTILE,LNKUPS
+
 MAIN2
-       LI R0,CLRTAB     ; Load color table
-       LI R1,CLRSET
+       ;LI R0,CLRTAB     ; Load color table
+       ;LI R1,CLRSET
+       ;LI R2,32
+       ;BL @VDPW
+
+       ;LI R0,PATTAB+(32*8)     ; Load pattern table
+       ;LI R1,PAT32
+       ;LI R2,SPR0-PAT32
+       ;BL @VDPW
+
+       ;LI R0,SPRPAT     ; Load sprite patterns
+       ;LI R1,SPR0
+       ;LI R2,MCOUNT-SPR0
+       ;BL @VDPW
+
+       ;LI R0,SCR1TB     ; Load screen table
+       ;LI R1,MD0
+       ;LI R2,32*24
+       ;BL @VDPW
+
+       ; turn off screen for faster VDP memory access
+       LI R0,>01A5          ; VDP Register 1: Blank screen
+       BL @VDPREG
+
+       LI R5,TITLE
+       CLR R7       ; decompress to VDP addr 0
+       BL @DAN2DC   ; Dan2 decompress
+
+
+       B @DONE    ; skip title screen
+
+       ;LI R0,SPRLST     ; Load sprite table
+       ;LI R1,SL0
+       ;LI R2,(28*4)/2
+;!      MOV *R1+,*R0+
+;       DEC R2
+;       JNE -!
+
+       LI R0,CLRTAB        ; Load color table
+       LI R1,CLRSAV
        LI R2,32
-       BL @VDPW
+       BL @VDPR
 
        LI R0,>0700
        BL @BGCOL
 
-       LI R0,PATTAB+(32*8)     ; Load pattern table
-       LI R1,PAT32
-       LI R2,SPR0-PAT32
-       BL @VDPW
+       LI R0,SPRTAB    ; Copy VDP sprite table into SPRLST
+       LI R1,SPRLST
+       LI R2,32*4
+       BL @VDPR
 
-       LI R0,SPRPAT     ; Load sprite patterns
-       LI R1,SPR0
-       LI R2,MCOUNT-SPR0
-       BL @VDPW
-
-       LI R0,SCR1TB     ; Load screen table
-       LI R1,MD0
-       LI R2,32*24
-       BL @VDPW
-
-       LI R0,SPRLST     ; Load sprite table
-       LI R1,SL0
-       LI R2,(28*4)/2
-!      MOV *R1+,*R0+
-       DEC R2
-       JNE -!
+       ;TODO turn on screen
+       LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
+       BL @VDPREG
 
        CLR  R4          ; waterfall counter
 
@@ -62,7 +89,7 @@ MAIN2
 MLOOP
        BL @WATERF
 
-       BL @VSYNC
+       BL @VSYNCM
 
        DEC R9            ; Decrement tiforce counter
        JNE !             ; until zero
@@ -161,7 +188,66 @@ MLOOP2 JMP MLOOP
 
 DONE
        MOV  R4,@RAND16      ; Use counter for random seed
+
+       ;TODO turn off screen for faster VDP memory access
+       LI R0,>01A5          ; VDP Register 1: Blank screen
+       BL @VDPREG
+
+       ;LI   R0,MENUSC
+       ;LI   R1,MD2             ; Menu screen data
+       ;LI   R2,32*21           ; Number of bytes to write
+       ;BL   @VDPW
+
+       LI R5,MENUMP        ; decompress menu map
+       LI R7,MENUSC        ; put in menu screen
+       BL @DAN2DC   ; Dan2 decompress
+
+       LI R5,OVERW1
+       LI R7,PATTAB+(8*4)       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
+       LI R5,OVERW2
+       LI R7,PATTAB+(8*96)       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
+
+       LI R5,CAVED2
+       LI R7,CAVTXT       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
+
+       CLR R4           ; Copy bottom of menu screen to top of main screen
+!      MOV R4,R0
+       AI R0,MENUSC+(32*21)
+       BL @READ32
+       MOV R4,R0
+       AI R0,SCR1TB
+       BL @PUTSCR
+       AI R4,32
+       CI R4,32*3
+       JNE -!
+
+       LI R4,21*32  ; Clear the rest of the screen
+       LI R0,>2000  ; With spaces
+!      MOVB R0,*R15
+       DEC R4
+       JNE -!
+
+       ;TODO turn on screen
+       LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
+       BL @VDPREG
+
+
 DONE2  LI   R0,BANK0         ; Load bank 0
+       MOV  R13,R1           ; Jump to our return address
+       B    @BANKSW
+DONE3
+       MOV @HEROSP,R5         ; Get hero YYXX
+       AI R5,>0100            ; Move Y down one
+       JMP DONE2
+
+OWTILE
+       LI R5,OVERW2
+       LI R7,PATTAB+(8*96)       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
+       LI   R0,BANK2         ; Load bank 2
        MOV  R13,R1           ; Jump to our return address
        B    @BANKSW
 
@@ -257,11 +343,11 @@ WATERF
        LI R0,SCR1TB+(32*17)+10+VDPWM
        MOVB @R0LB,*R14
        MOVB R0,*R14
-       LI R1,MD0+(32*17)+10
+       LI R1,>E800
+       A R5,R1
        LI R2,4
-!      MOVB *R1+,R0
-       A R5,R0
-       MOVB R0,*R15
+!      MOVB R1,*R15
+       AI R1,>100
        DEC R2
        JNE -!
 
@@ -326,14 +412,15 @@ BGCOL
        MOVB @R0LB,*R14      ; Send low byte of VDP Register Data
        MOVB R0,*R14         ; Send high byte of VDP Register Number
 
+
        LI R0,CLRTAB+VDPWM     ; Load color table
        MOVB @R0LB,*R14      ; Send low byte of VDP Write Address
        MOVB R0,*R14         ; Send high byte of VDP Write Address
-       LI R1,CLRSET
+       LI R1,CLRSAV
        LI R2,31
 BGCOL2 MOVB *R1+,R3
        MOV R3,R0
-       ANDI R0,>0700
+       ANDI R0,>0F00
        CI R0,>0700
        JNE !
        ANDI R3,>F000
@@ -362,8 +449,8 @@ GAMOVR       ; GAME OVER
        MOVB R0,@SPRLST+(4*6)+0 ; Turn off sprites 6+
        MOVB R0,@SPRLST+(4*31)+0 ; Turn off sprites 6+
        BL @SPRUPD
-       BL @VSYNC
-       LI R3,FACEDN
+       BL @VSYNCM
+       LI R3,DIR_DN
        BL @LNKSPR
 
        LI R4,32      ; Hurt Blink 32 frames
@@ -372,20 +459,20 @@ GAMOVR       ; GAME OVER
        MOV @LNKHRC(R1),R1      ; Get flashing color
        MOVB R1,@HEROSP+3       ; Store color 1
        MOVB @R1LB,@HEROSP+7    ; Store color 2
-       BL @VSYNC
+       BL @VSYNCM
        BL @SPRUPD
        DEC R4
        JNE -!
 
        LI R4,26
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R4
        JNE -!
 
        LI R5,DEDCLR
        BL @FGCSET
-       BL @VSYNC
-       BL @VSYNC
+       BL @VSYNCM
+       BL @VSYNCM
 
        LI R0,>D000
        MOVB R0,@SPRLST+(4*6)+0 ; Turn off sprites 6+
@@ -395,16 +482,16 @@ GAMOVR       ; GAME OVER
        LI R1,DEDCLR
        LI R2,32
        BL @VDPW
-       BL @VSYNC
-       BL @VSYNC
+       BL @VSYNCM
+       BL @VSYNCM
 
        LI R4,16
 !
-       BL @VSYNC
-       BL @VSYNC
-       BL @VSYNC
-       BL @VSYNC
-       BL @VSYNC
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
        MOV R4,R3
        ANDI R3,>0003
        A R3,R3
@@ -418,7 +505,7 @@ GAMOVR       ; GAME OVER
        LI R2,32
        BL @VDPW
        LI R2,10
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -427,7 +514,7 @@ GAMOVR       ; GAME OVER
        LI R2,32
        BL @VDPW
        LI R2,10
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -436,7 +523,7 @@ GAMOVR       ; GAME OVER
        LI R2,32
        BL @VDPW
        LI R2,10
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -455,7 +542,7 @@ GAMOVR       ; GAME OVER
        MOVB R0,@HEROSP+3   ; Set hero color to gray
        BL @SPRUPD
        LI R2,24
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -463,7 +550,7 @@ GAMOVR       ; GAME OVER
        MOVB R0,@HEROSP+2   ; Set hero sprite index to little star
        BL @SPRUPD
        LI R2,10
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -471,7 +558,7 @@ GAMOVR       ; GAME OVER
        MOVB R0,@HEROSP+2   ; Set hero sprite index to big star
        BL @SPRUPD
        LI R2,4
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -479,7 +566,7 @@ GAMOVR       ; GAME OVER
        MOVB R0,@HEROSP+3   ; Set hero color to transparent
        BL @SPRUPD
        LI R2,46
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -496,7 +583,7 @@ GAMOVR       ; GAME OVER
        JNE -!
 
        LI R2,96
-!      BL @VSYNC
+!      BL @VSYNCM
        DEC R2
        JNE -!
 
@@ -527,7 +614,7 @@ FGCSET MOV R11,R10  ; Save return address
        JNE -!
        B *R10   ; Return to saved address
 
-LNKSPN DATA FACERT,FACEDN,FACELT,FACEUP
+LNKSPN DATA DIR_RT,DIR_DN,DIR_LT,DIR_UP
 
 ; 939 2 brown on dark red palette
 DEDCLR BYTE >16,>1B,>16,>96            ;
@@ -569,28 +656,34 @@ DEDCL4 BYTE >16,>1B,>16,>16            ;
        BYTE >16,>16,>14,>16            ;
        BYTE >16,>16,>16,>16            ;
 
+* Dan2 decompression subroutine
+       COPY 'dan2.asm'
 
-
-
+LNKUPS
+       LI R3,DIR_UP
+       BL @LNKSPR
+       LI   R0,BANK2         ; Load bank 2
+       MOV  R13,R1           ; Jump to our return address
+       B    @BANKSW
 
 LNKSPR
-       MOV R11,R12    ; Save return address
+       MOV R11,R10    ; Save return address
        MOV R3,R1      ; Adjust R1 to point to correct offset within sprite patterns
        A R3,R1
        A R3,R1
        SRA R1,1
        AI R1,LSPR0
 
-       CI R3,FACEUP
+       CI R3,DIR_UP
        JEQ !          ; No shield sprite for facing up
        LI R0,MAGSHD
        CZC @HFLAGS,R0  ; Got magic shield?
        JNE LNKSHD
 
-!      LI R0,SPRPAT   ; Copy walking+attack sprites to sprites pattern table
-       LI R2,32*6
+!      LI R0,SPRPAT   ; Copy walking+attack+rod sprites to sprites pattern table
+       LI R2,32*7
        BL @VDPW
-       B *R12        ; Return to saved address
+       B *R10         ; Return to saved address
 LNKSHD
        LI R0,SPRPAT
        AI R1,32*8     ; Copy magic shield walking sprites to sprites pattern table
@@ -600,56 +693,56 @@ LNKSHD
        AI R1,-32*8    ; Copy attack sprites to sprites pattern table
        LI R2,32*3
        BL @VDPW
-       B *R12         ; Return to saved address
+       B *R10         ; Return to saved address
 
-LSPR0  DATA >072F,>2830,>351F,>3603    ; Color 3
-       DATA >2071,>2021,>0003,>0000    ;
-       DATA >E0F4,>140C,>ACF8,>60C0    ;
-       DATA >30EC,>6C04,>70F0,>0000    ;
-LSPR1  DATA >0000,>070F,>0A00,>49FC    ; Color 1
-       DATA >DF8E,>DFDE,>FFFC,>7E0E    ;
-       DATA >0000,>E0F0,>5000,>9038    ;
-       DATA >CC12,>92FA,>8C00,>7000    ;
-LSPR2  DATA >072F,>2830,>351F,>1603    ; Color 3
-       DATA >1038,>1010,>0000,>0000    ;
-       DATA >E0F4,>140C,>ACF8,>60D0    ;
-       DATA >38F8,>3088,>30E0,>0000    ;
-LSPR3  DATA >0000,>070F,>0A00,>297C    ; Color 1
-       DATA >6F47,>6F6F,>7F7F,>3E00    ;
-       DATA >0000,>E0F0,>5000,>9028    ;
-       DATA >C404,>CC74,>C010,>7070    ;
-LSPR4  DATA >0317,>1C38,>3597,>4E26    ; Color 3
-       DATA >1807,>0A0C,>0602,>0100    ;
-       DATA >E0F0,>180A,>AEEC,>7860    ;
-       DATA >00C0,>0484,>6CE8,>E000    ;
-LSPR5  DATA >1828,>63C7,>CA68,>3119    ; Color 1
-       DATA >0708,>0503,>1939,>0000    ;
-       DATA >0000,>E0F0,>5010,>8098    ;
-       DATA >FC3C,>F878,>9217,>0F00    ;
-LSPR6  DATA >6374,>0815,>1F0E,>0603    ; Color 3
+LSPR0  DATA >0F37,>6AEC,>AE26,>030C    ; Color 3
+       DATA >1807,>0601,>267F,>0000    ;
+       DATA >8000,>0000,>D0FC,>F0F0    ;
+       DATA >C464,>E0C0,>00E0,>0000    ;
+LSPR1  DATA >0008,>1513,>1119,>1C03    ; Color 1
+       DATA >2778,>797E,>1900,>0707    ;
+       DATA >00F0,>F8F0,>2002,>0202    ;
+       DATA >3A9A,>1A22,>E200,>0080    ;
+LSPR2  DATA >0007,>1B35,>7657,>1301    ; Color 3
+       DATA >0C11,>0020,>301F,>0F00    ;
+       DATA >00C0,>8000,>0068,>7EF8    ;
+       DATA >78E4,>D430,>E008,>F000    ;
+LSPR3  DATA >0000,>040A,>0908,>0C0E    ; Color 1
+       DATA >030E,>1F1F,>0F60,>7038    ;
+       DATA >0000,>78FC,>F890,>8002    ;
+       DATA >821A,>2ACA,>12F2,>0C38    ;
+LSPR4  DATA >0003,>0B15,>1637,>7341    ; Color 3
+       DATA >0F18,>1030,>783F,>1F00    ;
+       DATA >00C0,>8000,>0068,>7EF0    ;
+       DATA >EE1E,>1A10,>E000,>F000    ;
+LSPR5  DATA >0000,>040A,>0908,>0C0E    ; Color 1
+       DATA >0007,>0F0F,>07C0,>E070    ;
+       DATA >0000,>78FC,>F890,>8008    ;
+       DATA >10F0,>F0E0,>18F8,>0C1E    ;
+LSPR6  DATA >0000,>0000,>0000,>00FF    ; Color 4
+       DATA >FF00,>0000,>0000,>0000    ;
+       DATA >0000,>0000,>0000,>56AB    ;
+       DATA >AF56,>0000,>0000,>0000    ;
+LSPR7  DATA >6374,>0815,>1F0E,>0603    ; Color 3
        DATA >0C0F,>1C01,>1C1F,>0000    ;
        DATA >C62E,>10A8,>F870,>60C0    ;
        DATA >30F0,>3880,>38F8,>0000    ;
-LSPR7  DATA >0003,>676A,>6031,>393C    ; Color 1
-       DATA >1310,>031E,>0300,>0E0E    ;
-       DATA >00C0,>E656,>068C,>9C3C    ;
-       DATA >C808,>C078,>C000,>7070    ;
-LSPR8  DATA >072F,>2830,>351F,>0018    ; Color 7
-       DATA >187E,>7E18,>1818,>0000    ;
-       DATA >E0F4,>140C,>ACF8,>60C0    ;
-       DATA >30EC,>6C04,>70F0,>0000    ;
-LSPR9  DATA >0000,>070F,>0A00,>FFE7    ; Color 1
-       DATA >E781,>81E7,>E7E7,>7E3C    ;
-       DATA >0000,>E0F0,>5000,>9038    ;
-       DATA >CE12,>92FA,>8C00,>7000    ;
-LSPR10 DATA >072F,>2830,>351F,>0018    ; Color 5
-       DATA >187E,>7E18,>1818,>0000    ;
-       DATA >E0F4,>140C,>ACF8,>60D0    ;
-       DATA >38F8,>3088,>30E0,>0000    ;
-LSPR11 DATA >0000,>070F,>0A00,>FFE7    ; Color 1
-       DATA >E781,>81E7,>E7E7,>7E3C    ;
-       DATA >0000,>E0F0,>5000,>9028    ;
-       DATA >C404,>CC74,>C010,>7070    ;
+LSPR8  DATA >0F37,>6AEC,>AE26,>030C    ; Color 8
+       DATA >1807,>0601,>267F,>0000    ;
+       DATA >8000,>0000,>D0FD,>F1F1    ;
+       DATA >C565,>E1C1,>01E0,>0000    ;
+LSPR9  DATA >0008,>1513,>1119,>1C03    ; Color 1
+       DATA >2778,>797E,>1900,>0707    ;
+       DATA >00F0,>F8F3,>2302,>0202    ;
+       DATA >3A9A,>1A22,>E203,>0380    ;
+LSPR10 DATA >0007,>1B35,>7657,>1301    ; Color 8
+       DATA >0C11,>0020,>301F,>0F00    ;
+       DATA >00C0,>8000,>0068,>7DF9    ;
+       DATA >79E5,>D531,>E109,>F000    ;
+LSPR11 DATA >0000,>040A,>0908,>0C0E    ; Color 1
+       DATA >030E,>1F1F,>0F60,>7038    ;
+       DATA >0000,>78FC,>FB93,>8202    ;
+       DATA >821A,>2ACA,>12F2,>0F3B    ;
 LSPR12 DATA >0100,>0000,>0B3F,>0F0F    ; Color 3
        DATA >2326,>0703,>0007,>0000    ;
        DATA >F0EC,>5637,>7564,>C030    ;
@@ -674,14 +767,14 @@ LSPR17 DATA >0000,>1E3F,>1F09,>0110    ; Color 1
        DATA >080F,>0F07,>181F,>3078    ;
        DATA >0000,>2050,>9010,>3070    ;
        DATA >00E0,>F0F0,>E003,>070E    ;
-LSPR18 DATA >6374,>0815,>1F0D,>0603    ; Color 3
-       DATA >0C0F,>1C01,>1C1F,>0000    ;
-       DATA >E0F0,>1404,>ACEC,>78C0    ;
-       DATA >3CFC,>3088,>38E0,>0000    ;
-LSPR19 DATA >0003,>676A,>6032,>393C    ; Color 1
+LSPR18 DATA >0000,>0000,>0000,>6AB5    ; Color 4
+       DATA >F56A,>0000,>0000,>0000    ;
+       DATA >0000,>0000,>0000,>00FF    ;
+       DATA >FF00,>0000,>0000,>0000    ;
+LSPR19 DATA >0003,>676A,>6031,>393C    ; Color 1
        DATA >1310,>031E,>0300,>0E0E    ;
-       DATA >0000,>E0F0,>5010,>843C    ;
-       DATA >C000,>C870,>C010,>7070    ;
+       DATA >00C0,>E656,>068C,>9C3C    ;
+       DATA >C808,>C078,>C000,>7070    ;
 LSPR20 DATA >0100,>0000,>0BBF,>8F8F    ; Color 8
        DATA >A3A6,>8783,>8007,>0000    ;
        DATA >F0EC,>5637,>7564,>C030    ;
@@ -698,54 +791,54 @@ LSPR23 DATA >0000,>1E3F,>DFC9,>4140    ; Color 1
        DATA >4158,>5453,>484F,>F0DC    ;
        DATA >0000,>2050,>9010,>3070    ;
        DATA >C070,>F8F8,>F006,>0E1C    ;
-LSPR24 DATA >0F37,>6AEC,>AE26,>030C    ; Color 3
-       DATA >1807,>0601,>267F,>0000    ;
-       DATA >8000,>0000,>D0FC,>F0F0    ;
-       DATA >C464,>E0C0,>00E0,>0000    ;
-LSPR25 DATA >0008,>1513,>1119,>1C03    ; Color 1
-       DATA >2778,>797E,>1900,>0707    ;
-       DATA >00F0,>F8F0,>2002,>0202    ;
-       DATA >3A9A,>1A22,>E200,>0080    ;
-LSPR26 DATA >0007,>1B35,>7657,>1301    ; Color 3
-       DATA >0C11,>0020,>301F,>0F00    ;
-       DATA >00C0,>8000,>0068,>7EF8    ;
-       DATA >78E4,>D430,>E008,>F000    ;
-LSPR27 DATA >0000,>040A,>0908,>0C0E    ; Color 1
-       DATA >030E,>1F1F,>0F60,>7038    ;
-       DATA >0000,>78FC,>F890,>8002    ;
-       DATA >821A,>2ACA,>12F2,>0C38    ;
-LSPR28 DATA >0003,>0B15,>1637,>7341    ; Color 3
-       DATA >0F18,>1030,>783F,>1F00    ;
-       DATA >00C0,>8000,>0068,>7EF0    ;
-       DATA >EE1E,>1A10,>E000,>F000    ;
-LSPR29 DATA >0000,>040A,>0908,>0C0E    ; Color 1
-       DATA >0007,>0F0F,>07C0,>E070    ;
-       DATA >0000,>78FC,>F890,>8008    ;
-       DATA >10F0,>F0E0,>18F8,>0C1E    ;
-LSPR30 DATA >0003,>0B15,>3677,>4301    ; Color 3
-       DATA >070C,>0810,>381F,>0F00    ;
-       DATA >00C0,>8000,>0068,>7EF8    ;
-       DATA >E61E,>1A10,>E008,>F000    ;
-LSPR31 DATA >0000,>040A,>0908,>0C0E    ; Color 1
-       DATA >0107,>0F0F,>0760,>7038    ;
-       DATA >0000,>78FC,>F890,>8000    ;
-       DATA >18E0,>E4E0,>18F8,>0C1E    ;
-LSPR32 DATA >0F37,>6AEC,>AE26,>030C    ; Color 8
-       DATA >1807,>0601,>267F,>0000    ;
-       DATA >8000,>0000,>D0FD,>F1F1    ;
-       DATA >C565,>E1C1,>01E0,>0000    ;
-LSPR33 DATA >0008,>1513,>1119,>1C03    ; Color 1
-       DATA >2778,>797E,>1900,>0707    ;
-       DATA >00F0,>F8F3,>2302,>0202    ;
-       DATA >3A9A,>1A22,>E203,>0380    ;
-LSPR34 DATA >0007,>1B35,>7657,>1301    ; Color 8
-       DATA >0C11,>0020,>301F,>0F00    ;
-       DATA >00C0,>8000,>0068,>7DF9    ;
-       DATA >79E5,>D531,>E109,>F000    ;
-LSPR35 DATA >0000,>040A,>0908,>0C0E    ; Color 1
-       DATA >030E,>1F1F,>0F60,>7038    ;
-       DATA >0000,>78FC,>FB93,>8202    ;
-       DATA >821A,>2ACA,>12F2,>0F3B    ;
+LSPR24 DATA >072F,>2830,>351F,>3603    ; Color 3
+       DATA >2071,>2021,>0003,>0000    ;
+       DATA >E0F4,>140C,>ACF8,>60C0    ;
+       DATA >30EC,>6C04,>70F0,>0000    ;
+LSPR25 DATA >0000,>070F,>0A00,>49FC    ; Color 1
+       DATA >DF8E,>DFDE,>FFFC,>7E0E    ;
+       DATA >0000,>E0F0,>5000,>9038    ;
+       DATA >CC12,>92FA,>8C00,>7000    ;
+LSPR26 DATA >072F,>2830,>351F,>1603    ; Color 3
+       DATA >1038,>1010,>0000,>0000    ;
+       DATA >E0F4,>140C,>ACF8,>60D0    ;
+       DATA >38F8,>3088,>30E0,>0000    ;
+LSPR27 DATA >0000,>070F,>0A00,>297C    ; Color 1
+       DATA >6F47,>6F6F,>7F7F,>3E00    ;
+       DATA >0000,>E0F0,>5000,>9028    ;
+       DATA >C404,>CC74,>C010,>7070    ;
+LSPR28 DATA >0317,>1C38,>3597,>4E26    ; Color 3
+       DATA >1807,>0A0C,>0602,>0100    ;
+       DATA >E0F0,>180A,>AEEC,>7860    ;
+       DATA >00C0,>0484,>6CE8,>E000    ;
+LSPR29 DATA >1828,>63C7,>CA68,>3119    ; Color 1
+       DATA >0708,>0503,>1939,>0000    ;
+       DATA >0000,>E0F0,>5010,>8098    ;
+       DATA >FC3C,>F878,>9217,>0F00    ;
+LSPR30 DATA >0101,>0101,>0101,>0101    ; Color 4
+       DATA >0102,>0102,>0102,>0301    ;
+       DATA >8080,>8080,>8080,>8080    ;
+       DATA >8040,>8040,>80C0,>C080    ;
+LSPR31 DATA >6374,>0815,>1F0D,>0603    ; Color 3
+       DATA >0C0F,>1C01,>1C1F,>0000    ;
+       DATA >E0F0,>1404,>ACEC,>78C0    ;
+       DATA >3CFC,>3088,>38E0,>0000    ;
+LSPR32 DATA >072F,>2830,>351F,>0018    ; Color 5
+       DATA >187E,>7E18,>1818,>0000    ;
+       DATA >E0F4,>140C,>ACF8,>60C0    ;
+       DATA >30EC,>6C04,>70F0,>0000    ;
+LSPR33 DATA >0000,>070F,>0A00,>FFE7    ; Color 1
+       DATA >E781,>81E7,>E7E7,>7E3C    ;
+       DATA >0000,>E0F0,>5000,>9038    ;
+       DATA >CE12,>92FA,>8C00,>7000    ;
+LSPR34 DATA >072F,>2830,>351F,>0018    ; Color 5
+       DATA >187E,>7E18,>1818,>0000    ;
+       DATA >E0F4,>140C,>ACF8,>60D0    ;
+       DATA >38F8,>3088,>30E0,>0000    ;
+LSPR35 DATA >0000,>070F,>0A00,>FFE7    ; Color 1
+       DATA >E781,>81E7,>E7E7,>7E3C    ;
+       DATA >0000,>E0F0,>5000,>9028    ;
+       DATA >C404,>CC74,>C010,>7070    ;
 LSPR36 DATA >0307,>2F2F,>2733,>1108    ; Color 3
        DATA >0727,>2718,>1F07,>0000    ;
        DATA >C0E0,>F4F4,>E4CC,>8810    ;
@@ -770,227 +863,57 @@ LSPR41 DATA >1000,>2000,>5058,>6D67    ; Color 1
        DATA >2020,>104F,>C0E0,>0000    ;
        DATA >0000,>0000,>20E0,>C1BB    ;
        DATA >372F,>5EEC,>0018,>3C3C    ;
+LSPR42 DATA >0102,>0301,>0201,>0201    ; Color 4
+       DATA >0101,>0101,>0101,>0101    ;
+       DATA >80C0,>C080,>4080,>4080    ;
+       DATA >8080,>8080,>8080,>8080    ;
+LSPR43 DATA >0003,>676A,>6032,>393C    ; Color 1
+       DATA >1310,>031E,>0300,>0E0E    ;
+       DATA >0000,>E0F0,>5010,>843C    ;
+       DATA >C000,>C870,>C010,>7070    ;
 
 
-
-
-
-
-       ; source in R3, dest VDP address in R4 (already loaded)
-HFLIP
-       LI R2,16      ; Copy 16 bytes
-       A R2,R3       ; Start reading from right column
-!      MOVB *R3+,R0  ; read a byte from the right column
-       BL @REVB8      ; reverse the bits
-       MOVB R0,*R15  ; write VDP data
-       DEC R2
-       JNE -!
-       LI R2,16      ; Copy 16 bytes
-       AI R3,-32     ; Start reading from left column
-!      MOVB *R3+,R0  ; read a byte from the left column
-       BL @REVB8      ; reverse the bits
-       MOVB R0,*R15  ; write VDP data
-       DEC R2
-       JNE -!
-       AI R3,16
-       JMP NEXTSP
-
-
-UPCPY8 LI R2,8
-       JMP !
-UPCP16 LI R2,16
-!      A R2,R3
-; Copy R2 bytes from *R3 to *R15, moving upward
-UPCOPY
-!      DEC R3
-       MOVB *R3,*R15 ; Copy byte to VDP data
+       ; Copy scratchpad to the screen at R0
+       ; Modifies R0,R1,R2
+PUTSCR
+       ORI R0,VDPWM
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       LI R1,SCRTCH        ; Source pointer to scratchpad ram
+       LI R2,8             ; Write 32 bytes from scratchpad
+!      MOVB *R1+,*R15
+       MOVB *R1+,*R15
+       MOVB *R1+,*R15
+       MOVB *R1+,*R15
        DEC R2
        JNE -!
        RT
 
-; source in R3, dest VDP address in R4 (already loaded)
-VFLIP
-       BL @UPCP16    ; Start reading from the bottom
-       AI R3,16      ; Start reading from bottom of next column
-       BL @UPCP16
-       AI R3,16
-       JMP NEXTSP
-       
-CLKWIS
-       LI R2,32      ; Copy 32 bytes
-       AI R3,8       ; Start from lower left
-CLKWI2
-       CI R2,24
-       JNE CLKWI3
-       CI R2,8
-       JNE CLKWI3
-       AI R3,16      ; Get next offset
-       JMP !
-CLKWI3 CI R2,16
-       JNE !
-       AI R3,-24     ; Get next offset
-!      MOV R2,R0
-       NEG R0
-       LI R5,>7F7F
-       SRC R5,R0     ; Get bitmask
-       
-       LI R4,8       ; Copy 8 bits
-       CLR R0
-CLKWI4 SRL R1,1
-       MOVB *R3+,R0
-       SZC R5,R0     ; AND bitmask
-       JEQ !
-       ORI R1,>8000
-!      DEC R4
-       JNE CLKWI4
-       
-       DEC R2
-       JNE CLKWI2
-       AI R3,16      ; Get next offset
-
-       JMP NEXTSP
-
-; Copy R2 zeros to *R15
-CPZERO CLR R0
-!      MOVB R0,*R15  ; Copy zero to VDP
-       DEC R2
-       JNE -!
-
-; Copy R2 bytes from *R3 to *R15, shifting right by 4
-CPSR4
-!      MOVB *R3+,R1
-       SRL R1,4      ; Shift it
-       MOVB R1,*R15  ; Copy byte to VDP data
-       DEC R2
-       JNE -!
-       RT
-CPSL4
-!      MOVB *R3+,R1
-       SLA R1,4      ; Shift it
-       MOVB *R3+,*R15 ; Copy byte to VDP data
+       ; Copy screen at R0 into scratchpad 32 bytes
+       ; Modifies R1,R2,R6
+READ32
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
+       MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       LI R1,SCRTCH        ; Dest pointer to scratchpad ram
+       LI R2,8             ; Read 32 bytes to scratchpad
+       LI R6,VDPRD        ; Keep VDPRD address in R6
+!      MOVB *R6,*R1+
+READ3  MOVB *R6,*R1+
+       MOVB *R6,*R1+
+       MOVB *R6,*R1+
        DEC R2
        JNE -!
        RT
 
-HVCENT
-       LI R2,4       ; Copy 4 zero bytes
-       BL @CPZERO
-       LI R2,8       ; Copy 8 shifted bytes
-       BL @CPSR4
-       LI R2,8       ; Copy 8 zero bytes
-       BL @CPZERO
-       LI R2,8       ; Copy 8 bytes
-       S R2,R3       ; Start from top again
-       BL @CPSL4
-       LI R2,8       ; Copy 4 zero bytes
-       BL @CPZERO
-       JMP NEXTSP
-
-HCENT
-       LI R2,16      ; Copy 16 shifted bytes
-       BL @CPSR4
-       LI R2,16      ; Copy 16 shifted bytes
-       S R2,R3       ; Start from top again
-       BL @CPSL4
-       JMP NEXTSP
-
-NEXTSP
-
-COPY16 LI R2,16
-       JMP !
-COPY8
-       LI R2,8
-; Copy R2 bytes from *R3 to *R15
-COPY
-!      MOVB *R3+,*R15 ; Copy byte to VDP data
-       DEC R2
-       JNE -!
-       RT
-       
-VCENT
-       LI R2,4       ; Copy 4 zero bytes
-       BL @CPZERO
-       BL @COPY8     ; Copy 8 bytes
-       LI R2,8       ; Copy 8 zero bytes
-       BL @CPZERO
-       BL @COPY8     ; Copy 8 bytes
-       LI R2,8       ; Copy 4 zero bytes
-       BL @CPZERO
-       JMP NEXTSP
-
-HVSYMM
-       BL @COPY8     ; Copy 8 bytes
-       LI R2,8       ; Copy 8 bytes upward
-       BL @UPCOPY
-       LI R2,8       ; Copy 8 bytes
-!      MOVB *R3+,R0  ; read a byte from the left column
-       BL @REVB8     ; reverse the bits
-       MOVB R0,*R15  ; write VDP data
-       DEC R2
-       JNE -!
-       LI R2,8       ; Copy 8 bytes
-!      DEC R3
-       MOVB *R3,R0   ; read a byte from the left column
-       BL @REVB8     ; reverse the bits
-       MOVB R0,*R15  ; write VDP data
-       DEC R2
-       JNE -!
-       AI R3,8
-       JMP NEXTSP
-
-; source in R3, dest VDP address in R4 (already loaded)
-HSYMM
-       BL @COPY16    ; Copy 16 bytes
-       LI R2,16      ; Copy 16 bytes
-       S R2,R3       ; Start reading from left column
-!      MOVB *R3+,R0  ; read a byte from the left column
-       BL @REVB8     ; reverse the bits
-       MOVB R0,*R15  ; write VDP data
-       DEC R2
-       JNE -!
-       JMP NEXTSP
-
-VSYMM
-       BL @COPY8     ; Copy 8 bytes
-       LI R2,8       ; Copy 8 bytes reverse
-       BL @UPCOPY
-       LI R2,8       ; Copy 8 bytes
-       A R2,R3
-       BL @COPY
-       LI R2,8       ; Copy 8 bytes
-       BL @UPCOPY
-       AI R3,8
-       JMP NEXTSP
-
-
-; Reverse the 16-bit word in R0
-; Modifies R1
-REVB16
-       SWPB R0      ; Reverse groups of 8 bits
-REVB8
-       MOV R0,R1    ; Reverse even and odd bits
-       SRL R1,1
-       ANDI R1,>5555
-       ANDI R0,>5555
-       SLA R0,1
-       SOC R1,R0
-
-       MOV R0,R1    ; Reverse groups of 2 bits
-       SRL R1,2
-       ANDI R1,>3333
-       ANDI R0,>3333
-       SLA R0,2
-       SOC R1,R0
-
-       MOV R0,R1    ; Reverse groups of 4 bits
-       SRL R1,4
-       ANDI R1,>0F0F
-       ANDI R0,>0F0F
-       SLA R0,4
-       SOC R1,R0
-
-       RT
+* Compressed data
+TITLE  BCOPY "title.d2"
+OVERW1 BCOPY "overworld1.d2"
+OVERW2 BCOPY "overworld2.d2"
+DUNGN1 BCOPY "dungeon1.d2"
+DUNGN2 BCOPY "dungeon2.d2"
+MENUMP BCOPY "menu.d2"
+CAVED2 BCOPY "cavetext.d2"
+       EVEN
 
 
 
-TILDA  COPY "title.asm"

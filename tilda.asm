@@ -27,108 +27,143 @@ R5LB   EQU  WRKSP+11          ; Register five low byte address
 R6LB   EQU  WRKSP+13          ; Register six low byte address
 R7LB   EQU  WRKSP+15          ; Register 7 low byte address
 R8LB   EQU  WRKSP+17          ; Register 8 low byte address
+R9LB   EQU  WRKSP+19          ; Register 9 low byte address
 R10LB  EQU  WRKSP+21          ; Register 10 low byte address
 R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 
 
 ; VDP Map
 ; 0000:031F Screen Table A (32*25 = 320)
+; 0320:033F Save area scratchpad/sprite list
 ; 0340:035F Color Table (32 bytes = 20)
-; 0360:037F Bright Color Table (32 bytes = 20)
+; 0360:037F
 ; 0380:03FF Sprite List Table (32*4 bytes = 80)
 ; 0400:071F Screen Table B (32*25 = 320)
-; 0720:073F Enemy HP (32 bytes = 20)
-; 0740:077F Enemy Hurt/Stun Counters interleaved (64 bytes = 40)
-; 0780:079F Save area scratchpad/sprite list
-; 07A0:07FF
-; 0800:0FFF Pattern Descriptor Table
-; 1000:17FF Sprite Pattern Table
-; 1800:1ABF Level Screen Table (32*22 chars = 2C0)
-; 1AC0:1D5F Menu Screen Table (32*21 chars = 2A0)
-; 1D60:255F Enemy sprite patterns (64*32 bytes = 800)
+; 0720:073F
+; 0740:075F Bright Color Table (32 bytes = 20)
+; 0760:077F
+; 0780:079F Menu Color Table (32 bytes = 20)
+; 07A0:07DF Enemy Hurt/Stun Counters interleaved (64 bytes = 40)
+; 07E0:07FF Enemy HP (32 bytes = 20)
+; 0800:0FFF Overworld Pattern Descriptor Table
+; 1000:1B7F Sprite Pattern Table (64*32 + 28*32 bytes = B80)
+; 1B80:137F Enemy sprite patterns (64*32 bytes = 800)
+; 2380:263F Level Screen Table (32*22 chars = 2C0)
+; 2640:28DF Menu Screen Table (32*21 chars = 2A0)
+; 28E0:2B5F Menu pattern table backup (20*32 bytes = 280)
+; 2B60:     Cave texts
 
 ; 3000:3fff Music Sound List (would it be better in banked ROM?)
 
-SCR1TB EQU  >0000           ; Name Table 32*24 bytes (double-buffered)
-CLRTAB EQU  >0340           ; Color Table address in VDP RAM - 32 bytes
-BCLRTB EQU  >0360           ; Bright Color Table address in VDP RAM - 32 bytes
-SPRTAB EQU  >0380           ; Sprite List Table address in VDP RAM - 32*4 bytes
-SCR2TB EQU  >0400           ; Name Table 32*24 bytes (double-buffered)
-SCHSAV EQU  >0780           ; Save area for SCRTCH scratchpad/screen list
-PATTAB EQU  >0800           ; Pattern Table address in VDP RAM - 256*8 bytes
-SPRPAT EQU  >1000           ; Sprite Pattern Table address in VDP RAM - 256*8 bytes
-LEVELA EQU  >1800           ; Name table for level A (copied to SCR1TB or SCR2TB)
-MENUSC EQU  >1AC0           ; Name table for menu screen
-ENESPR EQU  >1D60           ; Enemy sprite patterns (up to 64)
 
-MUSICV EQU  >3000           ; Music Base Address in VDP RAM (4k space)
+; TODO 1000:17FF Dungeon Pattern Descriptor Table
 
-ENEMHP EQU  >0720    ; Enemy HP
-ENEMHS EQU  >0740    ; Enemy hurt/stun counters interleaved:
+
+
+SCR1TB EQU  >0000    ; Name Table 32*24 bytes (double-buffered)
+SCHSAV EQU  >0320    ; Save area for SCRTCH scratchpad/screen list
+CLRTAB EQU  >0340    ; Color Table address in VDP RAM - 32 bytes
+SPRTAB EQU  >0380    ; Sprite List Table address in VDP RAM - 32*4 bytes
+SCR2TB EQU  >0400    ; Name Table 32*24 bytes (double-buffered)
+BCLRTB EQU  >0740    ; Bright Color Table address in VDP RAM - 32 bytes
+MCLRTB EQU  >0780    ; Menu Color Table address in VDP RAM - 32 bytes
+PATTAB EQU  >0800    ; Pattern Table address in VDP RAM - 256*8 bytes
+SPRPAT EQU  >1000    ; Sprite Pattern Table address in VDP RAM - 256*8 bytes
+ENESPR EQU  >1B80    ; Enemy sprite patterns (up to 64)
+LEVELA EQU  >2380    ; Name table for level A (copied to SCR1TB or SCR2TB)
+MENUSC EQU  >2640    ; Name table for menu screen
+PATSAV EQU  >28E0    ; Pattern table backup for menu screen 32*20 bytes
+CAVTXT EQU  >2B60    ; Cave text
+
+MUSICV EQU  >3000    ; Music Base Address in VDP RAM (4k space)
+
+ENEMHS EQU  >07A0    ; Enemy hurt/stun counters interleaved:
                      ; stun: count=6bits
                      ; hurt: direction=2bits count=6bits
+ENEMHP EQU  >07E0    ; Enemy HP
 
 ; CPU RAM layout
-;   0:  32 bytes - workspace
-;  32:  32 bytes - global variables
-;  64: 128 bytes - sprite list
-; 192:  64 bytes - moving object index and data
-; 224:  32 bytes - scratchpad (overlaps object table)       
+; 8300:  32 bytes - workspace
+; 8320:  32 bytes - global variables
+; 8340:  64 bytes - moving object index and data
+; 8380: 128 bytes - sprite list
+; 83E0:  32 bytes - scratchpad (overlaps sprite list)
 
 ; 00: workspace R0-R7
 ; 10: workspace R8-R15
 ; 20: globals
 ; 30: globals
-; 40: sprites 0-3    (status sprites could be freed - in VDP RAM only)
-; 50: sprites 4-7
-; 60: sprites 8-11
-; 70: sprites 12-15
-; 80: sprites 16-19
-; 90: sprites 20-23
-; A0: sprites 24-27
-; B0: sprites 28-31
-; C0: objects 0-7    (0-6 are unused)
-; D0: objects 8-15
-; E0: objects 16-23  (scratchpad)
-; F0: objects 24-31  (scratchpad)
+; 40: objects 0-7    (0-6 are unused)
+; 50: objects 8-15
+; 60: objects 16-23
+; 70: objects 24-31
+; 80: sprites 0-3    (status sprites could be freed? - in VDP RAM only)
+; 90: sprites 4-7
+; A0: sprites 8-11
+; B0: sprites 12-15
+; C0: sprites 16-19
+; D0: sprites 20-23
+; E0: sprites 24-27  (scratchpad)
+; F0: sprites 28-31  (scratchpad)
 
 MUSICP EQU  WRKSP+32        ; Music Pointer
 MUSICC EQU  WRKSP+34        ; Music Counter
 
-MAPLOC EQU  WRKSP+36        ; Map location XY 16x8
+MAPLOC EQU  WRKSP+36        ; Map location YX 16x8
 RUPEES EQU  WRKSP+37        ; Rupee count (max 255)
 KEYS   EQU  WRKSP+38        ; Key count max 9
 BOMBS  EQU  WRKSP+39        ; Bomb count (max 8,12,16)
 HP     EQU  WRKSP+40        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
 HEARTS EQU  WRKSP+41        ; Max hearts - 1 (min 2, max 15)
 MOVE12 EQU  WRKSP+42        ; Movement by 1 or 2
-;SPRLSP EQU  WRKSP+44        ; Sprite List Pointer in VDP RAM (32*4 bytes)
+
 DOOR   EQU  WRKSP+46        ; YYXX position of doorway or secret
 FLAGS  EQU  WRKSP+48        ; Various Flags
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
-ENEDGE EQU  >0004            ; Enemies load from edge of screen
-SCRFLG EQU  >0400           ; NOTE must be equal to SCR2TB
-;TODO Facing bits in here
+ENEDGE EQU  >0004            ; TODO Enemies load from edge of screen
+CNDLUS EQU  >0008            ; TODO Candle used, once per screen (blue candle only)
+FLANIM EQU  >0010            ; Flame animation toggle
+DUNGON EQU  >0020            ; TODO Inside dungeon
+
+
+DIR_XX EQU  >0300            ; Facing bits DIR_XX
+DIR_RT EQU  >0000
+DIR_LT EQU  >0100
+DIR_DN EQU  >0200
+DIR_UP EQU  >0300
+SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
 ;TODO MOVE12 in here
 
 HFLAGS EQU  WRKSP+50        ; Hero Flags (part of save data)
-BLURNG EQU  >0001            ; Blue Ring (take 1/2 damage)
-REDRNG EQU  >0002            ; Red Ring (take 1/4 damage)
-MAGSHD EQU  >0004            ; Magic Shield
-BCANDL EQU  >0008            ; Blue candle (once per screen)
-RCANDL EQU  >0010            ; Red candle (unlimited)
-BMRANG EQU  >0020            ; Boomerang (brown)
-MAGBMR EQU  >0040            ; Magic Boomerang (blue)
-SWORD1 EQU  >0080            ; Wood  Sword 1x damage (brown)
-WSWORD EQU  >0100            ; White Sword 2x damage (white)
-MSWORD EQU  >0200            ; Magic Sword 4x damage (white slanted)
-ARROWS EQU  >0400            ; Arrows (brown)
-BOW    EQU  >0800            ; Bow (brown)
-FLUTE  EQU  >1000            ; Flute (brown)
-PBRACE EQU  >2000            ; Power Bracelet (red)
-LADDER EQU  >4000            ; Ladder (brown)
-RAFT   EQU  >8000            ; Raft (brown)
+SELITM EQU  >0007            ; Selected item 0-7
+
+MAGSHD EQU  >0008            ; Magic Shield
+SWORD1 EQU  >0010            ; Wood  Sword 1x damage (brown)
+WSWORD EQU  >0020            ; White Sword 2x damage (white)
+MSWORD EQU  >0040            ; Magic Sword 4x damage (white slanted)
+BOW    EQU  >0080            ; Bow (brown)
+
+LADDER EQU  >0100            ; Ladder (brown)
+RAFT   EQU  >0200            ; Raft (brown)
+MAGKEY EQU  >0400            ; Magic Key (opens all doors, appears as A in key count)
+BMRANG EQU  >0800            ; Boomerang (brown)
+ARROWS EQU  >1000            ; Arrows (brown)
+FLUTE  EQU  >2000            ; Flute (brown)
+SARROW EQU  >4000            ; Silver arrows (appear blue, double damage)
+MAGBMR EQU  >8000            ; Magic Boomerang (blue)
+
+; order of items that get copied to pattern table
+; 80  ladder  raft   brown
+; 88  magkey boomer  brown
+; 90  arrows flute   brown
+; 98  silver boomer  blue
+; A0  bombs  candle  blue
+; A8  letter potion  blue
+; B0  magrod ring    blue
+; B8  ring   book    red
+; C0  powerb candle  red
+; C8  meat   potion  red
 
 
 ;Raft (brown) Book (red) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
@@ -141,21 +176,25 @@ RAFT   EQU  >8000            ; Raft (brown)
 
 
 HFLAG2 EQU  WRKSP+52         ; More hero flags (part of save data)
-MAGROD EQU  >0001            ; Magic Rod (blue)
-BOOKMG EQU  >0002            ; Book of Magic (adds flames to magic rod)
-MAGKEY EQU  >0004            ; Magic Key (opens all doors, appears as A in key count)
-LETTER EQU  >0008            ; Letter from old man (give to woman allows buying potions)
-BLUPOT EQU  >0010            ; Blue potion (refills hearts, turns into letter when used)
-REDPOT EQU  >0020            ; Red potion (refills hearts, turns into blue potion when used)
-LETPOT EQU  >0040            ; Gave the letter to old woman, potions available
-BAIT   EQU  >0080            ; Bait (lures monsters or give to grumble grumble)
-SARROW EQU  >0100            ; Silver arrows (appear blue, double damage)
+BOMBSA EQU  >0001            ; Bombs available > 0
+BCANDL EQU  >0002            ; Blue candle (once per screen)
+LETTER EQU  >0003            ; Letter from old man (give to woman allows buying potions)
+BLUPOT EQU  >0004            ; Blue potion (refills hearts, turns into letter when used)
+MAGROD EQU  >0010            ; Magic Rod (blue)
+BLURNG EQU  >0020            ; Blue Ring (take 1/2 damage)
+REDRNG EQU  >0040            ; Red Ring (take 1/4 damage)
+REDPOT EQU  >0080            ; Red potion (refills hearts, turns into blue potion when used)
+BAIT   EQU  >0100            ; Bait (lures monsters or give to grumble grumble)
+RCANDL EQU  >0200            ; Red candle (unlimited)
+PBRACE EQU  >0400            ; Power Bracelet (red)
+BOOKMG EQU  >0800            ; Book of Magic (adds flames to magic rod)
 
-SELITM EQU  >E000            ; Selected item 0-7
+LETPOT EQU  >1000            ; Gave the letter to old woman, potions available
+
 
 KEY_FL EQU WRKSP+54         ; key press flags
 KEY_UP EQU  >0002           ; J1 Up / W
-KEY_DN EQU  >0005           ; J1 Down / S
+KEY_DN EQU  >0004           ; J1 Down / S
 KEY_LT EQU  >0008           ; J1 Left / A
 KEY_RT EQU  >0010           ; J1 Right / D
 KEY_A  EQU  >0020           ; J1 Fire / J2 Left / Enter
@@ -175,23 +214,34 @@ COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16
 
 RAND16 EQU  WRKSP+60        ; Random state
 
-SPRLST EQU  WRKSP+64
-HEROSP EQU  SPRLST+16       ; Address of hero sprites (color and outline)
-MPDTSP EQU  SPRLST          ; Address of status bar sprites (mapdot, item, sword, half-heart)
-ITEMSP EQU  SPRLST+4
-SWRDSP EQU  SPRLST+8
-HARTSP EQU  SPRLST+12
+OBJECT EQU  WRKSP+64        ; 64 bytes: sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
+HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
+
+SWRDOB EQU  OBJECT+12       ; Sword animation counter
+BSWDOB EQU  OBJECT+14       ; Beam sword/Magic counter
+ARRWOB EQU  OBJECT+16       ; Arrow counter
+BMRGOB EQU  OBJECT+18       ; Boomerang counter
+FLAMOB EQU  OBJECT+20       ; Flame counter
+BOMBOB EQU  OBJECT+22       ; Bomb counter
+LASTOB EQU  OBJECT+24
+
+SPRLST EQU  WRKSP+128       ; 127 bytes sprite list, copied to VDP by SPRUPD
+MPDTSP EQU  SPRLST          ; 0 Address of status bar sprites (mapdot, item, sword, half-heart)
+HARTSP EQU  SPRLST+4        ; 1
+ITEMSP EQU  SPRLST+8        ; 2
+ASWDSP EQU  SPRLST+12       ; 3
+HEROSP EQU  SPRLST+16       ; 4,5 Address of hero sprites (color and outline)
+SWRDSP EQU  SPRLST+24       ; 6 Sword/Magic Rod
+BSWDSP EQU  SPRLST+28       ; 7 Beam sword/Magic (Magic overrides beam sword)
+ARRWSP EQU  SPRLST+32       ; 8 Arrow
+BMRGSP EQU  SPRLST+36       ; 9 Boomerang
+FLAMSP EQU  SPRLST+40       ; 10 Candle flame
+BOMBSP EQU  SPRLST+44       ; 11 Bomb
+LASTSP EQU  SPRLST+48
 
 SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps sprite list)
 
-OBJECT EQU  WRKSP+192       ; 64 bytes sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
-SWORDC EQU  OBJECT+12       ; Sword animation counter
-HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
-FACING EQU  OBJECT+2        ; Pointer to facing direction sprites
-FACEDN EQU  >0000
-FACELT EQU  >0100
-FACERT EQU  >0200
-FACEUP EQU  >0300
+
 
 
 
@@ -207,12 +257,12 @@ FACEUP EQU  >0300
 
 
 ; Sprite function array (64 bytes), for each sprite:
-;   index byte of sprite function to call: 6 bits, flags hurt and stun: 2 bits
+;   index byte of sprite function to call: 6 bits, flags hurt and stun: 1 bits
 ;   other byte of data (counter, direction, etc)
   
 ;   function called with data in registers:
 ;   R4   data from sprite function array (function idx, counter, etc)
-;   R5   YYXX word sprite location (Y is adjusted)
+;   R5   YYXX word sprite location (Y is adjusted down 1 line)
 ;   R6   IDCL sprite index, color and early bit
   
 ;   (direction could be encoded in sprite index if done carefully, or sprite function index)
@@ -270,18 +320,15 @@ FACEUP EQU  >0300
 ; rocks zora
 
 ; Sprite list layout
-; 0-1  Link, outline
-; 2-5  Mapdot, item, sword, half-heart
-; TODO  0-3  Mapdot, item, sword, half-heart  (keep in VDP RAM only)
-; TODO  4-5  Link, outline
-; 6    Sword/wand
-; 7    Flying sword
+; 0-3  Mapdot, half-heart, item, sword
+; 4-5  Link, outline
+; 6    Sword/Magic Rod
+; 7    Beam sword/Magic
 ; 8    Arrow
 ; 9    Boomerang
-; 10   Magic
-; 11   Flame
-; 12   Bomb
-; 13+  all other objects
+; 10   Flame
+; 11   Bomb
+; 12+  all other objects
 
 
 
@@ -307,8 +354,7 @@ FACEUP EQU  >0300
 ; number of rupees, keys and bombs, max hearts,
 ; and number of enemies remaining on each screen (reset at game start)
 
-; Game saved as password (36 values per character A-Z 0-9, or 32 without 01IO)
-; slightly obfuscated to prevent value hacking
+
 
 
 
@@ -366,7 +412,7 @@ VDPWB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
 ; Read one byte to R1 from VDP address R0 (R0 is preserved)
 VDPRB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
        MOVB R0,*R14         ; Send high byte of VDP RAM write address
-       NOP                  ; Very important for 9918A prefetch, otherwise glitches can occur
+       CLR R1               ; Very important delay for 9918A prefetch, otherwise glitches can occur
        MOVB @VDPRD,R1
        RT
 
@@ -397,19 +443,19 @@ VDPREG MOVB @R0LB,*R14      ; Send low byte of VDP Register Data
 ; Reading the VDP INT bit from the CRU doesn't clear the status register, so it should be safe to poll.
 ; The CRU bit appears to get updated even with interrupts disabled (LIMI 0)
 ; Modifies R0
-VSYNC  MOV R12,R0            ; Save R12 since we use it
+VSYNCM
+       MOV R12,R0            ; Save R12 since we use it
        MOVB @VDPSTA,R12      ; Clear interrupt first so we catch the edge
        CLR R12
 !      TB 2                  ; CRU Address bit 0002 - VDP INT
        JEQ -!                ; Loop until set
        MOVB @VDPSTA,R12      ; Clear interrupt flag manually since we polled CRU
        MOV R0,R12            ;
-       RT
+       ; fall thru
 
-;
 ; Play some music!
 ;
-; Modifies R0,R1,R2
+; Modifies R0,R1
 MUSIC
        DEC @MUSICC         ; Decrement music counter (once per frame)
        JNE MUSIC3
@@ -426,8 +472,8 @@ MUSIC1
        JL MUSIC2
        CI R1,>E000         ; Is it a noise channel byte?
        JHE !
-       MOV R1,R2
-       ANDI R2,>1000       ; Is it the upper nibble even? (freq byte, otherwise vol byte)
+       MOV R1,R0
+       ANDI R0,>1000       ; Is it the upper nibble even? (freq byte, otherwise vol byte)
        JNE !
 ; Bytes with upper nibble >8_, >A_, >C_ are two bytes
        MOVB R1,@SNDREG     ; Write the byte the sound chip

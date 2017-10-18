@@ -42,20 +42,38 @@ MAIN
        DEC R1
        JNE -!
 
+
        MOV R2,R3
        CI R3,5              ; Load initial color table on WIPE
        JNE !
 
-       LI   R0,PATTAB         ; Pattern table starting at char 0
-       LI   R1,PAT0
-       LI   R2,256*8
-       BL   @VDPW
-       
+       BL @GETSEL
+
+       ;LI   R0,PATTAB         ; Pattern table starting at char 0
+       ;LI   R1,PAT0
+       ;LI   R2,256*8
+       ;BL   @VDPW
+
        LI   R0,CLRTAB+VDPWM         ; Color table
        LI   R1,CLRSET
        LI   R2,32
        BL   @VDPW
-       
+
+       LI   R0,MCLRTB+VDPWM         ; Menu Color table
+       LI   R1,CLRSET
+       LI   R2,32
+       BL   @VDPW
+
+       LI   R0,MCLRTB+16+VDPWM      ; Menu Color table
+       LI   R1,MCLRST
+       LI   R2,10
+       BL   @VDPW
+
+       LI   R0,BCLRTB+VDPWM         ; Bright Color table
+       LI   R1,BCLRST
+       LI   R2,32
+       BL   @VDPW
+
 !
        ; Copy the top 3 rows from the current screen to the flipped screen
        LI   R6,VDPRD        ; Keep VDPRD address in R6
@@ -72,16 +90,24 @@ MAIN
        JNE -!
 
        MOV R3,R2
-       CI R2, 6
+       CI R2, 6      ; Cave in
        JNE !
        CLR  @DOOR            ; Clear door location inside cave
+       LI   R0,CLRTAB+15
+       LI   R1,>1E00        ; Use gray on black palette for warp stairs
+       BL   @VDPWB
        LI   R0,>B178        ; Put hero at cave entrance
        MOV  R0,@HEROSP      ; Update color sprite
        MOV  R0,@HEROSP+4    ; Update outline sprite
        LI   R0,LEVELA+VDPWM  ; R0 is screen table address in VRAM (with write bits)
        LI   R3,CAVE          ; Use cave layout
        JMP  STINIT
-!       
+!
+       CI R2, 7       ; Cave out
+       JNE !
+       BL @CLRCAV     ; Clear cave background
+!
+
        CLR  R3
        MOVB @MAPLOC,R3      ; Get MAPLOC as >YX00
        
@@ -117,7 +143,7 @@ MAIN
        MOVB R1,*R15
        MOVB R1,*R15
        SWPB R1
-       LI R0,VDPWM+CLRTAB+31      ; color table entry of dungeon edges
+       LI R0,VDPWM+CLRTAB+26      ; color table entry of dungeon edges
        MOVB @R0LB,*R14
        MOVB R0,*R14
        MOVB R1,*R15
@@ -246,39 +272,35 @@ ENDPAL AI   R6,3
        B    *R2
 
 DONE
+       LI R0,>000A-(10*256)
        MOVB @MAPLOC,R1      ; Mapdot Y = MAPDOT[(MAPLOC & 0x7000) >> 12]
        ANDI R1,>7000
-       SRL  R1,12
-       CLR R0
-       MOVB @MAPDOT(R1),R0  ; Set YY
-       
+       SRL R1,4
+       A R1,R0
+       A R1,R0
+       A R1,R0
+
        MOVB @MAPLOC,R1      ; Mapdot X = ((MAPLOC & 0x0F00) >> 6) + 16
        ANDI R1,>0F00
        SRL  R1,6
-       AI   R1,>0010
        A    R1,R0         ; Set XX
        MOV  R0,@MPDTSP    ; Set Map Dot YYXX  (YY=16,20...76 XX=-13,-10,-7,-4,-1,2,5,8)
-       
+
        B @LENEMY
-DONE2
-       LI R0,SPRLST+24      ; Clear sprite list [6..31]
-       LI R2,64-12          ; (including scratchpad)
-!      CLR *R0+
-       DEC R2
-       JNE -!
+
 DONE3
+       LI R0,SCHSAV
+       BL @READ32            ; Restore saved scratchpad
+
+       MOV @HEROSP,R5        ; Get hero YYXX
+       AI R5,>0100           ; Move Y down one
+
        LI   R0,BANK0         ; Load bank 0
        MOV  R12,R1           ; Jump to our return address
-
-       MOV @HEROSP,R5         ; Get hero YYXX
-       AI R5,>0100            ; Move Y down one
-
        B    @BANKSW
 
 
-; For calculating Y coordinate of MAPDOT sprite (Y*3)-14
-MAPDOT BYTE -14,-11,-8,-5,-2,1,4,7
-       
+
 JMPLST DATA DONE,SCRLUP,SCRLDN,SCRLLT,SCRLRT,WIPE,CAVEIN,CAVOUT
 
 ; Test for vsync and play music if set
@@ -395,9 +417,8 @@ SCROLL
 
        A  R5,R4
 
-       BL @VSYNC
+       BL @VSYNCM
        BL @FLIP
-       BL @MUSIC
        B *R3           ; Return to saved address
 
 
@@ -472,9 +493,8 @@ SCRLL2
        
        AI R4,(-32*22)-1
 
-       BL @VSYNC
+       BL @VSYNCM
        BL @FLIP
-       BL @MUSIC
 
        MOV R8,R1
        ANDI R1,1
@@ -525,9 +545,8 @@ SCRLR2
        
        AI R4,(-32*22)+1
        
-       BL @VSYNC
+       BL @VSYNCM
        BL @FLIP
-       BL @MUSIC
 
        MOV R8,R1
        ANDI R1,1
@@ -537,7 +556,24 @@ SCRLR2
        DEC R8
        JNE SCRLR2
        B @DONE
-       
+
+CLRCAV
+       LI R1,>2020  ; ASCII space
+       LI R8,16     ; clear 16 lines
+       MOV @FLAGS,R0  ; Set dest to flipped screen
+       ANDI R0,SCRFLG
+       AI  R0,(32*7)+4+VDPWM  ; Calculate right column dest pointer with write flag
+!      MOVB @R0LB,*R14
+       MOVB R0,*R14
+       LI R9,24
+!      MOVB R1,*R15
+       DEC R9
+       JNE -!
+       AI R0,32
+       DEC R8
+       JNE -!!
+       RT
+
 CAVEIN
        LI R9,16             ; Step down 16 lines
 
@@ -556,27 +592,26 @@ STEPDN LI R4, 4             ; Step downward first four sprites
        DEC R4
        JNE -!
 
-       BL @VSYNC
-       BL @MUSIC
-
-       BL @VSYNC
-       BL @MUSIC
-
-       BL @VSYNC
-       BL @MUSIC
-
-       BL @VSYNC
-       BL @MUSIC
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
 
        DEC R9
        JNE STEPDN
-       
+
+       ;LI R0,>0400
+       ;MOVB R0,@HEROSP+7    ; Set outline color to blue
+
        JMP !
 CAVOUT
        MOV  @DOOR,R5        ; Move link to door location
        AI R5,->0100         ; Move Y up one
        MOV R5,@HEROSP	    ; Update color sprite
-       MOV R5,@HEROSP+4    ; Update outline sprite
+       MOV R5,@HEROSP+4     ; Update outline sprite
+       ;LI R0,>0100
+       ;MOVB R0,@HEROSP+7    ; Set outline color to black
 
 !
        LI R0,SCRFLG
@@ -592,14 +627,14 @@ CAVOUT
        DEC R9
        JNE -!
        
-       BL @VSYNC
+       BL @VSYNCM
        BL @FLIP
-       BL @MUSIC
        LI R9,10            ; Delay 10 frames
-!      BL @VSYNC
-       BL @MUSIC
+!      BL @VSYNCM
        DEC R9
        JNE -!
+
+
 
 CUT    
        LI R4,LEVELA     ; Set source to new screen
@@ -621,9 +656,8 @@ CUT
        DEC R9
        JNE -!
        
-       BL @VSYNC
+       BL @VSYNCM
        BL @FLIP
-       BL @MUSIC
 
        CLR R1
        BL @DOSPRT
@@ -636,12 +670,12 @@ CUT
 ; R4 - pointer to new screen in VRAM
 WIPE
        LI   R8,16           ; Scroll through 16 columns
-       
+
 WIPE2
 
-       BL @VSYNC
-       BL @VSYNC
-       BL @VSYNC
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
 
 ; Copy two vertical strips from new screen to screen table
 
@@ -657,6 +691,7 @@ WIPE2
 !      MOV R4,R0
        MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
        MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       NOP
        MOVB *R6,R1
        AI R4,32
 
@@ -681,6 +716,7 @@ WIPE2
 !      MOV R4,R0
        MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
        MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       NOP
        MOVB *R6,R1
        AI R4,32
 
@@ -702,56 +738,187 @@ WIPE2
 STMOVE
        A R0,@MPDTSP
        A R0,@ITEMSP
-       A R0,@SWRDSP
+       A R0,@ASWDSP
        A R0,@HARTSP
        LI R0,SPRTAB
        LI R1,SPRLST
        LI R2,4*4
        B @VDPW
 
-;Raft (brown) Book (red) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
-;Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (red/blue)
-;Flute (brown) Meat (red) Scroll(brown)/Potion(red/blue) Magic Rod (blue)
 
 ; items that get copied to pattern table
 ; 80  ladder  raft   brown
-;     magkey boomer  brown
-;     arrows flute   brown
-;     silver boomer  blue
-;     bombs  candle  blue
-;     letter potion  blue
-;     magrod ring    blue
-;     ring   book    red
-;     powerb candle  red
-;     meat   potion  red
+; 88  magkey boomer  brown
+; 90  arrows flute   brown
+; 98  silver boomer  blue
+; A0  bombs  candle  blue
+; A8  letter potion  blue
+; B0  magrod ring    blue
+; B8  ring   book    red
+; C0  powerb candle  red
+; C8  meat   potion  red
 
-;ITEMS  DATA >A037    ; Ladder
-;       DATA >B831    ; Raft
-
+; Raft (brown) Book (red) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
 ; 30 32 34 36 38 3A
-; 90  93   96   99
-; D0  D3   D6   D9
+; 90  93   96   99   Boomerang (brown/blue) Bomb (blue) Bow/Arrow (brown/?) Candle (red/blue)
+; D0  D3   D6   D9   Flute (brown) Meat (red) Scroll(brown)/Potion(red/blue) Magic Rod (blue)
 
-ITEMS  DATA >0036  ; Ladder
-       DATA >0030  ; Raft
-       DATA >0038  ; Magic Key
-       DATA >9490  ; Boomerang
-       DATA >0096  ; Arrows
-       DATA >00D0  ; Flute
-       DATA >0096  ; Silver arrows?
-       DATA >9490  ; Magic Boomerang
-       DATA >C493  ; Bombs (is C4, ha!)
-       DATA >0099  ; Blue Candle
-       DATA >00D6  ; Letter
-       DATA >00D6  ; Potion
-       DATA >00D9  ; Magic Rod
-       DATA >0034  ; Blue Ring
-       DATA >0034  ; Red Ring
-       DATA >0032  ; Magic Book
-       DATA >003A  ; Power Bracelet
-       DATA >0099  ; Red Candle
-       DATA >00D3  ; Meat
-       DATA >00D6  ; Red Potion
+ITEMS  ; [15-8]=sprite index [7-0]=screen offset
+       DATA >4736  ; Ladder
+       DATA >4430  ; Raft
+       DATA >4838  ; Magic Key
+       DATA >2590  ; Boomerang
+       DATA >4A96  ; Arrows
+       DATA >4BD0  ; Flute
+       DATA >4A96  ; Silver arrows?
+       DATA >2590  ; Magic Boomerang
+       DATA >3193  ; Bombs
+       DATA >5299  ; Blue Candle
+       DATA >4ED6  ; Letter
+       DATA >4FD6  ; Potion
+       DATA >46D9  ; Magic Rod
+       DATA >5034  ; Blue Ring
+       DATA >5034  ; Red Ring
+       DATA >4532  ; Magic Book
+       DATA >493A  ; Power Bracelet
+       DATA >5299  ; Red Candle
+       DATA >51D3  ; Meat
+       DATA >4FD6  ; Red Potion
+
+SELPOS BYTE >90,>93,>96,>99,>D0,>D3,>D6,>D9
+; Get selected item sprite and color into sprite 62
+; Modifies R0-R2,R4-5,R7-R10,R13   (R3,R6,R12 must be preserved)
+GETSEL
+       MOV R11,R10    ; Save return address
+
+       MOV @HFLAGS,R9
+       ANDI R9,7
+       MOVB @SELPOS(R9),R9   ; Get selected item pos
+
+       LI R7,SPRPAT+(62*32)
+
+       LI R5,ITEMS
+       LI R8,20       ; Draw 20 items
+
+!      MOV *R5+,R4
+
+       ; TODO is item collected?
+
+       CB R9,@R4LB
+       JNE !
+
+       ; Copy sprite
+       BL @CPYITM
+
+       ; Get color from menu colorset
+       MOV R5,R1
+       AI R1,-ITEMS-2
+       SRL R1,2
+       MOVB @MCLRST(R1),R1
+       SRL R1,4
+       MOVB R1,@ITEMSP+3   ; Put in sprite list
+       LI R0,SPRTAB+ITEMSP-SPRLST+3
+       BL @VDPWB           ; Put in VDP sprite table
+
+!      DEC R8
+       JNE -!!
+
+       B *R10           ; Return to saved address
+
+; Copy item from sprite pattern to character pattern (or selected item sprite)
+; R4=IIPP  II=sprite index PP=screen pos
+; R7=destination VDP address
+CPYITM
+       MOV R11,R13      ; Save return address
+
+       ; Copy sprite
+       MOV R4,R0
+       ANDI R0,>FF00
+
+       CI R0,>4A00     ; is it bow and arrows?
+       JNE !!!
+
+       MOV @HFLAGS,R1
+       ANDI R1,BOW+ARROWS
+       JNE !
+       ; TODO neither bow nor arrow
+!      CI R1,BOW
+       JNE !
+       LI R0,>5200     ; Only Bow
+!      CI R1,ARROWS
+       JNE !
+       LI R0,>2B00     ; Only Arrows
+!
+       SRL R0,3
+       AI R0,SPRPAT
+       BL @READ32      ; Get the sprite pattern
+       MOV R7,R0
+       BL @PUTSCR      ; Save it
+
+       B *R13          ; Return to saved address
+
+
+
+
+TIFORC ; bit [7]=3wide [6-4]=y offset [2-0]=x offset
+;       BYTE 2+(0*16)  ; Tiforce 1 piece 10,11   2,0
+;       BYTE 2+(2*16)  ; Tiforce 2 piece 10,13   2,2
+;       BYTE 4+(2*16)  ; Tiforce 3 piece 12,13   4,2
+;       BYTE 6+(2*16)  ; Tiforce 4 piece 14,13   6,2
+;       BYTE 0+(3*16)  ; Tiforce 5 piece  8,14   0,3
+;       BYTE 2+(4*16)+128  ; Tiforce 6 piece 10,15   2,4
+;       BYTE 5+(4*16)+128  ; Tiforce 7 piece 13,15   5,4
+;       BYTE 3+(6*16)+128  ; Tiforce 8 piece 11,17   3,6
+
+       DATA >0011,>0000  ; 0 0 1 1 0 0 0 0
+       DATA >0011,>0000  ; 0 0 1 1 0 0 0 0
+       DATA >0022,>3344  ; 0 0 2 2 3 3 4 4
+       DATA >5522,>3344  ; 5 5 2 2 3 3 4 4
+       DATA >5566,>6777  ; 5 5 6 6 6 7 7 7
+       DATA >0066,>6770  ; 0 0 6 6 6 7 7 0
+       DATA >0008,>8700  ; 0 0 0 8 8 7 0 0
+       DATA >0008,>8000  ; 0 0 0 8 8 0 0 0
+
+; Translate 4 TIFORCE characters
+; R0 = screen offset
+; R3 = 4 nibbles
+TIFROW
+       MOV R11,R10    ; Save return address
+
+       LI R2,4       ; Go through each nibble
+TIFRO1
+       MOV R3,R1
+       SLA R3,4
+       SRL R1,12  ; Todo Test this bit in collected tiforces
+
+       JEQ TIFRO3
+
+       ANDI R0,>3FFF  ; Clear VDPWD bit
+       BL @VDPRB      ; Read 1 byte
+       CI R1,>3A00    ; /
+       JNE !
+       AI R1,>0200    ; Change to |/
+       JMP TIFRO2
+!
+       CI R1,>3B00    ; \
+       JNE !
+       AI R1,>0200    ; Change to \|
+       JMP TIFRO2
+!
+       CI R1,>3C00
+       JEQ TIFRO3     ; Don't change |/
+       CI R1,>3D00
+       JEQ TIFRO3     ; Don't change \|
+
+       LI R1,>5B00    ; Solid []
+TIFRO2
+       BL @VDPWB
+TIFRO3
+       INC R0
+       DEC R2
+       JNE TIFRO1
+
+       B *R10         ; Return to saved address
 
 MENUDN
        LI R0,SCHSAV
@@ -762,8 +929,43 @@ MENUDN
        BL @VDPWB       ; Turn off hero sprites
 
        LI R6,VDPRD     ; Keep VDPRD address in R6
-       LI R8,21        ; Scroll through 21 rows
+
+       ;Copy current screen to LevelA
+       MOV @FLAGS,R4
+       ANDI R4,SCRFLG
+       AI R4,3*32
+       LI R9,21       ; Move 21 lines
+       LI R10,LEVELA  ; Dest into LEVELA
+!      MOV R4,R0
+       BL @READ32
+       MOV R10,R0
+       BL @PUTSCR
+       AI R4,32
+       AI R10,32
+       DEC R9
+       JNE -!
+
+       MOV @FLAGS,R4
+       ANDI R4,INCAVE
+       JEQ !
+       BL @CLRCAV      ; Clear cave
+!
+
+       LI R5,TIFORC    ; Draw TIFORCE collected
+       LI R0,MENUSC+(32*11)+10     ; TiForce offset at 10,11
+       LI R8,8        ; 8 rows
+
+!      MOV *R5+,R3     ; Draw TIFORCE pieces
+       BL @TIFROW
+       MOV *R5+,R3
+       BL @TIFROW
+       AI R0,32-8
+       DEC R8
+       JNE -!
+
+
        LI R4,MENUSC+(32*20)    ; Menu screen VDP address
+       LI R8,21        ; Scroll through 21 rows
 !
        LI R5,-32       ; Direction down
        LI R9,23        ; Move 23 lines
@@ -776,21 +978,24 @@ MENUDN
        DEC R8
        JNE -!
 
+       LI R0,>0300+(MCLRTB/>40)  ; VDP Register 3: Color Table
+       BL @VDPREG
+
        LI R5,ITEMS
        LI R7,PATTAB+(>80*8)
        LI R8,20       ; Draw 20 items
        LI R9,>8082    ; Use characters starting at 80
-!
-       MOV *R5+,R4
 
-       ; Copy sprite
-       MOV R4,R0
-       ANDI R0,>FF00
-       SRL R0,5
-       AI R0,SPRPAT
-       BL @READ32
+!      MOV *R5+,R4
+
        MOV R7,R0
+       BL @READ32
+       AI R0,PATSAV-PATTAB-(>80*8)
        BL @PUTSCR
+
+       ; TODO is item collected?
+
+       BL @CPYITM
        AI R7,32
 
        MOV @FLAGS,R0   ; Set dest to flipped screen
@@ -799,7 +1004,7 @@ MENUDN
        A R4,R0         ; Add screen pos
 
        MOV R9,R1       ; Get character number
-       BL @VDPWB
+       BL @VDPWB       ; Draw characters from sprite pattern
        MOVB @R1LB,*R15
        AI R0,>20
        AI R1,>0101
@@ -810,8 +1015,11 @@ MENUDN
        DEC R8
        JNE -!
 
-       LI R0,SCHSAV
-       BL @READ32      ; Restore saved scratchpad
+       LI R0,SPRPAT+(91*32)  ; Selector sprite
+       BL @READ32
+       LI R0,SPRPAT+(7*32)
+       BL @PUTSCR
+
        B @DONE3
 
 MENUUP
@@ -819,7 +1027,6 @@ MENUUP
        BL @PUTSCR      ; Save a backup of scratchpad
 
        LI R5,ITEMS
-       LI R7,PATTAB+(>80*8)
        LI R8,20       ; Erase 20 items
        MOV @FLAGS,R9   ; Set dest to flipped screen
        ANDI R9,SCRFLG
@@ -828,23 +1035,33 @@ MENUUP
        ANDI R0,>00FF
        A R9,R0         ; Add screen pos
 
-       LI R1,>2020
+       LI R1,>2020     ; Erase 2 characters
        BL @VDPWB
        MOVB @R1LB,*R15
-       AI R0,>20
+       AI R0,>20       ; Next row
        BL @VDPWB
        MOVB @R1LB,*R15
 
        DEC R8
        JNE -!
 
-       LI R0,PATTAB+(>80*8)
-       LI R1,PAT128
-       LI R2,20*32
-       BL @VDPW        ; Restore tiles used for items
-
+       BL @VSYNCM
+       LI R0,>0300+(CLRTAB/>40)  ; VDP Register 3: Color Table
+       BL @VDPREG
 
        LI R6,VDPRD     ; Keep VDPRD address in R6
+       LI R7,PATSAV
+       LI R8,20       ; Erase 20 meta-patterns
+
+!      MOV R7,R0        ; Restore saved pattern tables
+       BL @READ32
+       AI R0,PATTAB+(>80*8)-PATSAV
+       BL @PUTSCR
+
+       AI R7,32
+       DEC R8
+       JNE -!
+
        LI R8,21        ; Scroll through 21 rows
        LI R4,LEVELA
 !
@@ -876,72 +1093,77 @@ MENUUP
        DEC R9
        JNE -!
 
-       LI R0,SCHSAV
-       BL @READ32      ; Restore saved scratchpad
        B @DONE3
-       
+
+
 ; Load enemies
 LENEMY
        MOVB @MAPLOC,R1         ; Get map location
        SRL R1,8
+
+       LI R9,LASTOB        ; Start filling the object list at last index
+
+       MOV @FLAGS,R0
+       ANDI R0,INCAVE
+       JNE LCAVE            ; Load cave items instead
+
        MOVB @ENEMYS(R1),R0     ; Get enemy group index at map location
        SRL R0,8
 
        LI R7,ENEMYG           ; Pointer to enemy groups
-       LI R9,OBJECT+24        ; Start filling the object list at index 12
-       
-       MOV  R0,R5
-;       LI R4,4              ; 4 Armos sprites
-;       LI R8, ENESPR+>590   ; Armos sprite source address index >2C
-;       LI R10,SPRPAT+>C00   ; Destination sprite address index >60
-;       ANDI R0,>0080        ; Test zora bit
-;       JEQ LENEM2
-;       LI R0,>1400          ; Zora enemy type
-;       MOVB R0,*R9+         ; Store it
-;       INC R4 	     	    ; 5 Zora sprites
-;       LI R8,ENESPR+>400    ; Zora sprite source address index >20
-;       AI R10,32            ; Destination sprite address index >61
-;
-;LENEM2 MOV R8,R0            ; Copy Zora or Armos sprites
-;       BL @READ32           ; Read sprite into scratchpad
-;       AI R8,32
-;       
-;       MOV R10,R0
-;       BL @PUTSCR           ; Copy it back to the sprite pattern table
-;       AI R10,32
-;       
-;       CI R10,SPRPAT+>E00
-;       JNE !
-;       LI R10,SPRPAT+>500   ; Pulsing ground dest address index >28
-;       
-;!      DEC R4
-;       JNE LENEM2
-;
 
-       MOV R5,R1
+       MOV  R0,R5
+       LI R4,4              ; 4 Armos sprites
+       LI R8, ENESPR+(>2C*32)   ; Armos sprite source address index >2C
+       LI R10,SPRPAT+(>18*32)   ; Destination sprite address index >60
+       ANDI R0,>0080        ; Test zora bit
+       JEQ LENEM2
+       LI R0,>0010          ; Zora enemy type
+       MOV R0,*R9+          ; Store it
+       INC R4 	     	    ; 5 Zora sprites
+       LI R8,ENESPR+(>20*32)    ; Zora sprite source address index >20
+       AI R10,32            ; Destination sprite address index >61
+
+LENEM2 MOV R8,R0            ; Copy Zora or Armos sprite
+       AI R8,32
+       BL @READ32           ; Read sprite into scratchpad
+
+       MOV R10,R0
+       AI R10,32
+       BL @PUTSCR           ; Copy it back to the sprite pattern table
+
+       CI R8,ENESPR+(>23*32)   ; After zora (pulsing ground)
+       JNE !
+       LI R10,SPRPAT+(>0A*32)   ; Pulsing ground dest address index >28
+
+!      DEC R4
+       JNE LENEM2
+
+
+       MOV R5,R1               ; R5 = enemy group index
        MOV R5,R0
        ANDI R0,>0040           ; Test edge loading bit
-; TODO
+       ; TODO
 
        ANDI R1,>003F          ; Mask off zora and loading behavior bits to get group index
        JNE LENEM3
-       B @DONE2                ; No enemies on this screen
-       
+       JMP LENEM6                ; No enemies on this screen
+
 !      CLR R3
        MOVB *R7+,R3
        CI R3,>8000             ; Keep reading until the end of the group (upper bit not set)
        JHE -!
 LENEM3 DEC R1                  ; Decrement counter until we locate the enemy group
        JNE -!
-       
+
 
 LENEM4 MOVB *R7+,R3            ; Load the number and type of enemies
-       
+
        MOV R3,R4
        SRL R4,12
        ANDI R4,>0007           ; Get the count of enemies
        JEQ LENEM5
-       
+
        MOV R3,R8
        ANDI R8,>0F00           ; Get only the enemy type
        SWPB R8
@@ -957,31 +1179,31 @@ LENEM4 MOVB *R7+,R3            ; Load the number and type of enemies
        ANDI R8,>FF00
        SRL  R8,3
        AI   R8,ENESPR          ; Get source offset in R8 = XX * 32 + ENESPR
-       
+
        MOV R4,R10
        ANDI R10,>00F0
        SLA  R10,2
-       AI  R10,SPRPAT+>0100     ; Calculate dest offset into sprite pattern table (Y * 64 + 20 * 8)
-       
+       AI  R10,SPRPAT+>0100     ; Calculate dest offset into sprite pattern table (Y * 64 + >20 * 8)
+
        ANDI R4,>000F       ; The number of sprites to copy
 !      MOV R8,R0
        BL @READ32          ; Read sprite into scratchpad
        AI R8,32
-       
+
        MOV R10,R0
        BL @PUTSCR          ; Copy it back to the sprite pattern table
        AI R10,32
-       
+
        DEC R4
        JNE -!
 
 LENEM5 A R3,R3             ; Keep reading until the end of the group (upper bit not set)
        JOC LENEM4
-       
+
        LI R0,ENEMHP+12+VDPWM      ; Fill enemy HP
        MOVB @R0LB,*R14
        MOVB R0,*R14
-       
+
        LI R9,OBJECT+24      ; Read objects
        LI R4,32-12
 !      MOV *R9+,R1
@@ -989,9 +1211,86 @@ LENEM5 A R3,R3             ; Keep reading until the end of the group (upper bit 
        MOVB @INITHP(R1),*R15 ; Copy initial HP
        DEC R4
        JNE -!
-       
-       B @DONE2
-       
+
+LENEM6
+       LI R0,SPRLST+(6*4)      ; Clear sprite list [6..31]
+       LI R2,(32-6)*2          ; (including scratchpad)
+!      CLR *R0+
+       DEC R2
+       JNE -!
+
+       B @DONE3
+
+LCAVE
+
+       LI R8,LASTSP
+!      CLR *R8+
+       CI R8,WRKSP+256        ; Clear sprite table
+       JNE -!
+
+       LI R0,BANK3
+       LI R1,MAIN
+       LI R2,4                ; Link face direction up
+       BL @BANKSW
+
+       LI R9,5                ; Link walks upward for 5 frames
+!      BL @VSYNCM             ; FIXME link isn't visible yet due to sprite animation
+       LI R1,->100
+       BL @DOSPRT
+
+       DEC R9
+       JNE -!
+
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
+
+
+       LI R5,SPRPAT+(77*32)   ; copy cave item sprites
+       LI R9,SPRPAT+(8*32)    ; into enemies spots
+       LI R4,14               ; copy 14 sprite patterns
+!      MOV R5,R0
+       BL @READ32
+       MOV R9,R0
+       BL @PUTSCR
+       AI R5,32
+       AI R9,32
+       DEC R4
+       JNE -!
+
+       LI R0,ENESPR+(20*32)   ; Copy Moblin sprite
+       BL @READ32
+       MOV R9,R0
+       BL @PUTSCR
+
+
+       LI R2,3            ; 2 fires and 1 npc
+
+       ;DEC R2   TODO check if item already collected
+
+       LI R4,LASTOB       ; object list
+       LI R5,LASTSP       ; sprite list
+       LI R7,CAVDAT
+!
+       MOV *R7+,*R4+      ; Object ID
+       MOV *R7+,*R5+      ; Object pos
+       MOV *R7+,*R5+      ; Object sprite
+       DEC R2
+       JNE -!
+
+       ; Clear remaining sprite table
+!      CLR *R5+
+       CI R5,WRKSP+256
+       JNE -!
+
+       B @DONE3
+
+CAVDAT DATA >D05F,>5748,>0000 ; Flame object id, location, sprite
+       DATA >D05F,>57A8,>0000 ; Flame object id, location, sprite
+       DATA >C0DF,>5778,>D00F ; Old man object id, location, sprite
+
+
+
 
 
 ****************************************
@@ -1015,11 +1314,12 @@ ENEMYP DATA >2C84  ; 0 Armos
        DATA >2315  ; E Red Leever          (5 sprites, all vertical symmetry)
        DATA >2315  ; F Blue Leever         (5 sprites, all vertical symmetry)
 
-; initial HP for enemies
+       ; initial HP for enemies
 INITHP BYTE 0,2,1,1     ; Armos Peahat RedTektite BlueTektite
        BYTE 1,2,1,2     ; RedOctorok BlueOctorok FastRedOctorok FastBlueOctorok
        BYTE 2,3,4,6     ; RedMoblin BlueMoblin RedLynel BlueLynel
        BYTE 9,0,2,4     ; Ghini Rock RedLeever BlueLeever
+       BYTE 2           ; Zora
 
 
 ****************************************
@@ -1071,11 +1371,11 @@ ENEMYG BYTE >4A     ; 01  4 red lynel
        BYTE >B4,>27 ; 2c  3 red octorok 2 fast blue octorok
        BYTE >12     ; 2d  1 red tektite
 
-; +40 enemies enter from sides of screen (otherwise appear in puffs of smoke)
-; +80 zora (otherwise armos sprites are loaded)
-       
+       ; +40 enemies enter from sides of screen (otherwise appear in puffs of smoke)
+       ; +80 zora (otherwise armos sprites are loaded)
+
 ENEMYS BYTE >00,>01,>01,>02,>03,>04,>05,>06,>02,>00,>87,>08,>09,>09,>00,>00
-       BYTE >0A,>05,>03,>0B,>01,>05,>02,>02,>82,>82,>89,>00,>00,>0C,>89,>0C
+       BYTE >0A,>05,>03,>0B,>01,>05,>02,>82,>82,>82,>89,>00,>00,>0C,>89,>0C
        BYTE >2a,>2a,>06,>01,>00,>0D,>8C,>8C,>8C,>0E,>0F,>10,>11,>92,>93,>00
        BYTE >2a,>2a,>05,>00,>14,>80,>80,>15,>96,>17,>10,>14,>18,>19,>92,>98
        BYTE >2a,>2a,>20,>17,>A1,>22,>80,>80,>8E,>16,>23,>24,>12,>19,>19,>AC
@@ -1083,7 +1383,8 @@ ENEMYS BYTE >00,>01,>01,>02,>03,>04,>05,>06,>02,>00,>87,>08,>09,>09,>00,>00
        BYTE >05,>26,>26,>29,>12,>AB,>2B,>21,>21,>A1,>A1,>29,>1A,>1A,>29,>96
        BYTE >0D,>26,>1B,>19,>2D,>90,>11,>00,>21,>1D,>1E,>9F,>9F,>93,>A1,>98
 
-       
+       EVEN
+
 ; Overworld map consists of 16x8 screens, each screen is 16 bytes
 ; Each byte is into an index into an array of strips 11 metatiles tall
 ; Each screen is 16x11 metatiles
@@ -1147,7 +1448,7 @@ DOORS  BYTE >00,>19,>00,>47,>1C,>65,>00,>4A,>00,>00,>12,>47,>18,>19,>45,>48
        
 MT00   DATA >A0A1,>A2A3  ; Brown Brick
        DATA >0000,>0000  ; Ground
-       DATA >1C1D,>1C1D  ; Ladder
+       DATA >1415,>1415  ; Ladder
        DATA >A4A5,>ABAC  ; Brown top
        DATA >A7AE,>AF07  ; Brown corner SE
        DATA >A506,>ACAD  ; Brown corner NE
@@ -1162,42 +1463,42 @@ MT00   DATA >A0A1,>A2A3  ; Brown Brick
        DATA >E0E0,>E1E1  ; Water
        DATA >E0E0,>E2E2  ; Water edge S
 
-MT10   DATA >00ED,>0019  ; Water inner corner NE
-       DATA >EC00,>1800  ; Water inner corner NW
+MT10   DATA >00ED,>0011  ; Water inner corner NE
+       DATA >EC00,>1000  ; Water inner corner NW
        DATA >E7E8,>E1E9  ; Water corner NE
        DATA >E0E9,>E1EA  ; Water edge E
        DATA >E0EA,>E2EB  ; Water corner SE
-       DATA >00F8,>FAC8  ; Brown Dungeon NW
-       DATA >FBC9,>CBCA  ; Brown Dungeon SW
+       DATA >00D0,>D2C8  ; Brown Dungeon NW
+       DATA >D3C9,>CBCA  ; Brown Dungeon SW
        DATA >C0C1,>C2C3  ; Brown Dungeon two eyes
-       DATA >F900,>CCFA  ; Brown Dungeon NE
-       DATA >CDFB,>CECB  ; Brown Dungeon SE
+       DATA >D100,>CCD2  ; Brown Dungeon NE
+       DATA >CDD3,>CECB  ; Brown Dungeon SE
        DATA >7071,>7273  ; Red Steps
        DATA >C4C5,>C6C7  ; White Dungeon one eye
-       DATA >FCB0,>FDB0  ; Brown Tree NW
+       DATA >D4B0,>D5B0  ; Brown Tree NW
        DATA >00B2,>00B3  ; Brown Tree SW
        DATA >B400,>B500  ; Brown Tree NE
-       DATA >B6FE,>B7FF  ; Brown Tree SE
+       DATA >B6D6,>B7D7  ; Brown Tree SE
 
 MT20   DATA >D8D9,>DADB  ; Waterfall
-       DATA >D8D9,>1F1F  ; Waterfall bottom
+       DATA >D8D9,>1717  ; Waterfall bottom
        DATA >B8B9,>BABB  ; Tree face
        DATA >F4F5,>F6F7  ; Gravestone
        DATA >9899,>9A9B  ; Bush
-       DATA >1A00,>EE00  ; Water inner corner SW
-       DATA >1011,>1213  ; Sand
-       DATA >6C6C,>6D6D  ; Bridge
-       DATA >878E,>8F60  ; Grey corner SE
-       DATA >6060,>6060  ; Grey Ground
+       DATA >1200,>EE00  ; Water inner corner SW
+       DATA >6061,>6263  ; Sand
+       DATA >1C1C,>1D1D  ; Red Bridge
+       DATA >878E,>8F08  ; Grey corner SE
+       DATA >0808,>0808  ; Grey Ground
        DATA >F4F5,>F6F7  ; Gravestone
        DATA >8485,>8B8C  ; Grey top
-       DATA >6465,>6667  ; Grey stairs
+       DATA >7879,>7A7B  ; Grey stairs
        DATA >F0F1,>F2F3  ; Grey bush
-       DATA >6062,>FAC8  ; White Dungeon NW
-       DATA >FBC9,>CBCA  ; White Dungeon SW
+       DATA >0062,>D2C8  ; Green Dungeon NW
+       DATA >D3C9,>CBCA  ; Green Dungeon SW
 
 MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
-       DATA >6360,>CCFA  ; White Dungeon NE
+       DATA >6300,>CCD2  ; Green Dungeon NE
        DATA >2020,>2020  ; Black square
        DATA >DCDD,>DEDF  ; Armos
        DATA >001B,>00EF  ; Water inner corner SE
@@ -1205,16 +1506,16 @@ MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
        DATA >E0E9,>E1EA  ; Water edge E
 
 MTGREY ; white metatiles
-       DATA >6060,>6060  ; Grey Ground
-       DATA >6263,>6263  ; Grey Ladder
-       DATA >878E,>8F67  ; Green corner SE
-       DATA >8566,>8C8D  ; Green corner NE
-       DATA >8889,>6586  ; Green corner SW
-       DATA >6484,>8A8B  ; Green corner NW
+       DATA >0808,>0808  ; Grey Ground
+       DATA >0A0B,>0A0B  ; Grey Ladder
+       DATA >878E,>8F0F  ; Grey corner SE
+       DATA >850E,>8C8D  ; Grey corner NE
+       DATA >8889,>0D86  ; Grey corner SW
+       DATA >0C84,>8A8B  ; Grey corner NW
        DATA >F0F1,>F2F3  ; Grey bush
        DATA >7879,>7A7B  ; Grey stairs
-       DATA >60F8,>FAC8  ; White Dungeon NW
-       DATA >F960,>CCFA  ; White Dungeon NE
+       DATA >08D0,>D2C8  ; White Dungeon NW
+       DATA >D108,>CCD2  ; White Dungeon NE
 
 MTGREN ; green metatiles
        DATA >8081,>8283  ; Green brick
@@ -1229,280 +1530,40 @@ MTGREN ; green metatiles
        DATA >7C7C,>7D7D  ; Green Bridge
 
 ; palette metatile conversions white/green, same order as MTGREY or MTGREN, above
-PALMTW BYTE >01,>02,>04,>05,>06,>08,>24,>1A,>15,>18  ; white conversions
+PALMTW BYTE >01,>02,>04,>05,>06,>08,>24,>1A,>15,>18  ; grey conversions
 PALMTG BYTE >00,>03,>04,>05,>06,>08,>09,>1A,>24,>27  ; green conversions
 PALMTE
 
 
-       
+; Master is sprites.mag
 
 ****************************************
 * Colorset Definitions                  
 ****************************************
-CLRSET BYTE >1B,>1B,>6B,>4B            ;
+CLRSET BYTE >1B,>1E,>4B,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
-       BYTE >1E,>16,>16,>1C            ;
+       BYTE >6B,>1B,>16,>1C            ;
        BYTE >1C,>1C,>CB,>6B            ;
        BYTE >16,>16,>16,>16            ;
-       BYTE >16,>16,>14,>4B            ;
-       BYTE >4B,>4B,>1F,>1B            ;
+       BYTE >16,>16,>1B,>4B            ;
+       BYTE >4B,>4B,>1F,>41           ;
+
 ****************************************
-* Character Patterns                    
+* Menu Colorset Definitions starting at char >80
 ****************************************
-PAT0   DATA >0000,>0000,>0000,>0000    ;
-PAT1   DATA >0003,>0F3C,>1030,>60C0    ;
-PAT2   DATA >CEFF,>3900,>0000,>0000    ;
-PAT3   DATA >8000,>0040,>C080,>0000    ;
-PAT4   DATA >0000,>0000,>0303,>070F    ;
-PAT5   DATA >1F0F,>0700,>0000,>0000    ;
-PAT6   DATA >0000,>0000,>0000,>0038    ;
-PAT7   DATA >8080,>8080,>0000,>0000    ;
-PAT8   DATA >9301,>0101,>0183,>C7EF    ;
-PAT9   DATA >E0C2,>8203,>0709,>7317    ;
-PAT10  DATA >F1EC,>EEF6,>E9DF,>AF5F    ;
-PAT11  DATA >8080,>0000,>2030,>0006    ;
-PAT12  DATA >0000,>0000,>0000,>0024    ;
-PAT13  DATA >00C0,>FC08,>0000,>0C02    ;
-PAT14  DATA >0101,>0100,>0002,>0203    ;
-PAT15  DATA >0101,>0001,>0208,>0CC0    ;
-PAT16  DATA >0000,>2002,>0040,>0008    ;
-PAT17  DATA >0108,>0000,>4004,>0000    ;
-PAT18  DATA >0001,>2000,>0082,>0010    ;
-PAT19  DATA >1000,>0002,>1000,>0040    ;
-PAT20  DATA >003C,>7EFF,>FFFF,>FFFF    ;
-PAT21  DATA >7F7F,>3F1F,>0F07,>0301    ;
-PAT22  DATA >FEFE,>FCF8,>F0E0,>C080    ;
-PAT23  DATA >0000,>0000,>0000,>0000    ;
-PAT24  DATA >8080,>8000,>0000,>0000    ;
-PAT25  DATA >0307,>0000,>0000,>0000    ;
-PAT26  DATA >0000,>0000,>8080,>80C0    ;
-PAT27  DATA >0000,>0000,>0000,>0103    ;
-PAT28  DATA >7F55,>6A55,>7F55,>6A55    ;
-PAT29  DATA >FD55,>A955,>FD55,>A955    ;
-PAT30  DATA >0000,>0000,>0000,>0000    ;
-PAT31  DATA >FEFF,>7FFF,>FFFF,>6BD0    ;
-PAT32  DATA >0000,>0000,>0000,>0000    ;
-PAT33  DATA >1818,>1818,>1800,>1800    ;
-PAT34  DATA >2424,>2400,>0000,>0000    ;
-PAT35  DATA >000A,>0800,>040F,>0C1F    ;
-PAT36  DATA >0050,>1000,>20F0,>30F8    ;
-PAT37  DATA >FF00,>0000,>0000,>0000    ;
-PAT38  DATA >7088,>5020,>5488,>7600    ;
-PAT39  DATA >1808,>1000,>0000,>0000    ;
-PAT40  DATA >0003,>070C,>0808,>0808    ;
-PAT41  DATA >00C0,>E030,>1010,>1010    ;
-PAT42  DATA >1B0B,>0101,>0100,>0000    ;
-PAT43  DATA >D8D0,>8080,>8000,>0000    ;
-PAT44  DATA >0000,>0000,>1808,>1000    ;
-PAT45  DATA >0000,>007E,>0000,>0000    ;
-PAT46  DATA >0000,>0000,>0018,>1800    ;
-PAT47  DATA >8080,>8080,>8080,>8080    ;
-PAT48  DATA >384C,>C6C6,>C664,>3800    ;
-PAT49  DATA >1838,>1818,>1818,>7E00    ;
-PAT50  DATA >7CC6,>0E3C,>78E0,>FE00    ;
-PAT51  DATA >7E0C,>183C,>06C6,>7C00    ;
-PAT52  DATA >1C3C,>6CCC,>FE0C,>0C00    ;
-PAT53  DATA >FCC0,>FC06,>06C6,>7C00    ;
-PAT54  DATA >3C60,>C0FC,>C6C6,>7C00    ;
-PAT55  DATA >FEC6,>0C18,>3030,>3000    ;
-PAT56  DATA >78C4,>E478,>8686,>7C00    ;
-PAT57  DATA >7CC6,>C67E,>060C,>7800    ;
-PAT58  DATA >0102,>0408,>1020,>4080    ;
-PAT59  DATA >8040,>2010,>0804,>0201    ;
-PAT60  DATA >FFFE,>FCF8,>F0E0,>C080    ;
-PAT61  DATA >FF7F,>3F1F,>0F07,>0301    ;
-PAT62  DATA >FF80,>8080,>8080,>8080    ;
-PAT63  DATA >3844,>0408,>1000,>1000    ;
-PAT64  DATA >FFFF,>FFFF,>FFFF,>FFFF    ;
-PAT65  DATA >386C,>C6C6,>FEC6,>C600    ;
-PAT66  DATA >FCC6,>C6FC,>C6C6,>FC00    ;
-PAT67  DATA >3C66,>C0C0,>C066,>3C00    ;
-PAT68  DATA >F8CC,>C6C6,>C6CC,>F800    ;
-PAT69  DATA >FEC0,>C0FC,>C0C0,>FE00    ;
-PAT70  DATA >FEC0,>C0FC,>C0C0,>C000    ;
-PAT71  DATA >3E60,>C0CE,>C666,>3E00    ;
-PAT72  DATA >C6C6,>C6FE,>C6C6,>C600    ;
-PAT73  DATA >3C18,>1818,>1818,>3C00    ;
-PAT74  DATA >1E06,>0606,>C6C6,>7C00    ;
-PAT75  DATA >C6CC,>D8F0,>D8CC,>C600    ;
-PAT76  DATA >6060,>6060,>6060,>7E00    ;
-PAT77  DATA >C6EE,>FEFE,>D6C6,>C600    ;
-PAT78  DATA >C6E6,>F6FE,>DECE,>C600    ;
-PAT79  DATA >7CC6,>C6C6,>C6C6,>7C00    ;
-PAT80  DATA >FCC6,>C6FC,>C0C0,>C000    ;
-PAT81  DATA >7CC6,>C6C6,>DECC,>7A00    ;
-PAT82  DATA >FCC6,>C6FC,>D8CC,>C600    ;
-PAT83  DATA >78CC,>C07C,>06C6,>7C00    ;
-PAT84  DATA >7E18,>1818,>1818,>1800    ;
-PAT85  DATA >C6C6,>C6C6,>C6C6,>7C00    ;
-PAT86  DATA >C6C6,>C6EE,>7C38,>1000    ;
-PAT87  DATA >C6C6,>D6FE,>FEEE,>C600    ;
-PAT88  DATA >C6EE,>7C38,>7CEE,>C600    ;
-PAT89  DATA >CCCC,>CC78,>3030,>3000    ;
-PAT90  DATA >FE0E,>1C38,>70E0,>FE00    ;
-PAT91  DATA >0000,>0000,>0000,>0000    ;
-PAT92  DATA >80AA,>95AA,>80AA,>95AA    ;
-PAT93  DATA >02AA,>56AA,>02AA,>56AA    ;
-PAT94  DATA >0000,>0107,>0703,>0000    ;
-PAT95  DATA >0000,>80E0,>E0C0,>0000    ;
-PAT96  DATA >0000,>0000,>0000,>0000    ;
-PAT97  DATA >0000,>0000,>0000,>0000    ;
-PAT98  DATA >80AA,>95AA,>80AA,>95AA    ;
-PAT99  DATA >02AA,>56AA,>02AA,>56AA    ;
-PAT100 DATA >0000,>0000,>0303,>070F    ;
-PAT101 DATA >1F0F,>0700,>0000,>0000    ;
-PAT102 DATA >0000,>0000,>0000,>0038    ;
-PAT103 DATA >8080,>8080,>0000,>0000    ;
-PAT104 DATA >9F9F,>9F9F,>9F9F,>81FF    ;
-PAT105 DATA >C3E7,>E7E7,>E7E7,>C3FF    ;
-PAT106 DATA >819F,>9F83,>9F9F,>9FFF    ;
-PAT107 DATA >819F,>9F83,>9F9F,>81FF    ;
-PAT108 DATA >0145,>0101,>0101,>0101    ;
-PAT109 DATA >0101,>0101,>0145,>01FF    ;
-PAT110 DATA >FFFF,>FF81,>FFFF,>FFFF    ;
-PAT111 DATA >9301,>0101,>0183,>C7EF    ;
-PAT112 DATA >007F,>1F3F,>513B,>553B    ;
-PAT113 DATA >00FE,>FEFE,>FEFE,>1EBE    ;
-PAT114 DATA >553B,>553B,>553B,>5500    ;
-PAT115 DATA >50BA,>54BA,>54BA,>5400    ;
-PAT116 DATA >56AD,>5CAD,>5A29,>5AA9    ;
-PAT117 DATA >B44E,>AD57,>AD53,>A64A    ;
-PAT118 DATA >5A39,>7AA3,>54CB,>14A9    ;
-PAT119 DATA >954B,>D74A,>D68A,>F766    ;
-PAT120 DATA >007F,>1F3F,>513B,>553B    ;
-PAT121 DATA >00FE,>FEFE,>FEFE,>1EBE    ;
-PAT122 DATA >553B,>553B,>553B,>5500    ;
-PAT123 DATA >50BA,>54BA,>54BA,>5400    ;
-PAT124 DATA >0145,>0101,>0101,>0101    ;
-PAT125 DATA >0101,>0101,>0145,>01FF    ;
-PAT126 DATA >0000,>0000,>0000,>0000    ;
-PAT127 DATA >FFFF,>FFFF,>FFFF,>FFFF    ;
-PAT128 DATA >56AD,>5CAD,>5A29,>5AA9    ;
-PAT129 DATA >B44E,>AD57,>AD53,>A64A    ;
-PAT130 DATA >5A39,>7AA3,>54CB,>14A9    ;
-PAT131 DATA >954B,>D74A,>D68A,>F766    ;
-PAT132 DATA >2C56,>AA57,>2B57,>2B56    ;
-PAT133 DATA >0018,>2C56,>AA55,>2B57    ;
-PAT134 DATA >BA79,>FAF9,>0A05,>0603    ;
-PAT135 DATA >2B55,>3A2D,>5A2D,>5A2D    ;
-PAT136 DATA >52A5,>52B5,>52B5,>F275    ;
-PAT137 DATA >EB65,>AB65,>AA75,>BA79    ;
-PAT138 DATA >1D2B,>552B,>5F2B,>57AB    ;
-PAT139 DATA >AA54,>AA57,>AB57,>EEBA    ;
-PAT140 DATA >AA56,>AE57,>AB15,>AB59    ;
-PAT141 DATA >EC54,>AA56,>2A56,>6E74    ;
-PAT142 DATA >D7CB,>D7CA,>D6CC,>F0C0    ;
-PAT143 DATA >5B2D,>9BAD,>9BBE,>C000    ;
-PAT144 DATA >000B,>552E,>75AA,>55AA    ;
-PAT145 DATA >00C0,>78B4,>5CAE,>7CBE    ;
-PAT146 DATA >77AA,>556E,>350A,>081F    ;
-PAT147 DATA >5ABE,>7CAC,>F8D0,>3FFC    ;
-PAT148 DATA >2854,>8E15,>AC59,>AA59    ;
-PAT149 DATA >0000,>B058,>AC54,>AEDE    ;
-PAT150 DATA >2A59,>2A59,>AA55,>AEFF    ;
-PAT151 DATA >B6DE,>F65E,>BA74,>BFFC    ;
-PAT152 DATA >000B,>552E,>75AA,>55AA    ;
-PAT153 DATA >00C0,>78B4,>5CAE,>7CBE    ;
-PAT154 DATA >57EA,>556E,>350A,>081F    ;
-PAT155 DATA >5ABE,>7CAC,>F8D0,>3FFC    ;
-PAT156 DATA >2854,>8E15,>AC59,>AA59    ;
-PAT157 DATA >0000,>B058,>AC54,>AEDE    ;
-PAT158 DATA >2A59,>2A59,>AA55,>AEFF    ;
-PAT159 DATA >B6DE,>F65E,>BA74,>BFFC    ;
-PAT160 DATA >56AD,>5CAD,>5A29,>5AA9    ;
-PAT161 DATA >B44E,>AD57,>AD53,>A64A    ;
-PAT162 DATA >5A39,>7AA3,>54CB,>14A9    ;
-PAT163 DATA >954B,>D74A,>D68A,>F766    ;
-PAT164 DATA >2C56,>AA57,>2B57,>2B56    ;
-PAT165 DATA >0018,>2C56,>AA55,>2B57    ;
-PAT166 DATA >BA79,>FAF9,>0A05,>0603    ;
-PAT167 DATA >2B55,>3A2D,>5A2D,>5A2D    ;
-PAT168 DATA >52A5,>52B5,>52B5,>F275    ;
-PAT169 DATA >EB65,>AB65,>AA75,>BA79    ;
-PAT170 DATA >1D2B,>552B,>5F2B,>57AB    ;
-PAT171 DATA >AA54,>AA57,>AB57,>EEBA    ;
-PAT172 DATA >AA56,>AE57,>AB15,>AB59    ;
-PAT173 DATA >EC54,>AA56,>2A56,>6E74    ;
-PAT174 DATA >D7CB,>D7CA,>D6CC,>F0C0    ;
-PAT175 DATA >5B2D,>9BAD,>9BBE,>C000    ;
-PAT176 DATA >6867,>6168,>F8F0,>3414    ;
-PAT177 DATA >0448,>44E4,>F4FC,>F8F8    ;
-PAT178 DATA >F2F2,>F2D2,>D2D2,>D2D2    ;
-PAT179 DATA >96B4,>A4A4,>A028,>0832    ;
-PAT180 DATA >0206,>CEFF,>FFFB,>3727    ;
-PAT181 DATA >878F,>0F0E,>4656,>564E    ;
-PAT182 DATA >4D4D,>6D6D,>6763,>6A6A    ;
-PAT183 DATA >4A5B,>5317,>0346,>3E06    ;
-PAT184 DATA >78FC,>F777,>0301,>0808    ;
-PAT185 DATA >7EFF,>FFFF,>F8E0,>D011    ;
-PAT186 DATA >1C14,>1408,>001B,>7B7F    ;
-PAT187 DATA >3929,>2911,>01C1,>F4FD    ;
-PAT188 DATA >F0E0,>E7F7,>D3DB,>9098    ;
-PAT189 DATA >0F07,>E7EF,>CBDB,>0919    ;
-PAT190 DATA >8FBF,>BEF0,>FEE7,>E1F3    ;
-PAT191 DATA >F1FD,>7D0F,>7FE7,>87CF    ;
-PAT192 DATA >07FC,>0403,>7C82,>02FE    ;
-PAT193 DATA >E01F,>10F0,>3E41,>407F    ;
-PAT194 DATA >3901,>FE00,>0F4F,>6FEF    ;
-PAT195 DATA >5C40,>3F00,>F0F2,>F6F7    ;
-PAT196 DATA >0798,>A0A7,>4B13,>1013    ;
-PAT197 DATA >E119,>05E5,>D2C8,>08D0    ;
-PAT198 DATA >0E0A,>0008,>4D6F,>EFFF    ;
-PAT199 DATA >7050,>0010,>B2F6,>F7FF    ;
-PAT200 DATA >A9A9,>2828,>2020,>4080    ;
-PAT201 DATA >8080,>C0FE,>BEC0,>C0FE    ;
-PAT202 DATA >FEC0,>C0FE,>BE80,>80FF    ;
-PAT203 DATA >7E81,>8181,>8181,>81FF    ;
-PAT204 DATA >9595,>1414,>043C,>4647    ;
-PAT205 DATA >A9A9,>ADFD,>F985,>85FD    ;
-PAT206 DATA >F985,>85FD,>F981,>81FF    ;
-PAT207 DATA >0000,>0000,>0000,>0000    ;
-PAT208 DATA >FEC2,>A140,>4000,>81C3    ;
-PAT209 DATA >FFFF,>FFF0,>E0E7,>E7E7    ;
-PAT210 DATA >FFFF,>FF0F,>07E7,>E7E7    ;
-PAT211 DATA >E7E7,>E7E7,>E7E0,>F0FF    ;
-PAT212 DATA >E7E7,>E7E7,>E707,>0FFF    ;
-PAT213 DATA >E7E7,>E7E7,>E7E7,>E7E7    ;
-PAT214 DATA >FFFF,>FFFF,>FF00,>00FF    ;
-PAT215 DATA >FFFF,>FF00,>00FF,>FFFF    ;
-PAT216 DATA >BFBF,>37F5,>5942,>1052    ;
-PAT217 DATA >FFFF,>FEB8,>6D49,>4EDA    ;
-PAT218 DATA >DAFE,>FBFB,>DBFF,>FFFF    ;
-PAT219 DATA >BABB,>BFFF,>FFFF,>FEFF    ;
-PAT220 DATA >372C,>1C1F,>FFB7,>FCFC    ;
-PAT221 DATA >B4D4,>E4E4,>F4EC,>0612    ;
-PAT222 DATA >FCFF,>FDFF,>B4FC,>7FFF    ;
-PAT223 DATA >1212,>FE0E,>3E44,>86FF    ;
-PAT224 DATA >FFFF,>DFFF,>FFFF,>7FFF    ;
-PAT225 DATA >FFF7,>FFFF,>FFEF,>FFFF    ;
-PAT226 DATA >FEFF,>7FFF,>FFFF,>6BD0    ;
-PAT227 DATA >6F3F,>0F07,>0F1F,>0300    ;
-PAT228 DATA >FEBF,>FFFF,>6F7F,>7F7F    ;
-PAT229 DATA >3B7F,>7F6F,>7F7D,>5F7F    ;
-PAT230 DATA >0001,>071F,>0E1F,>3F3F    ;
-PAT231 DATA >67FF,>FFFE,>FFF7,>FFFF    ;
-PAT232 DATA >80E0,>FCF8,>F0D0,>FCFE    ;
-PAT233 DATA >7FF7,>FFFE,>EEFC,>FCFC    ;
-PAT234 DATA >F6FE,>FEFE,>FEDE,>FFFF    ;
-PAT235 DATA >FEBA,>FCF0,>F87C,>E000    ;
-PAT236 DATA >EFFC,>F8A0,>F0F8,>F060    ;
-PAT237 DATA >FB4F,>0F03,>0203,>0301    ;
-PAT238 DATA >C0C0,>C0F0,>70FC,>BEFF    ;
-PAT239 DATA >0103,>0706,>073F,>1FFE    ;
-PAT240 DATA >000B,>552E,>75AA,>55AA    ;
-PAT241 DATA >00C0,>78B4,>5CAE,>7CBE    ;
-PAT242 DATA >57EA,>556E,>350A,>081F    ;
-PAT243 DATA >5ABE,>7CAC,>F8D0,>3FFC    ;
-PAT244 DATA >0F10,>2343,>4F4F,>4F43    ;
-PAT245 DATA >F018,>8C86,>E6E6,>E686    ;
-PAT246 DATA >43C3,>C0C0,>FF80,>80FF    ;
-PAT247 DATA >8687,>0707,>FF01,>01FF    ;
-PAT248 DATA >0307,>071F,>3F3F,>7F7F    ;
-PAT249 DATA >C0E0,>E0F8,>FCFC,>FEFE    ;
-PAT250 DATA >3C6E,>DFBD,>FDFB,>663C    ;
-PAT251 DATA >C3FF,>466E,>2C18,>3C6E    ;
-PAT252 DATA >4C7E,>7878,>7EFF,>3F03    ;
-PAT253 DATA >0703,>0301,>0107,>0F03    ;
-PAT254 DATA >0307,>1E3F,>7CF0,>E0E0    ;
-PAT255 DATA >E0E0,>C0C0,>C0E0,>E0B0    ;
+MCLRST BYTE >A1,>A1,>A1,>41            ;
+       BYTE >41,>41,>41,>61            ;
+       BYTE >61,>61
+
+****************************************
+* Bright Colorset Definitions
+****************************************
+BCLRST BYTE >EF,>EF,>EF,>FE            ;
+       BYTE >FE,>FE,>FE,>FE            ;
+       BYTE >FE,>FE,>FE,>FE            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>FE            ;

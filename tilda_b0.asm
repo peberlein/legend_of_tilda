@@ -18,9 +18,11 @@ MAIN
        DEC R4
        JNE -!
 
+       SETO @RAND16          ; random seed must be nonzero
+
        LI R0,BANK3           ; Title screen in bank 3
        LI R1,MAIN
-       CLR R2               ; Mode = title screen
+       CLR R2               ; Mode = 0 title screen
        BL   @BANKSW
 
        LI R0,>01A5          ; VDP Register 1: Blank screen
@@ -37,35 +39,23 @@ MAIN
        DEC  R2
        JNE -!
 
+       LI R0,>FA00           ; Initial Rupees
+       MOVB R0,@RUPEES
+       LI R0,>0000           ; Initial Keys
+       MOVB R0,@KEYS
+       LI R0,>0000           ; Initial Bombs
+       MOVB R0,@BOMBS
+       LI R0,>0400           ; Initial Hearts-1
+       MOVB R0,@HEARTS
+
+       CLR R0
+       LI R0,MAGSHD      ; Test initial magic shield
+       MOV R0,@HFLAGS     ; TODO get hero flags from save data
+       MOV R0,@HFLAG2
+
 RESTRT
-       LI   R0,SPRPAT+(28*32)         ; Sprite Pattern Table
-       LI   R1,SPR8
-       LI   R2,(SPREND-SPR8)
-       BL   @VDPW
-       
-;                               Draw the screen
-       CLR  R0                ; Start at top left corner of the screen
-       LI   R1,MD0
-       LI   R2,32*3            ; Number of bytes to write
-       BL   @VDPW
-       LI   R2,32*21           ; Fill the rest with space
-       LI   R1,>2000
-!      MOVB R1,*R15
-       DEC  R2
-       JNE -!
 
 
-       LI   R0,SCR2TB
-       LI   R1,MD0
-       LI   R2,32*3            ; Number of bytes to write
-       BL   @VDPW
-       
-       LI   R0,MENUSC
-       LI   R1,MD2             ; Menu screen data
-       LI   R2,32*21           ; Number of bytes to write
-       BL   @VDPW
-
-       
        LI   R0,BANK1         ; Music is in bank 1
        LI   R1,HDREND        ; First function in bank 1
        CLR  R2               ; Overworld song is 0
@@ -83,15 +73,7 @@ RESTRT
        LI   R0,>7700         ; Initial map location is 7,7
        MOVB R0,@MAPLOC
 
-       LI R0,>0000           ; Initial Rupees
-       MOVB R0,@RUPEES
-       LI R0,>0000           ; Initial Keys
-       MOVB R0,@KEYS
-       LI R0,>0000           ; Initial Bombs
-       MOVB R0,@BOMBS
-       LI R0,>0400           ; Initial Hearts-1
-       MOVB R0,@HEARTS
-       LI R0,>0600           ; Initial HP
+       LI R0,>0A00           ; Initial HP
        MOVB R0,@HP
 
        CLR @FLAGS
@@ -100,11 +82,13 @@ RESTRT
        MOV @VDPINI+2,R0      ; Turn off blanking
        BL @VDPREG
 
+
        LI R9,32
        LI R1,OBJECT        ; Clear object table
 !      CLR *R1+
        DEC R9
        JNE -!
+
 
        LI   R0,BANK2         ; Overworld is in bank 2
        LI   R1,HDREND        ; First function in bank 1
@@ -113,19 +97,95 @@ RESTRT
 
        CLR @MOVE12
 
-       ;LI R0,MAGSHD      ; Test initial magic shield
-       CLR R0
-       MOV R0,@HFLAGS
-
        CLR @KEY_FL
 
-
        LI R5,>7078        ; Link Y X position in pixels
-       MOV R5,@HEROSP
-       MOV R5,@HEROSP+4
-       LI R3,FACEDN        ; Initial facing down
-       LI R11,DRAW
-       B @LNKSPR           ; Load facing sprites
+       LI R3,DIR_DN       ; Initial facing down
+       LI R11,INFLP
+       B @DRAW            ; Load facing sprites
+
+
+VDPINI
+       DATA >0000          ; VDP Register 0: 00
+       DATA >01E2          ; VDP Register 1: 16x16 Sprites
+       DATA >0200          ; VDP Register 2: 00
+       DATA >0300+(CLRTAB/>40)  ; VDP Register 3: Color Table
+       DATA >0400+(PATTAB/>800) ; VDP Register 4: Pattern Table
+       DATA >0500+(SPRTAB/>80)  ; VDP Register 5: Sprite List Table
+       DATA >0600+(SPRPAT/>800) ; VDP Register 6: Sprite Pattern Table
+       DATA >07F1          ; VDP Register 7: White on Black
+
+
+; Object function pointer table, functions called with data in R4,
+; sprite YYXX in R5, idx color in R6, must return by B @OBNEXT
+OBJTAB DATA OBNEXT,PEAHAT,TKTITE,TKTITE  ; 0-3 - - Red Blue
+       DATA OCTORK,OCTORK,OCTRKF,OCTRKF  ; 4-7 Red Blue Red Blue
+       DATA MOBLIN,MOBLIN,LYNEL, LYNEL   ; 8-B Red Blue Red Blue
+       DATA GHINI, ROCK, LEEVER,LEEVER   ; C-F - - Red Blue
+       DATA ZORA, FLAME, BADNXT, BADNXT  ; 10-13
+       DATA BSWORD,MAGIC,BSPLSH,BADNXT   ; 14-17
+       DATA DEAD, BOMB, BMRNG, CAVITM    ; 18-1B
+       DATA BULLET,ARROW,LARROW,CAVNPC   ; 1C-1F
+       DATA RUPEE, BRUPEE,HEART,FAIRY    ; 20-23
+       DATA TEXTER                       ; 24
+
+BSWDID EQU >0014 ; Beam Sword ID
+MAGCID EQU >0015 ; Magic ID
+BPOPID EQU >0040 ; Beam Sword/Magic Pop ID (SOC on BSWDID or MAGCID)
+BSPLID EQU >0816 ; Beam Sword Splash ID with initial counter
+DEADID EQU >1218 ; Dead Enemy Pop ID w/ counter=18
+RUPYID EQU >5020 ; Rupee ID with initial counter
+BRPYID EQU >5021 ; Blue Rupee ID with initial counter
+HARTID EQU >5022 ; Heart ID with initial counter
+FARYID EQU >5023 ; Fairy ID with initial counter
+ZORAID EQU >0010 ; Zora ID
+BOMBID EQU >4C19 ; Bomb ID with initial counter
+FLAMID EQU >5D11 ; Flame ID with initial counter
+BMFMID EQU >BF11 ; Book of Magic Flame ID with initial counter
+BMRGID EQU >001A ; Boomerang ID
+CAVEID EQU >001F ; Cave NPC ID
+ITEMID EQU >001B ; Cave item ID
+TEXTID EQU >0024 ; Cave Message Texter ID
+
+
+       ; Enemy sprite index and color
+ECOLOR DATA >0000,>2009  ; None, Peahat
+       DATA >3009,>3005  ; Red Tektite, Blue Tektite
+       DATA >4008,>4004  ; Octorok sprites
+       DATA >4008,>4004  ; Fast Octorok Sprites
+       DATA >2006,>2004  ; Moblin Sprites
+       DATA >4006,>4004  ; Lynel Sprites
+       DATA >200F,>2009  ; Ghini, Rock
+       DATA >3006,>3004  ; Leever Sprites
+       DATA >680D,>0000  ; Zora, Fire
+       DATA >0000,>0000  ;
+       DATA >0000,>0000  ; Beam Sword, Magic
+       DATA >0000,>0000  ; Beam splash
+       DATA >0000,>0000  ; Dead
+       DATA >0000,>0000  ;
+       DATA >0000,>0000  ; Bullet,arrow
+       DATA >0000,>0000  ; Larrow
+       DATA >C004,>C004  ; Rupee, Blue rupee
+       DATA >C800,>F400  ; Heart, Fairy
+
+       ; Damage enemies do to attack hero
+       ; 1 dmg = 1/2 heart w/ no ring = 1/4 heart w/ blue ring = 1/8 heart w/ red ring
+EDAMAG BYTE >00,>01  ; None, Peahat
+       BYTE >01,>01  ; Red/Blue Tektite
+       BYTE >01,>01  ; Octorok
+       BYTE >01,>01  ; Fast Octorok
+       BYTE >01,>01  ; Moblin
+       BYTE >02,>04  ; Lynel
+       BYTE >02,>01  ; Ghini, Rock
+       BYTE >01,>02  ; Red/Blue Leeverd
+       BYTE >01,>01  ; Zora, Fire
+       BYTE >00,>00  ;
+       BYTE >04,>04  ; Beam Sword, Magic
+       BYTE >00,>00  ; Beam splash
+       BYTE >00,>00  ; Dead
+       BYTE >00,>00  ;
+       BYTE >01,>01  ; Bullet,arrow
+       BYTE >00,>00  ; Larrow
 
 
 OBNEXT
@@ -142,13 +202,11 @@ INFLP
        ;LI   R0,>07FF          ; VDP Register 7: White on Black
        ;BL   @VDPREG
 
-       BL @VSYNC
+       BL @VSYNCM              ; wait for Vsync and play music
        
-
        ;LI   R0,>07F1          ; VDP Register 7: White on Black
        ;BL   @VDPREG
 
-       BL @MUSIC
        BL @SPRUPD
 
        LI R1,7*2-2         ; Process sprites starting with flying sword (7)
@@ -178,6 +236,7 @@ INPUT
        CI R0,>1000   ; Left nibble 0?
        JHE !
        AI R0,>6000   ; Add 6
+
 !      MOV R0,R1
        ANDI R1,>0F00 ; Right nibble 0?
        JNE !
@@ -189,56 +248,62 @@ INPUT
 !      INC R0
        ANDI R0,>FFEF
        MOV R0,@COUNTR
-       
+
+       ANDI R0,>0003    ; Every 4 frames
+       JNE !
+
+       LI R0,BANK1
+       LI R1,MAIN
+       LI R2,100        ; Animate fire + fairy sub-function
+       BL @BANKSW
+!
 
        ;LI   R0,>07FE          ; VDP Register 7: White on Black
        ;BL   @VDPREG
 
+       BL @DOKEYS
+
+       MOV @KEY_FL, R0
+       SLA R0,1             ; Shift EDG_C bit into carry status
+       JNC MENUX
+       B @DOMENU
+MENUX
+
        MOV @HEROSP,R5    ; Hero YYXX position
        AI R5,>0100         ; Adjust Y pos
-       
+
        MOVB @HURTC,R4   ; Hurt counter
        JEQ !
        BL @LNKHRT
-
 !
 
-       MOV @KEY_FL, R0
-       SLA R0,1             ; Shift EDG_C bit into carry status
-       JNC !
-       LI   R2,8            ; Use item selection
-       CLR R0               ; Don't change MAPLOC
-       BL @SCROLL
+       MOV @FLAGS,R3
+       ANDI R3,DIR_XX    ; Get direction in R3
 
-DOMENU
-       BL @VSYNC
-       BL @DOKEYS
-       MOV @KEY_FL, R0
-       SLA R0,1             ; Shift EDG_C bit into carry status
-       JNC DOMENU
-
-       LI   R2,9            ; Exit item selection
-       CLR R0               ; Don't change MAPLOC
-       BL @SCROLL
-
-!
-
-
-       BL @DOKEYS
-
-       MOVB @SWORDC,R0   ; Sword animation counter
+       MOVB @SWRDOB,R0   ; Sword animation counter
        JNE !
+
+       MOV @KEY_FL,R0
+       SLA R0,2          ; Shift EDG_B bit into carry status
+       JNC ITEMX
+
+       MOV @HFLAGS,R1    ; Get selected item
+       ANDI R1,SELITM
+       A R1,R1
+       MOV @ITEMFN(R1),R1 ; Get function for item
+       B *R1
+ITEMX ; item done
+
 
        MOV @KEY_FL,R0
        SLA R0,3          ; Shift EDG_A bit into carry status
        JNC !
 
-       LI R0,>0C00          ; Sword animation is 12 frames
-       MOVB R0,@SWORDC
+       LI R0,>0C00       ; Sword animation is 12 frames
+       MOVB R0,@SWRDOB
 !
 
 ; Up/down movement has priority over left/right, unless there is an obstruction
-       MOV @FACING,R3
 
        MOVB @HURTC,R0   ; Hurt counter
        CI R0,>A000      ; compare to 40<<10
@@ -264,20 +329,16 @@ HKEYS
 
        BL  @SWORD           ; Animate sword if needed
 
-       CB R3,@FACING        ; Update facing if up/down was pressed against a wall
-       JNE !
        B @DRAW
-!      LI R11,DRAW
-       B @LNKSPR
 
 MOVEDN
-       LI R3,FACEDN
+       LI R3,DIR_DN
        BL @SWORD
 
        CI R5,(192-16)*256   ; Check at bottom edge of screen
        JL !
        BL @SCRLDN     ; Scroll down
-       LI R3,FACEDN
+       LI R3,DIR_DN
 !
        MOV R5,R0
        AI R0,>1004    ; 16 pixels down, 4 right
@@ -295,13 +356,13 @@ MOVEDN
        JMP MOVER3
 
 MOVEUP
-       LI R3,FACEUP
+       LI R3,DIR_UP
        BL @SWORD
        
        CI R5,25*256  ; Check at top edge of screen
        JHE !
        BL @SCRLUP     ; Scroll up
-       LI R3,FACEUP
+       LI R3,DIR_UP
 !      
        MOV R5,R0
        AI R0,>0704    ; 7 pixels down, 4 right
@@ -319,7 +380,7 @@ MOVEUP
        JMP MOVER3
 
 MOVERT
-       LI R3,FACERT
+       LI R3,DIR_RT
        BL @SWORD
 
        MOV R5,R0     ; Make Y coord 8-aligned
@@ -330,7 +391,7 @@ MOVERT
        JMP MOVED2
        
 MOVELT
-       LI R3,FACELT
+       LI R3,DIR_LT
        BL @SWORD
 
        MOV R5,R0    ; Make Y coord 8-aligned
@@ -348,7 +409,7 @@ MOVER2 MOV R5,R0     ; Check at right edge of screen
        JNE !
        BL @SCRLRT     ; Scroll right
 
-!      LI R3,FACERT
+!      LI R3,DIR_RT
        MOV R5,R0
        AI R0,>0810    ; 8 pixels down, 16 right
        LI R2,MOVE4
@@ -371,7 +432,7 @@ MOVEL2 MOV R5,R0     ; Check at left edge of screen
        JNE !
        BL @SCRLLT     ; Scroll left
 
-!      LI R3,FACELT
+!      LI R3,DIR_LT
        MOV R5,R0
        AI R0,>07FF  ; 8 pixels down, 1 left
        LI R2,MOVE4
@@ -403,17 +464,17 @@ MOVE2
        C @DOOR,R5
        JNE MOVE3
        BL @GODOOR
-       MOV @FACING,R3
+
+
+       MOV @FLAGS,R3
+       ANDI R3,DIR_XX
        CLR R1
 MOVE3
        MOVB R1,@HEROSP+2       ; Set color sprite index
        AI R1,>0400
        MOVB R1,@HEROSP+6       ; Set outline sprite index
 
-MOVE4  CB R3,@FACING
-       LI R11,DRAW
-       JNE LNKSPR
-       JMP DRAW
+MOVE4  JMP DRAW
 
 
 MOVEU2 AI R5,>FF00   ; Move Y coordinate up
@@ -427,22 +488,27 @@ MOVEU2 AI R5,>FF00   ; Move Y coordinate up
        ANDI R1,>0800  ; Set sprite animation based on coordinate
        JMP MOVE2      ; Update the sprite animation
 
+
 ; Load sprite patterns for hero facing direction
 ; R3=FACE{DN,RT,LT,UP}
 ; Modifies R0-2,R10
-
-LNKSPR MOVB R3,@FACING   ; Save facing direction
-       LI R0,BANK3
-       LI R1,MAIN
-       LI R2,2
-       B @BANKSW
-
-
 DRAW
        AI R5,->0100          ; Move Y up one
-       MOV R5,@HEROSP	    ; Update color sprite
-       MOV R5,@HEROSP+4    ; Update outline sprite
-       AI R5,>0100            ; Move Y down one
+       MOV R5,@HEROSP	     ; Update color sprite
+       MOV R5,@HEROSP+4      ; Update outline sprite
+       AI R5,>0100           ; Move Y down one
+LNKSPR
+       MOV @FLAGS,R0
+       ANDI R0,DIR_XX
+       C R3,R0        ; Update facing if up/down was pressed against a wall
+       JEQ INFLP2
+       SZC R0,@FLAGS
+       SOC R3,@FLAGS
+LNKSP2
+       LI R0,BANK3   ; Load the new sprites
+       LI R1,MAIN
+       LI R2,2
+       BL @BANKSW
 
 INFLP2 B @INFLP
 
@@ -457,10 +523,16 @@ GODOOR LI R0,INCAVE
        BL @SPRUPD
        MOV R12,R11
        
-       CLR  R0               ; Don't change MAPLOC
+       LI   R0,BANK2         ; Overworld is in bank 2
+       LI   R1,HDREND        ; First function in bank 1
        LI   R2,6             ; Use cave animation
-       JMP SCROLL
-       
+       BL   @BANKSW
+
+       MOV @FLAGS,R3
+       ANDI R3,DIR_XX
+       JMP LNKSP2
+
+
 SCRLRT LI   R0,>0100         ; Add 1 to MAPLOC X
        LI   R2,4             ; Use scroll right 4
        JMP SCROLL
@@ -488,14 +560,17 @@ SCROLL AB   R0,@MAPLOC
        LI   R1,HDREND        ; First function in bank 1
        B    @BANKSW
 
-
+MRODC  EQU >1804    ; Magic Rod sprite and color
 
 SWORD  CLR R0
-       MOVB @SWORDC,R0       ; Get sword counter
+       MOVB @SWRDOB,R0       ; Get sword counter
        JNE !
        RT                    ; Return if zero
-!      AI R0,>FF00
-       MOVB R0,@SWORDC       ; Decrement and save sword counter
+!
+       MOV @SWRDSP+2,R8      ; Get sprite index and color
+
+       AI R0,>FF00
+       MOVB R0,@SWRDOB       ; Decrement and save sword counter
        JNE !
        
        CLR R1                ; Set link to standing
@@ -503,8 +578,11 @@ SWORD  CLR R0
        LI R1,>0400
        MOVB R1,@HEROSP+6
        LI R1,>D200          ; Sword YY address (hide)       
-       MOVB R1,@SPRLST+(6*4)+0
+       MOV R1,@SWRDSP
+       MOV R1,@SWRDSP+2
 
+       CI R8,MRODC
+       JEQ MRBEAM            ; Do Magic Rod beam
        JMP SWBEAM            ; Do sword beam 
 
 !      CI R0,>0B00
@@ -517,7 +595,9 @@ SWORD  CLR R0
        
        JMP SWORD4
 
-!      C @FACING,R3          ; Redraw sword if facing changed
+!      MOV @FLAGS,R4
+       ANDI R4,DIR_XX
+       C R4,R3          ; Redraw sword if facing changed
        JNE !
 
        CI R0,>0800           ; Sword appears on fourth frame
@@ -530,69 +610,87 @@ SWORD  CLR R0
        MOV R5,R7           ; Position relative to link
        A   @SWORDX(R1),R7
 
+       CI R8,MRODC           ; Don't change Magic Rod sprite
+       JEQ !
        MOV R3,R8
        SLA R8,2
        ORI R8,>7008          ; Sword facing (TODO sword color)
-       
-       MOV R7,@SPRLST+(6*4)+0
-       MOV R8,@SPRLST+(6*4)+2
+       MOV R8,@SWRDSP+2
+!
+       MOV R7,@SWRDSP
 
-SWORD4 C @FACING,R3          ; Update facing as needed
-       JEQ INFLP2            ; Sword done
-       LI R11,DRAW
-       B @LNKSPR             ; Change direction (sword facing changed already)
+SWORD4 B @LNKSPR
 
 SWBEAM
        LI R0,FULLHP
        CZC @FLAGS,R0         ; Test for sword beam
        JEQ SWORD4
 
-       MOV @OBJECT+14,R0     ; Sword beam already active?
+       MOV @BSWDOB,R0     ; Sword beam already active?
        JNE SWORD4
 
+       LI R0,BSWDID
+       LI R6,>700F          ; Sword sprite and color
+!
        MOV R3,R1            ; Launch sword beam
        SRL R1,7
 
        MOV @HEROSP,R5      ; Position relative to hero
        A   @SWORDX(R1),R5
        
-       MOV R3,R6            ; Get facing from sword sprite
-       SLA R6,2
-       ORI R6,>700f          ; Sword facing
-       
-       MOV R5,@SPRLST+(7*4)+0
-       MOV R6,@SPRLST+(7*4)+2
-       
-       LI R0,>0010
-       MOV R0,@OBJECT+14
-       
+       MOV R3,R1            ; Get facing from sword sprite
+       SLA R1,2
+       SOC R1,R6
+
+       MOV R0,@BSWDOB
+       MOV R5,@BSWDSP
+       MOV R6,@BSWDSP+2
+
        JMP SWORD4
+
+MRBEAM ; Magic Rod beam
+       MOV @BSWDOB,R0
+       ANDI R0,>003F      ; Magic can override beam sword
+       CI R0,MAGCID       ; but not itself
+       JEQ SWORD4
+
+       LI R0,MAGCID
+       ORI R6,>B00F       ; Magic sprite and color
+
+       JMP -!
+
        
-       
-SWORDX DATA >0A00,>00F5,>010B,>F4FF
+SWORDX DATA >000B,>FFF5,>0A01,>F4FF
+
+BSWJMP DATA BSWDRT,BSWDLT,BSWDDN,BSWDUP
+BSWRDD DATA >0003,>FFFD,>0300,>FD00     ; Beam sword direction
+BSWRDC BYTE >07,>0F,>06,>09             ; Beam sword colors: cyan, white, dark red, light red
+BSPLSD DATA >FEFF,>FF01,>00FF,>0101     ; Beam splash direction data
+MAGICD DATA >0002,>FFFE,>0200,>FE00     ; Magic beam direction
+MAGICC BYTE >07,>04,>06,>01             ; Magic colors: cyan, dark blue, dark red, black
 
 ; Beam sword shoots when link is at full hearts, cycle colors white,cyan,red,brown
 ; R4[9..8] = color bits
 ; R4[6] = pop bit
 BSWORD
+       AI R4,>4000              ; Cycle colors
        MOV R4,R1
-       SLA R1,10
-       JOC BSWPOP
-
-       AI R4,>0100              ; Cycle colors
-       ANDI R4,>03FF
-       MOV R4,R1
-       SRL R1,8
+       SRL R1,14
        MOVB @BSWRDC(R1),@R6LB
 
+BSWRD2
        MOV R6,R3
        ANDI R3,>0F00       ; Get facing from sprite index
        SRL  R3,9
        A @BSWRDD(R3),R5    ; Add movement from table
+BSWRD3
+       MOV R4,R1
+       SLA R1,10           ; Check for hitting enemy
+       JOC BSWPOP
 
        MOV R5,R0
        SWPB R0
-       MOV @BSWJMP(R3),R1
+       MOV @BSWJMP(R3),R1   ; Jump table for checking screen edge
        B *R1
 BSWDLT
        CI R0,>0800          ; Check left edge of screen
@@ -610,6 +708,22 @@ BSWDDN
        CI R5,>B000          ; Check bottom edge of screen
        JL BSWNXT
 BSWPOP
+       MOV R4,R1
+       ANDI R1,>003F       ; Get object idx
+       CI R1,MAGCID
+       JNE !
+       MOV @FLAGS,R0
+       ANDI R0,BOOKMG      ; Have Book of Magic?
+       JEQ BSPOFF
+
+       LI R0,BMFMID        ; Book of Magic Flame ID
+       MOV R0,@FLAMOB      ; Flame object id
+       MOV R5,@FLAMSP      ; Flame position
+       LI R6,>F008         ; Flame sprite and color
+       MOV R6,@FLAMSP+2
+
+       JMP BSPOFF
+!
        LI R4,BSPLID        ; Create splash
        LI R6,>800F
        BL @OBSLOT
@@ -621,17 +735,30 @@ BSWPOP
        BL @OBSLOT
        LI R4,>0100
        JMP !
-BSPOFF
-       CLR @OBJECT+14       ; Clear sword so it can be fired again
+BSPOFF ; Beam splash off (from below)
+       CLR @BSWDOB       ; Clear sword so it can be fired again
 SPROFF
        CLR R4
 !      LI R5,>D200        ; Disappear
 BSWNXT B @OBNEXT
 
-BSWJMP DATA BSWDDN,BSWDLT,BSWDRT,BSWDUP
-BSWRDD DATA >0300,>FFFD,>0003,>FD00     ; Beam sword direction
-BSWRDC BYTE >07,>0F,>06,>09             ; Beam sword colors: cyan, white, dark red, light red
-BSPLSD DATA >FEFF,>FF01,>00FF,>0101     ; Beam splash direction data
+MAGIC
+       AI R4,>4000         ; Cycle colors
+       MOV R4,R1
+       SRL R1,14
+       MOVB @MAGICC(R1),@R6LB
+
+       MOV @COUNTR,R0
+       SLA R0,4            ; Use low bit from counter6 nibble
+       JNC BSWRD2          ; Move by 3 or 2 alternating frames
+
+       MOV R6,R3
+       ANDI R3,>0F00       ; Get facing from sprite index
+       SRL  R3,9
+       A @MAGICD(R3),R5    ; Add movement from table
+       JMP BSWRD3
+
+
 
 
 ; Beam sword splash
@@ -658,10 +785,6 @@ BSPLSH
        
        JMP BSWNXT
 
-
-; Rupee yellow, blue; 5 rupee blue blue; heart blue red
-
-RUPEEC BYTE >0A,>05,>05,>05,>04,>06
 
 RUPEE
 BRUPEE
@@ -696,7 +819,9 @@ HEART
 !      LI R2,GETITM
        MOV @HEROSP,R3    ; Get hero pos in R3
        BL @COLIDE
-       MOV @SPRLST+24,R3 ; Get sword pos in R3
+       MOV @SWRDSP,R3    ; Get sword pos in R3
+       BL @COLIDE
+       MOV @BMRGSP,R3    ; Get boomerang pos in R3
        BL @COLIDE
        JMP BSWNXT
 GETITM
@@ -724,6 +849,395 @@ GETRUP AB R0,@RUPEES   ; Add R0 to rupees
        MOVB R0,@RUPEES
        JMP DOSTAT
 
+; Rupee yellow, blue; 5 rupee blue blue; heart blue red
+RUPEEC BYTE >0A,>05,>05,>05,>04,>06
+
+
+ITEMFN DATA BMRGFN,BOMBFN,ARRWFN,CNDLFN
+       DATA FLUTFN,BAITFN,POTNFN,MAGCFN
+
+;PEAHAD DATA >0001,>0101,>0100,>00FF  ; 0 Right, 1 downright, 2 down, 3 downleft
+;       DATA >FFFF,>FEFF,>FF00,>FF01  ; 4 Left,  5 upleft,    6 up,   7 upright
+
+; bits right,left,down,up  (index by 4-bit dpad, counter directions cancel out)
+BMRNGD BYTE 8,6,2,8 ; none, up, down, none
+       BYTE 4,5,3,4 ; left, upleft, downleft, left
+       BYTE 0,7,1,0 ; right, upright, downright, right
+       BYTE 8,6,2,8 ; none, up, down, none
+; bits right,left,down,up (index by facing direction)
+BMRNGE BYTE 0,4,2,6 ; right, left, down, up
+; bits right,left,down,up (screen edge tests, index by 3-bit direction)
+BMRNGF BYTE >8,>A,>2,>6   ; Right, downright, down, downleft
+       BYTE >4,>5,>1,>9   ; Left,  upleft,    up,   upright
+
+THROWJ DATA THROWR,THROWL,THROWD,THROWU
+
+; Check to see if hero has room to spawn an item in the direction he's facing
+; Returns if ok, jumps to ITMNXT otherwise
+; Modifes R1,R7
+THROW
+       MOV R3,R1
+       SRL R1,7
+       MOV @THROWJ(R1),R1
+       MOV R5,R7
+       SWPB R7
+       B *R1
+THROWL
+       CI R7,(16)*256
+       JLE ITMNXT
+       RT
+THROWR
+       CI R7,(256-32)*256
+       JHE ITMNXT
+       RT
+THROWD
+       CI R5,(192-32)*256
+       JHE ITMNXT
+       RT
+THROWU
+       CI R5,(24+16)*256
+       JLE ITMNXT
+       RT
+
+BMRGFN ; Boomerang
+       MOV @HFLAGS,R0
+       ANDI R0,BMRANG+MAGBMR
+       ;JEQ ITMNXT
+
+       BL @THROW
+
+       LI R7,BMRGOB-OBJECT
+       LI R4,BMRGID*4
+
+       MOV @KEY_FL,R1       ; Get direction from currently pressed keys
+       SRL R1,1
+       ANDI R1,>000F
+       MOVB @BMRNGD(R1),R4
+       CI R4,>0800
+       JL !
+
+       ; Get direction from facing
+       MOV R3,R1
+       SRL R1,8
+       MOVB @BMRNGE(R1),R4
+!
+       SRL R4,2
+
+       ANDI R0,MAGBMR
+       JNE !
+
+       AI R4,45*>0200
+       LI R6,>900A       ; Boomerang
+
+       JMP ITMSPN
+!
+       AI R4,>FE00       ; max counter
+       LI R6,>9004       ; Magic boomerang
+
+ITMSPN ; Item spawn: R7=index, R4=object id, R6=sprite idx and color
+       MOV @OBJECT(R7),R0
+       JNE ITMNXT
+
+       MOV R4,@OBJECT(R7)
+       A R7,R7
+
+       MOV R5,R0
+       MOV R3,R1
+       SRL R1,7
+       A @BOMBXY(R1),R0
+       MOV R0,@SPRLST(R7)
+       MOV R6,@SPRLST+2(R7)
+
+ITMNXT B @ITEMX
+
+BOMBFN ; Bomb
+       ; TODO have enough bombs?
+
+       BL @THROW
+       ; TODO decrement bombs
+
+       LI R7,BOMBOB-OBJECT
+       LI R4,BOMBID
+       LI R6,>C404          ; Bomb is C4
+
+       JMP ITMSPN
+
+ARRWFN ; Arrow
+       ; TODO have enough rupees?
+       BL @THROW
+       ; TODO decrement rupees
+
+       JMP ITMNXT
+
+CNDLFN ; Candle
+
+       ; TODO have used already on this screen or red candle?
+
+       BL @THROW
+
+       LI R7,FLAMOB-OBJECT
+       LI R6,>F008
+
+       MOV R3,R4
+       SRL R4,2
+       AI R4,FLAMID
+
+       JMP ITMSPN
+
+
+FLUTFN ; Flute
+       JMP ITMNXT
+BAITFN ; Bait
+       JMP ITMNXT
+POTNFN ; Letter/Potion
+       JMP ITMNXT
+MAGCFN ; Magic Rod
+
+       BL @THROW
+
+       LI R0,>0C00       ; Magic Rod animation is 12 frames
+       MOVB R0,@SWRDOB
+       LI R0,MRODC       ; Magic Rod is single sprite, dark blue
+       MOV R0,@SWRDSP+2
+
+       JMP ITMNXT
+
+
+FLAMXY DATA >00F0,>0000,>B800,>1800
+
+FLAME  CI R4,>FF00
+       JHE !!!
+       LI R0,>0100
+       S  R0,R4
+       C  R4,R0      ; Decrement counter
+       JHE !
+FLAME2 B @SPROFF
+!      CI R4,FLAMID
+       JEQ FLAME2    ; Book of Magic flame?
+       JH !
+       CI R4,>3900   ; Stop moving after 36 frames
+       JLE !
+       LI R0,>0100   ; Move every other frame
+       CZC R0,R4
+       JNE !
+       MOV R4,R1
+       ANDI R1,>00C0
+       SRL R1,5        ; R1 = direction
+       MOV R5,R0
+       SZC @EMOVEC(R1),R0  ; Mask XX or YY
+       C R0,@FLAMXY(R1)    ; Check screen edge
+       JEQ !
+       A @EMOVED(R1),R5 ; Move
+!      BL @LNKHIT
+!      JMP BOMNXT
+
+
+;            Left Right  Down  Up
+BOMBXY DATA >FF10,>FEF0,>0F00,>EF00
+; Bomb jump  0  1   2  3
+BOMBJ  BYTE -16,16,-32,32
+
+BOMB   LI R0,>0100
+       S  R0,R4
+       C  R4,R0      ; Decrement counter
+       JHE !
+       B @SPROFF
+!
+       MOV R4,R0      ; Get counter in R0
+       SRL R0,8
+       CI R0,36       ; Bomb explode
+       JNE !!!
+       LI R6,>D00F
+
+       MOV R5,R7
+       SWPB R7
+       CI R7,>1000    ; At left edge?
+       JHE !
+       AI R5,>0020    ; Adjust right 32 pixels
+       AI R6,>0080    ; Set early bit for left edge
+!
+       AI R4,>80      ; Middle left poof - toggles by 32
+       AI R5,-16
+       BL @OBSLOT
+       AI R4,->80     ; Lower left poof - toggles by 16
+       AI R5,(16*256)+8
+       BL @OBSLOT
+       AI R4,>40      ; Upper right poof - toggles by 16
+       AI R5,(-32*256)+16
+       BL @OBSLOT
+       AI R5,(16*256)-8
+
+       CI R7,>1000    ; At left edge?
+       JHE !
+       AI R5,->0020   ; Adjust left 32 pixels
+       AI R6,->0080   ; Clear early bit
+!
+
+       JMP BOMB1
+!
+       CI R0,12
+       JNE !
+       AI R6,>0400       ; Poof dissapates slightly
+!
+BOMB1
+       MOV @OBJPTR,R1
+       CI R1,BOMBOB-OBJECT
+       JEQ !             ; Primary bomb poof doesn't move
+
+       LI R1,>0040       ; Wiggle back and forth
+       XOR R1,R4
+       MOV R4,R1
+       ANDI R1,>00C0
+       SRL R1,6
+       AB @BOMBJ(R1),@R5LB
+
+       JMP BOMNXT
+
+!      CI R0,34         ; Bright colorset
+       JEQ BOMB2
+       CI R0,30         ; Normal colorset
+       JEQ BOMB3
+       CI R0,29         ; Bright colorset
+       JEQ BOMB2
+       CI R0,25         ; Normal colorset
+       JNE BOMNXT
+BOMB3
+       LI R0,>0300+(CLRTAB/>40) ; VDP Register 3: Color Table
+       LI R1,>07F1          ; VDP Register 7: White on Black
+       JMP !
+BOMB2
+       LI R0,>0300+(BCLRTB/>40) ; VDP Register 3: Color Table
+       LI R1,>07FE          ; VDP Register 7: White on Grey
+!      BL @VDPREG
+       MOV R1,R0
+       BL @VDPREG
+BOMNXT B @OBNEXT
+
+
+; Boomerang
+; R4[15-9]= counter 0=returning 1-2=spark 3-7f=countdown
+; R4[8-6] = direction (peahat style)
+
+; 45 move by 3x15
+; 30 move by 2 2
+; 28 move by 1 0 1 0 1 0 1 0 1 0 1 0
+; 16 move by 0 0
+; 14 move by 1 0 1 0 1 0
+; 8 move by 1 1 1 1 1 1 1 1
+; 0 move by 2
+
+SPARK  EQU >DC0F        ; Spark Sprite Index and color white
+
+BMRNG
+       CI R4,16*>0200
+       JL BMRNG2  ; Returning
+
+       MOV R4,R3
+       SRL R3,6
+       ANDI R3,>0007  ; Get direction in R3
+
+       MOV R5,R7      ; R5=YYXX
+       SWPB R7        ; R7=XXYY
+
+       MOVB @BMRNGF(R3),R0  ; Get screen edge test flags in R0 right,left,down,up
+       SLA R0,5       ; Get right test bit in carry
+       JNC !
+       CI R7,>F000    ; Test right screen edge
+       JHE BMRNG7
+!      SLA R0,1       ; Get left test bit in carry
+       JNC !
+       CI R7,>0300    ; Test left screen edge
+       JLE BMRNG7
+!      SLA R0,1       ; Get down test bit in carry
+       JNC !
+       CI R5,>B400    ; Test bottom screen edge
+       JHE BMRNG7
+!      SLA R0,1       ; Get up test bit in carry
+       JNC !
+       CI R5,>1800    ; Test top screen edge
+       JLE BMRNG7
+!
+       A R3,R3
+       MOV @PEAHAD(R3),R3  ; R3=peahat-style movement by 1
+BMRNG1
+       MOV R4,R0
+       SRL R0,9        ; R0=counter
+       JEQ BMOVE2      ; counter=0? Move by 2
+
+       AI R4,->200     ; Decrement counter
+
+       CI R6,SPARK
+       JEQ BMRNG8
+
+       CI R0,8
+       JLE BMOVE1      ; Move by 1
+       CI R0,28
+       JH !
+       ANDI R0,1       ; Move by 0 or 1
+       JNE BMOVE1
+       JMP BMOVE0
+!      CI R0,30
+       JLE BMOVE2      ; Move by 2
+
+BMOVE3 A R3,R5
+BMOVE2 A R3,R5
+BMOVE1 A R3,R5
+BMOVE0
+
+       MOV @COUNTR,R0
+       ANDI R0,3
+       JNE BOMNXT     ; Animate every 4th frame
+
+       MOV R6,R1
+       SRL R1,10
+       ANDI R1,3
+       MOVB @BMRNGS(R1),R6
+
+       JMP BOMNXT
+BMRNG2
+       MOV @HEROSP,R3   ; Sprite off if collision with hero
+       LI R2,SPROFF
+       BL @COLIDE
+
+       CLR R3
+       CB R5,@HEROSP    ; Move toward the hero
+       JL  BMRNG3
+       JH  BMRNG4
+!      CB @R5LB,@HEROSP+1
+       JL  BMRNG5
+       JH  BMRNG6
+       JMP BMRNG1
+BMRNG3
+       AI R3,>0100
+       JMP -!
+BMRNG4
+       AI R3,>FF00
+       JMP -!
+BMRNG5
+       AI R3,>0001
+       JMP BMRNG1
+BMRNG6
+       AI R3,>FFFF
+       JMP BMRNG1
+BMRNG7 ; Screen edge hit
+       LI R4,(BMRGID&>003F)+>0600  ; spark for 3 frames
+       LI R6,SPARK
+       JMP BOMNXT
+BMRNG8 ; wait for spark countdown to 0
+       CI R4,>0100
+       JHE BOMNXT
+       LI R6,>90
+       MOV @HFLAGS,R0
+       LI R6,>900A   ; normal boomerang color
+       LI R0,MAGBMR
+       COC @HFLAGS,R0
+       JNE BOMNXT
+       LI R6,>9004  ; magic boomerang color
+       JMP BOMNXT
+
+
+       ; Boomerang next sprite table (indexed by current sprite)
+BMRNGS BYTE >9C,>98,>90,>94
 
 ; Compare YYXX in R3 and R5 for overlap, jump to R2 if collision
 ; Modifies R3
@@ -771,17 +1285,17 @@ LNKHIT
        ; horizontally aligned
        CB @R5LB,@HEROSP+1
        JHE !
-       CLR R0         ; left
+       CLR R0          ; right
        JMP LNKHI3
-!      LI R0,>0100    ; right
+!      LI R0,DIR_LT    ; left
        JMP LNKHI3
 LNKHI2
        ; vertically aligned
        CB R5,@HEROSP
        JHE !
-       LI R0,>0200    ; down
+       LI R0,DIR_DN    ; down
        JMP LNKHI3
-!      LI R0,>0300    ; up
+!      LI R0,DIR_UP    ; up
 
 LNKHI3
 
@@ -888,7 +1402,7 @@ LNKMOV
        A @LMOVEA(R3),R0
        BL @TESTCH
        MOV R5,R0
-       A @EMOVEB(R3),R0
+       A @LMOVEB(R3),R0
        BL @TESTCH
 
 !      A @EMOVED(R3),R5     ; Do movement
@@ -898,16 +1412,46 @@ LNKMOV
 ; Facing     Right Left  Down  Up
 LMOVEA DATA >0810,>07FF,>1000,>0700     ; Test char offset 1
 LMOVEB DATA >0F10,>0EFF,>100F,>070F     ; Test char offset 2
-; Facing     Right Left  Down  Up
-;EMOVED DATA >0001,>FFFF,>0100,>FF00     ; Direction data
-;EMOVEA DATA >0010,>FFFF,>1000,>FF00     ; Test char offset 1
-;EMOVEB DATA >0F10,>0EFF,>100F,>FF0F     ; Test char offset 2
-;EMOVEC DATA >FF00,>FF00,>00FF,>00FF     ; Screen edge mask (inverted for SZC)
-;EMOVEE DATA >00E0,>0010,>A800,>2800     ; Screen edge value
-;EMOVEM DATA >FFF8,>FFF8,>F8FF,>F8FF     ; Mask alignment to 8 pixels (inverted for SZC)
 
 
-; Look at character at pixel coordinate in R0, and jump to R2 if solid
+
+
+
+; Store characters R1,R2 at R5 in name table
+; Modifies R0,R1,R3
+STORCH
+       MOV R5,R0
+       ; Convert pixel coordinate YYYYYYYY XXXXXXXX
+       ; to character coordinate        YY YYYXXXXX
+       ANDI R0,>F8F8
+       MOV R0,R3
+       SRL R3,3
+       MOVB R3,R0
+       SRL R0,3
+       MOV @FLAGS,R3
+       ANDI R3,SCRFLG
+       A R3,R0
+
+       ORI R0,VDPWM
+       LI R3,2
+!
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+
+       MOVB R1,*R15
+       MOVB @R1LB,*R15
+
+       AI R0,32
+       MOV R2,R1
+
+       DEC R3
+       JNE -!
+
+       RT
+
+
+
+       ; Look at character at pixel coordinate in R0, and jump to R2 if solid (character is in R0)
 ; Modifies R0,R1
 TESTCH
 ; Convert pixel coordinate YYYYYYYY XXXXXXXX 
@@ -964,8 +1508,9 @@ SPRUPD
 
 
 ; Scan objects for empty slot: store R4 index & data, R5 in location, R6 in sprite index and color
+; Modifies R0,R1
 OBSLOT
-       LI R1,24      ; Start at slot 12
+       LI R1,LASTOB-OBJECT      ; Start at slot 13
 !      MOV @OBJECT(R1),R0
        JEQ !
        INCT R1
@@ -974,84 +1519,13 @@ OBSLOT
        RT            ; Unable to find empty slot
 !      MOV R4,@OBJECT(R1)
        A R1,R1
+       AI R5,->0100       ; Adjust Y pos
        MOV R5,@SPRLST(R1)
+       AI R5,>0100        ; Adjust Y pos
        MOV R6,@SPRLST+2(R1)
        RT
 
        
-VDPINI
-       DATA >0000          ; VDP Register 0: 00
-       DATA >01E2          ; VDP Register 1: 16x16 Sprites
-       DATA >0200          ; VDP Register 2: 00
-       DATA >0300+(CLRTAB/>40)  ; VDP Register 3: Color Table
-       DATA >0400+(PATTAB/>800) ; VDP Register 4: Pattern Table
-       DATA >0500+(SPRTAB/>80)  ; VDP Register 5: Sprite List Table
-       DATA >0600+(SPRPAT/>800) ; VDP Register 6: Sprite Pattern Table
-       DATA >07F1          ; VDP Register 7: White on Black
-
-
-       
-; Object function pointer table, functions called with data in R4, sprite YYXX in R5, idx color in R6, must return by B @OBNEXT
-OBJTAB DATA OBNEXT,PEAHAT,TKTITE,TKTITE  ; 0-3 - - Red Blue
-       DATA OCTORK,OCTORK,OCTRKF,OCTRKF  ; 4-7 Red Blue Red Blue
-       DATA MOBLIN,MOBLIN,LYNEL, LYNEL   ; 8-B Red Blue Red Blue
-       DATA GHINI, ROCK, LEEVER,LEEVER  ; C-F - - Red Blue
-       DATA BSWORD,BADNXT,BSPLSH,BADNXT  ; 10-13
-       DATA ZORA0, ZORA1, ZORA2, BADNXT   ; 14-17
-       DATA DEAD, BADNXT, BADNXT,BADNXT  ; 18-1B
-       DATA BULLET,ARROW,LARROW,BSWORD   ; 1C-1F
-       DATA RUPEE, BRUPEE,HEART,FAIRY    ; 20-23
-
-BSWDID EQU >0010 ; Beam Sword ID
-BSWPID EQU >0050 ; Beam Sword Pop ID
-BSPLID EQU >0812 ; Beam Sword Splash ID with initial counter
-DEADID EQU >1218 ; Dead Enemy Pop ID w/ counter=18
-RUPYID EQU >5020 ; Rupee ID with initial counter
-BRPYID EQU >5021 ; Blue Rupee ID with initial counter
-HARTID EQU >5022 ; Heart ID with initial counter
-FARYID EQU >5023 ; Fairy ID with initial counter
-
-
-
-; Enemy sprite index and color
-ECOLOR DATA >0000,>2009  ; None, Peahat
-       DATA >3009,>3005  ; Red Tektite, Blue Tektite
-       DATA >4008,>4004  ; Octorok sprites
-       DATA >4008,>4004  ; Fast Octorok Sprites
-       DATA >2006,>2004  ; Moblin Sprites
-       DATA >4006,>4004  ; Lynel Sprites
-       DATA >200F,>2009  ; Ghini, Rock
-       DATA >3006,>3004  ; Leever Sprites
-       DATA >0000,>0000  ; Beam Sword
-       DATA >0000,>0000  ; Beam splash
-       DATA >0000,>0000  ; Zora0-1
-       DATA >0000,>0000  ; Zora2
-       DATA >0000,>0000  ; Dead
-       DATA >0000,>0000  ;
-       DATA >0000,>0000  ; Bullet,arrow
-       DATA >0000,>0000  ; Larrow,bsword
-       DATA >C004,>C004  ; Rupee, Blue rupee
-       DATA >C800,>F400  ; Heart, Fairy
-
-; Damage enemies do to attack hero
-; 1 dmg = 1/2 heart w/ no ring = 1/4 heart w/ blue ring = 1/8 heart w/ red ring
-EDAMAG BYTE >00,>01  ; None, Peahat
-       BYTE >01,>01  ; Red/Blue Tektite
-       BYTE >01,>01  ; Octorok
-       BYTE >01,>01  ; Fast Octorok
-       BYTE >01,>01  ; Moblin
-       BYTE >02,>04  ; Lynel
-       BYTE >02,>01  ; Ghini, Rock
-       BYTE >01,>02  ; Red/Blue Leever
-       BYTE >00,>00  ; Beam Sword
-       BYTE >00,>00  ; Beam splash
-       BYTE >00,>00  ; Zora0-1
-       BYTE >00,>00  ; Zora2
-       BYTE >00,>00  ; Dead
-       BYTE >00,>00  ;
-       BYTE >01,>00  ; Bullet,arrow
-       BYTE >00,>00  ; Larrow,bsword
-
 
 
 ARROW
@@ -1060,9 +1534,396 @@ FAIRY
 BADNXT JMP BADNXT
 
 
+; Cave item
+; bits[15..12] counter
+; bits[11..6] item number, 6 bits
+; bits[5..0] object id
+; item number:
+;   0 fire
+;   1 npc
+;
+; counter:
+;   16..13 poof
+;   12..7 dissolve 1
+;   6..1 dissolve 2
+;   0 item appearing
+CAVNPC
+       MOV R4,R0
+       SRL R0,12
+       JNE !
+       BL @RUPEEB  ; Rupee blink
+CAVNP2 B @OBNEXT
+
+!      AI R4,->1000
+
+       CI R0,13
+       JNE !
+       LI R6,>D00F   ; poof
+!
+       CI R0,12
+       JNE !
+       AI R6,>0400   ; dissolve 1
+!
+       CI R0,6
+       JNE !
+       AI R6,>0400   ; dissolve 2
+!
+       DEC R0
+       JNE CAVNP2
+
+       CI R5,>5878    ; NPC position? otherwise flame
+       JEQ !
+
+       LI R6,>F008    ; Fire sprite
+       LI R1,>2020    ; Fire background chars
+       LI R2,>5E5F    ; Fire background chars
+       BL @STORCH          ; Store characters R1,R2 at R5 in name table
+CAVNP3 JMP CAVNP2
+
+!      ; Load NPC, text and items
+
+       MOVB @MAPLOC,R3
+       SRL R3,8           ; R3 = map location
+       MOVB @CAVMAP(R3),R3
+       SRL R3,8           ; R3 = cavmap(R3)
+       MOV R3,R10    ; R10 = item index
+
+       DEC R3
+       A R3,R3
+
+       MOV R5,R7      ; Save NPC pos
+       MOV @CAVDAT(R3),R9 ; Get NPC type and text offset
+
+       MOV R9,R2
+       SRL R2,11
+       AI R2,NPCSPR
+       MOV *R2+,R8       ; Get primary sprite
+       MOV *R2+,R6       ; Get secondary sprite
+       BL @OBSLOT        ; Spawn secondary sprite
+       MOV *R2+,R1       ; Get background chars
+       MOV *R2+,R2       ; Get background chars
+       BL @STORCH        ; Draw background characters
+
+       ; TODO case >10, letter must be shown to old woman
 
 
-; Peahat animation loop: 2 2 1 2 1  (01011011)
+       LI R4,TEXTID   ; Cave message texter
+       LI R5,>D200    ; Counter
+       MOV R9,R6
+       ANDI R6,>03FF
+       AI R6,CAVTXT   ; Cave text in VDP RAM
+       BL @OBSLOT
+
+       ; load items
+       LI R3,CAVTBL   ; Table of item groups
+!      MOV *R3+,R6
+       MOV R6,R9
+       SLA R9,7      ; Get group bit in carry
+       JNC -!
+       DEC R10        ; Decrement item index until zero
+       JNE -!
+
+       LI R2,CAVLOC   ; Spawn cave items
+!      CLR R4
+       MOV *R2+,R5    ; Sprite location
+       JEQ !
+       ANDI R6,>FC0F  ; Get sprite
+       LI R4,ITEMID   ; Object ID
+       BL @OBSLOT     ; Note: returns object offset in R1
+
+       MOV R1,R0
+       SRL R0,2       ; Convert double-word offset to byte offset
+       AI R0,ENEMHP   ; R0 = Object HP address
+
+       SRL R9,11      ; Get item price index
+       MOVB @IPRICE(R9),R1 ; R1 = item price
+       BL @VDPWB      ; Store item price in object HP
+
+       MOVB R1,R4
+       JEQ !          ; Don't draw if zero
+
+       ; Convert pixel coordinate YYYYYYYY XXXXXXXX R5
+       ; to character coordinate        YY YYYXXXXX R0
+       ANDI R5,>F8F8
+       MOV R5,R0
+       SRL R0,3
+       MOVB R0,R5
+       SRL R5,3
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG
+       A R5,R0
+
+       AI R0,VDPWM+(3*32)-1  ; Adjust position to 3 lines down and 1 left
+       BL @NUMBRJ     ; Display item price R1 right-justified at R0
+
+!      MOV *R3+,R6
+       MOV R6,R9
+       SLA R9,7      ; Get group bit in carry
+       JNC -!!
+
+       MOVB R4,R4
+       JEQ !         ; Draw rupee and X
+       LI R4,CAVEID
+       LI R5,>8430  ; Rupee loc
+       LI R6,>C00A   ; Rupee sprite
+       BL @OBSLOT
+
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG
+       AI R0,32*17+8
+       LI R1,'X'*256
+       BL @VDPWB
+
+!
+       LI R4,CAVEID   ; Restore object id
+       MOV R7,R5      ; Restore position
+       MOV R8,R6      ; Restore sprite
+
+       JMP CAVNP3
+
+; Cave map, index of item group in CAVTBL
+CAVMAP BYTE >00,>05,>00,>05,>10,>29,>17,>05,>00,>00,>02,>25,>17,>10,>04,>0F
+       BYTE >06,>00,>14,>0E,>05,>00,>06,>00,>00,>00,>11,>00,>07,>22,>05,>06
+       BYTE >00,>03,>26,>0B,>19,>16,>00,>10,>0E,>00,>00,>00,>08,>0E,>00,>08
+       BYTE >00,>00,>00,>10,>15,>00,>00,>21,>00,>1B,>00,>00,>22,>0E,>00,>18
+       BYTE >00,>00,>27,>1B,>16,>24,>14,>08,>0E,>0C,>16,>10,>14,>00,>0D,>00
+       BYTE >00,>0D,>00,>00,>00,>18,>0D,>00,>00,>00,>00,>00,>00,>00,>00,>1A
+       BYTE >00,>00,>0F,>05,>10,>00,>17,>0E,>05,>00,>05,>0F,>00,>28,>00,>16
+       BYTE >11,>0E,>00,>00,>23,>13,>06,>01,>10,>09,>00,>08,>06,>05,>00,>00
+       ; 18: Raft ride
+       ; 19: Power bracelet under armos
+       ; 1A: Heart container on ground
+       ; 1B: Fairy Pond
+       ; 2X: indicates entrance to level X
+
+
+CAVLOC DATA >7078,>7058,>7098  ; Center, left, right, leftmost  (merchant)
+STAIRS DATA >8878,>8848,>88A8       ; Center, left, right   (stairs)
+
+; Cave sprite table: index and color SSSSSSuu uuuuCCCC S=sprite index C=color
+; u=6 bit index into price table, or
+;     indicator of npc sprites and background tiles, or
+;     indicator of fire sprites and background tiles, or
+;     indicator of background tiles
+
+
+OLDMAN EQU >0000 ; Old man NPC
+CAVMOB EQU >4000 ; Cave moblin NPC
+OLDWOM EQU >8000 ; Old woman NPC
+MERCH  EQU >C000 ; Merchant NPC
+
+; Cave npc type and text offsets (numbers are printed during cave string generation: ./tools/txt)
+CAVDAT DATA OLDMAN+0         ; 1 IT'S DANGEROUS TO GO\ALONE! TAKE THIS.
+       DATA OLDMAN+40        ; 2 MASTER USING IT AND\YOU CAN HAVE THIS.
+       DATA OLDMAN+40        ; 3 MASTER USING IT AND\YOU CAN HAVE THIS.
+       DATA OLDMAN+80        ; 4 SHOW THIS TO THE\OLD WOMAN.
+       DATA OLDMAN+109       ; 5 PAY ME FOR THE DOOR\REPAIR CHARGE.
+       DATA OLDMAN+145       ; 6 LET'S PLAY MONEY\MAKING GAME.
+       DATA OLDMAN+176       ; 7 SECRET IS IN THE TREE\AT THE DEAD-END.
+       DATA OLDMAN+216       ; 8 TAKE ANY ONE YOU WANT.
+       DATA OLDMAN+240       ; 9 TAKE ANY ROAD YOU WANT.
+       DATA OLDMAN+240       ; A TAKE ANY ROAD YOU WANT.
+       DATA OLDMAN+240       ; B TAKE ANY ROAD YOU WANT.
+       DATA OLDMAN+240       ; C TAKE ANY ROAD YOU WANT.
+       DATA CAVMOB+265       ; D IT'S A SECRET\TO EVERYBODY.
+       DATA CAVMOB+265       ; E IT'S A SECRET\TO EVERYBODY.
+       DATA CAVMOB+265       ; F IT'S A SECRET\TO EVERYBODY.
+       DATA OLDWOM+294       ; 10 BUY MEDICINE BEFORE\YOU GO.
+       DATA OLDWOM+323       ; 11 PAY ME AND I'LL TALK.
+       DATA OLDWOM+323       ; 12 PAY ME AND I'LL TALK.
+       ;DATA 346       ; THIS AIN'T ENOUGH TO TALK.
+       ;DATA 374       ; GO NORTH,WEST,SOUTH,\WEST TO THE FOREST\OF MAZE.
+       ;DATA 424       ; BOY, YOU'RE RICH!
+       ;DATA 443       ; GO UP,UP THE MOUNTAIN AHEAD.
+       DATA OLDWOM+474       ; 13 MEET THE OLD MAN\AT THE GRAVE.
+       DATA MERCH+506       ; 14 BOY, THIS IS\REALLY EXPENSIVE!
+       DATA MERCH+506       ; 15 BOY, THIS IS\REALLY EXPENSIVE!
+       DATA MERCH+538       ; 16 BUY SOMETHIN' WILL YA!
+       DATA MERCH+538       ; 17 BUY SOMETHIN' WILL YA!
+
+NPCSPR ;    SPR1  SPR2  BGCH1 BGCH2
+       DATA >4C0A,>5006,>2324,>2829  ; 2 Old man skin, robe
+       DATA >5806,>0000,>2020,>2020  ; Moblin "IT'S A SECRET\TO EVERYBODY."
+       DATA >3C0A,>4006,>5C5D,>2829  ; Old woman sprites
+       DATA >440A,>4802,>BCBD,>BEBF  ; Merchant sprites
+;FIRECH DATA >2020,>5E5F  ; Fire background chars
+;       DATA >7879,>7A7B  ; Warp Stairs background chars
+
+CAVTBL ; SSSSSSGx PPPPCCCC  S=sprite index G=group bit P=price index C=color
+       DATA >7E08      ; 1 Wood sword "IT'S DANGEROUS TO GO\ALONE! TAKE THIS."
+       DATA >7E0F      ; 2 White sword "MASTER USING IT AND\YOU CAN HAVE THIS." (5h)
+       DATA >5609      ; 3 Magic sword "MASTER USING IT AND\YOU CAN HAVE THIS." (12h)
+       DATA >2604      ; 4 Letter "SHOW THIS TO THE\OLD WOMAN."
+       DATA >C20A      ; 5 -20 rupees TODO door repair charge
+
+       DATA >C20A,>C00A,>C00A  ; 6 Rupees "LET'S PLAY MONEY\MAKING GAME."
+       DATA >0200      ; 7 "SECRET IS IN THE TREE\AT THE DEAD-END." TODO
+       DATA >0200,>2806,>5806 ; 8 red potion, heart container "TAKE ANY ONE YOU WANT."
+       DATA >0200,>0000,>0000 ; 9 warp stairs 1 "TAKE ANY ROAD YOU WANT."
+       DATA >0200,>0000,>0000 ; A warp stairs 2 "TAKE ANY ROAD YOU WANT."
+       DATA >0200,>0000,>0000 ; B warp stairs 3 "TAKE ANY ROAD YOU WANT."
+       DATA >0200,>0000,>0000 ; C warp stairs 4 "TAKE ANY ROAD YOU WANT."
+
+       DATA >C20A    ; D: 10 rupees
+       DATA >C20A    ; E: 30 rupees
+       DATA >C20A    ; F: 100 rupees
+
+       DATA >0200,>2854,>2886  ; 10: Blue potion(40), red potion(68) "BUY MEDICINE BEFORE\YOU GO." (2nd line left aligned)
+       DATA >C24A,>C02A,>C06A  ; 11: 10 30 50 "THIS AIN'T ENOUGH TO TALK" "GO NORTH WEST SOUTH WEST" "BOY,YOU'RE RICH"
+       DATA >C22A,>C01A,>C03A  ; 12: 5 10 20 "THIS AIN'T ENOUGH TO TALK" "THIS AIN'T ENOUGH TO TALK" "GO UP,UP THE MOUNTAIN AHEAD"
+       DATA >0200      ; 13: "MEET THE OLD MAN\AT THE GRAVE" TODO
+
+       DATA >32B9,>38A9,>C826  ; 14: Shield(90) bait(100) heart(10) "BOY, THIS IS\REALLY EXPENSIVE!"
+       DATA >2EE4,>209B,>3076  ; 15: Key(80) bluering(250) bait(60) "BOY, THIS IS\REALLY EXPENSIVE!"
+       DATA >C634,>38C9,>AC9B  ; 16: Shield(130) bomb(20) arrow(80) "BUY SOMETHIN' WILL YA!"
+       DATA >22BB,>38D9,>3474  ; 17: Shield(160) key(100) candle(60) "BUY SOMETHIN' WILL YA!"
+
+       DATA >0200 ; Terminating group bit
+
+; cave item prices (stored in object hp)
+;           0 1 2  3  4  5  6  7  8  9  A  B   C   D   E
+IPRICE BYTE 0,5,10,20,30,40,50,60,68,80,90,100,130,160,250
+       EVEN
+
+* Rupee blink
+RUPEEB
+       CI R6,>C00A
+       JEQ !
+       CI R6,>C005
+       JNE !!
+!      MOV @COUNTR,R0
+       ANDI R0,>0007
+       JNE !
+       LI R0,(>C00A^>C005)
+       XOR R0,R6
+!      RT
+
+* Cave item object, check hero collision, enough money, already have it
+* R4: object id
+* R5: location
+* R6: sprite and color
+CAVITM
+       BL @RUPEEB
+       MOV @HEROSP,R0
+       AI R0,>0100   ; Y adjust
+       C R0,R5
+       JNE TEXTRT
+       MOV @OBJPTR,R0
+       SRL R0,1      ; Get object byte offset
+       AI R0,ENEMHP
+       BL @VDPRB     ; R1 = item price
+       CB R1,@RUPEES
+       JH TEXTRT     ; Not enough rupees?
+
+       ;TODO already have it?
+
+       SB R1,@RUPEES ; Subtract price from rupees
+       BL @STATUS    ; Update status
+
+       ; TODO hold up item
+       ; TODO NPC disappears
+       ; TODO set bit for collected item
+       B @SPROFF
+
+* Text writer object, writes one char every 6 frames
+* R4[15:6] counter
+* R5[7:0] screen offset
+* R6[13:0] pointer to text in VDP RAM
+TEXTER
+       MOV @COUNTR,R0
+       CI R0,>2000     ; Only update every 6 frames, when COUNTR is 1xxx
+       JHE TEXTRT
+       CLR R1       ; Initial offset zero
+!      A R1,R5      ; Add offset (1-31)
+       MOV R6,R0
+       INC R6         ; Next character
+       BL @VDPRB
+       CI R1,>2000
+       JHE !
+       SRL R1,8
+       JNE -!
+       B @SPROFF    ; Zero byte - end of text
+!      MOV @FLAGS,R2
+       ANDI R2,SCRFLG   ; Get current screen ptr
+       MOV R5,R0
+       ANDI R0,>00FF    ; Get screen offset
+       AI R0,8*32+4     ; Add text offset in cave 8,4
+       A R2,R0
+       BL @VDPWB
+       INC R5
+TEXTRT B @OBNEXT
+
+
+* Rock AI
+* R4: 0 init
+*     1-18  y+=2
+*     19-21 y+=1
+*     22-23 y+=0
+*     24-26 y-=1
+*     27-29 y-=2
+*     30+   y+=0 x+=0
+ROCK   LI R3,>0100
+       C R3,R4
+       JLE !
+ROCKI  BL @RANDOM
+       MOV R0,R1
+       ANDI R1,>3F80
+       AI R1,>2000
+       A R1,R4      ; R4+=(32+RND*16)*256
+
+       ANDI R0,>00FF
+       AI R0,>1800
+       MOV R0,R5
+       LI R6,>3009
+
+!      BL @ANIM6
+       CI R4,30*>100
+       JL !
+       BL @RANDOM
+       ANDI R0,>0080
+       XOR R0,R4      ; Change direction randomly
+       JMP ROCK3
+
+!      CI R4,27*>100
+       JL !
+       AI R5,->0200    ; Move up 2
+       JMP ROCK2
+
+!      CI R4,24*>100
+       JL !
+       S R3,R5        ; Move up 1
+       JMP ROCK2
+
+!      CI R4,22*>100
+       JHE ROCK2
+       CI R4,19*>100
+       JL !
+       A R3,R5       ; Move down 1
+       JMP ROCK2
+
+!      AI R5,>0200
+       CI R5,>D000   ; Reinit at bottom of screen
+       JHE ROCKI
+ROCK2
+       MOV R4,R0
+       SLA R0,9
+       JOC !
+       INC R5        ; Move right
+       JMP ROCK3
+!      DEC R5        ; Move left
+
+ROCK3  S R3,R4       ; Decrement counter
+       C R3,R4
+       JL !
+       AI R4,30*>100   ; Bounce
+!
+       BL @LNKHIT
+       B @OBNEXT
+
+
+
+
+       ; Peahat animation loop: 2 2 1 2 1  (01011011)
 ; And moves by 1 only when animation changes
 ; Peahat Direction data
 PEAHAD DATA >0001,>0101,>0100,>00FF  ; 0 Right, 1 downright, 2 down, 3 downleft
@@ -1241,10 +2102,9 @@ GHINI
        AI R4,>0100
 !      JMP OBNXT
 
-ROCK
-       JMP OBNXT
 
-       
+
+
 ; Enemy movement (octorok, moblin, lynels)
 ; Modifies R0-R3,R10
 EMOVE
@@ -1311,7 +2171,7 @@ LEMOVE
        ANDI R0,>0F0F    ; Aligned to 16 pixels?
        JNE EMOVE5       ; No? Keep moving
 
-       B @EMOVE4
+       JMP EMOVE4
 ; Lever move every 6 frames (TODO should be 6 then 7)
 LEMOV6
        MOV @COUNTR,R0
@@ -1368,7 +2228,7 @@ LEEVER
        ANDI R0,>0180
        XOR R0,R4          ; Get random direction
        CLR R6
-       JMP OBNXT2
+       B @OBNEXT
 
 !      MOV @COUNTR,R0
 
@@ -1441,49 +2301,60 @@ LPULS2 BL @ANIM11      ; Pulsing?
 ;     1 bits reserved
 ;     1 bits hurt/stun flag
 ;     6 bits object id
-; pulsing  32 frames   anim 11
-; normal   48 frames
+; init                             counter=0
+; pulsing  32 frames   anim 11     counter=10..11
+; normal   48 frames               counter=7..9
 ;   bullet appears after 19 frames, then shoots after 16
-; pulsing  96 frames   anim 11
-; move instantly (TODO double-check this)
-ZORA0  MOV R4,R0
-       ANDI R0,>00FF
-       JNE !
-; TODO find a random spot in water
-       LI R6,>2806  ; Sprite and color
-       LI R4,>1420  ; Countdown
-       A R0,R4
-!      DEC R4
-       DEC R0
-       JEQ ZORA1I
+; pulsing  96 frames   anim 11     counter=1..6
+; disappear 2 frames
+ZORA   CI R4,>0100
+       JHE !
 
-ZORA0B MOV R4,R1
-       SRL R1,3
-       ANDI R1,>000F
-;       MOVB @PULSEM(R1),R1   ; Lookup animation in table
-       ANDI R0,>0007
-       INC R0
-       SLA R1,R0     ; Test for animate bit
-       JNC OBNXT2
-       LI R0,>0400
-       XOR R0,R6     ; Toggle animation
+ZORA1  LI R2,ZORA3
+ZORA2  BL @RANDOM      ; Get a random coordinate
+       ANDI R0,>70F0   ; Align to 16 pixels
+       AI R0,>2800     ; Moved down by 5 lines
+       ; TODO fix respawning in same location
+       MOV R0,R5       ; Save location if it's good
+       BL @TESTCH
+       JMP ZORA2
+ZORA3  ANDI R1,>F000
+       CI R1,>E000     ; Is it water?
+       JNE ZORA2
+
+       AI R4,>0C00     ; Set counter to 11
+       JMP ZORA4
+!
+       MOV @COUNTR,R0
+       ANDI R0,>000F   ; Get 16 counter
+       JNE ZORA5
+       AI R4,->100
+       CI R4,>0100
+       JL ZORA1       ; Reset counter
+       CI R4,>0900+ZORAID
+       JNE !
+       LI R6,>680D     ; Zora sprite
+       C R5,@HEROSP    ; Hero above or below zora?
+       JL ZORA5
+       AI R6,>0400     ; Zora face down toward hero
+       JMP ZORA5
+!      CI R4,>0600+ZORAID
+       JNE ZORA5
+ZORA4
+       LI R6,>2805     ; Pulsing sprite
+
+ZORA5
+       CI R4,>0700
+       JL !            ; Pulsing
+       CI R4,>0A00
+       JHE !           ; Pulsing
+       BL @HITEST
        JMP OBNXT2
 
-ZORA1I
-       LI R6,>6806  ; Sprite and color
-       LI R4,>1540  ; Setup counter
-ZORA1  DEC R4
-       MOV R4,R0
-       ANDI R0,>00FF
-       JNE OBNXT2
+!      BL @ANIM11
 
-       LI R6,>2806  ; Sprite and color
-       LI R4,>1660   ; Setup counter
-ZORA2  DEC R4
-       MOV R4,R0
-       ANDI R0,>00FF
-       JNE ZORA0B
-       JMP ZORA0
+       JMP OBNXT2
+
 
 OBNXT2 B @OBNEXT
 
@@ -1529,8 +2400,8 @@ HITES1
        
        CI R7,-4
        JNE !
-       LI R0,BSWPID         ; Beam Sword Pop ID
-       MOV R0,@OBJECT+14    ; Set sword beam to sword pop
+       LI R0,BPOPID         ; Beam Sword Pop ID
+       SOC R0,@BSWDOB       ; Set sword beam to sword pop
 
 !      MOV @OBJPTR,R1       ; Get object idx
        SRL R1,1
@@ -1625,6 +2496,12 @@ HURT2  AI R2,-256           ; Decrement counter
        ANDI R4,>FFBF        ; Clear hit/stun bit
 !      CI R0,>1000
        JL HITES3
+
+       MOV R4,R0
+       ANDI R0,>003F
+       CI R0,ZORAID
+       JEQ HITES3           ; Zora cannot be knocked back
+
        MOV R2,R3
        ANDI R3,>C000        ; Mask direction bits
        SRL R3,13            ; R3 = direction bits * 2
@@ -1646,14 +2523,13 @@ HURT       ; Enemy hurt
 
        MOV @SPRLST+34(R7),R2 ; Get sword sprite index in R2
        ANDI R2,>0C00        ; Mask direction bits
-       SRL R2,9
-       MOV @REDIR(R2),R2    ; Get new direction bits and hurt counter = 32
+       SLA R2,4
+       ORI R2,>2000         ; Get new direction bits and hurt counter = 32
 
        MOV @OBJPTR,R1       ; Get object idx
        AI R1,ENEMHS         ; Get counters from VDP
        JMP HURT2
 
-REDIR  DATA >A000,>6000,>2000,>E000 ; Convert DLRU -> RLDU and hurt counter = 32
 
 STBIT  ; TODO
 
@@ -1760,6 +2636,7 @@ ANIM11
 
 ; Set keyboard lines in R1 to CRU
 SETCRU
+       MOV *R11+,R1    ; Get ouput line from callers DATA
        LI R12,>0024    ; Select address lines starting at line 18
        LDCR R1,3       ; Send 3 bits to set one 8 of output lines enabled
        LI R12,>0006    ; Select address lines to read starting at line 3
@@ -1770,29 +2647,29 @@ SETCRU
 DOKEYS
        MOV R11,R10     ; Save return address
        CLR R0
-       CLR R1
        BL @SETCRU
+       DATA >0000
        TB 2            ; Test Enter
        JEQ !
        ORI R0, KEY_A
-!      LI R1,>0100
-       BL @SETCRU
+!      BL @SETCRU
+       DATA >0100
        TB 5            ; Test S
        JEQ !
        ORI R0, KEY_DN
 !      TB 6            ; Test W
        JEQ !
        ORI R0, KEY_UP
-!      LI R1,>0200
-       BL @SETCRU
+!      BL @SETCRU
+       DATA >0200
        TB 5            ; Test D
        JEQ !
        ORI R0, KEY_RT
 !      TB 6            ; Test E
        JEQ !
        ORI R0, KEY_B
-!      LI R1,>0500
-       BL @SETCRU
+!      BL @SETCRU
+       DATA >0500
        TB 0            ; Test Slash
        JEQ !
        ORI R0, KEY_C
@@ -1805,8 +2682,8 @@ DOKEYS
 !      TB 6            ; Test Q
        JEQ !
        ORI R0, KEY_C
-!      LI R1,>0600
-       BL @SETCRU
+!      BL @SETCRU
+       DATA >0600
        TB 0            ; Test J1 Fire
        JEQ !
        ORI R0, KEY_A
@@ -1822,8 +2699,8 @@ DOKEYS
 !      TB 4            ; Test J1 Up
        JEQ !
        ORI R0, KEY_UP
-!      LI R1,>0700
-       BL @SETCRU
+!      BL @SETCRU
+       DATA >0700
        TB 0            ; Test J2 Fire
        JEQ !
        ORI R0, KEY_B
@@ -1880,27 +2757,45 @@ RANDOM MOV @RAND16,R0    ; Get initial seed
        MOV R0,@RAND16    ; Save new seed
        RT
 
-; Draw the byte number in R1 as Xn or Xnn or nnn
+
+; Draw the byte number in R1 as (right-justified) [space][space]n or [space]nn or nnn
+; R0: VDP address (with VDPWM set)
 ; R1: number
-; R3: VDP address
 ; Modifies R0,R1
-NUMBER MOVB @R3LB,*R14       ; Send low byte of VDP RAM write address
-       MOVB R3,*R14          ; Send high byte of VDP RAM write address
+NUMBRJ
+       MOVB @R0LB,*R14       ; Send low byte of VDP RAM write address
+       MOVB R0,*R14          ; Send high byte of VDP RAM write address
+
+       CI R1,>6400      ; R1 >= 100 decimal ?
+       JHE NUMBE2
+       LI R0,>2000
+       MOVB R0,*R15     ; Write a space
+       CI R1,>0A00      ; R1 < 10 decimal ?
+       JL NUMBE4
+       LI R0,>3000      ; 0 ascii
+       JMP NUMBE3
+
+; Draw the byte number in R1 as Xn[space] or Xnn or nnn
+; R0: VDP address (with VDPWM set)
+; R1: number
+; Modifies R0,R1
+NUMBER MOVB @R0LB,*R14       ; Send low byte of VDP RAM write address
+       MOVB R0,*R14          ; Send high byte of VDP RAM write address
 
        CI R1, >6400  ; 100 decimal
-       JHE !
+       JHE NUMBE2
        LI R0, >5800           ; X ascii
        MOVB R0,*R15        ; Write X
        LI R0, >3000             ; 0 ascii
        CI R1, >A00   ; 10 decimal
-       JHE NUMBE2
+       JHE NUMBE3
        A R0,R1
        MOVB R1,*R15        ; Write second digit
        LI R1, >2000
        MOVB R1,*R15           ; Write a space
        RT
 
-!      LI R0, >3100           ; 1 ascii
+NUMBE2 LI R0, >3100           ; 1 ascii
        AI R1, ->6400    ; R1 -= 100
        CI R1, >6400     ; R1 < 100 ?
        JL !
@@ -1908,13 +2803,13 @@ NUMBER MOVB @R3LB,*R14       ; Send low byte of VDP RAM write address
        LI R0, >3200           ; 2 ascii
 !      MOVB R0,*R15           ; Write first digit
        LI R0, >3000           ; 0 ascii
-       JMP NUMBE2
+       JMP NUMBE3
 !      AI R0,>100
-       AI R1, ->A00    ; R1 -= 10
-NUMBE2 CI R1, >A00
+       AI R1, ->A00        ; R1 -= 10
+NUMBE3 CI R1, >A00         ; 10 decimal
        JHE -!
-       MOVB R0,*R15        ; Write second digit
-       AI R1, >3000             ; 0 ascii
+NUMBE4 MOVB R0,*R15        ; Write second digit
+       AI R1, >3000        ; 0 ascii
        MOVB R1,*R15        ; Write final digit
        RT
 
@@ -1923,20 +2818,21 @@ NUMBE2 CI R1, >A00
 STATUS MOV R11,R10            ; Save return address
        CLR R1
        MOVB @RUPEES,R1
-       LI R3,VDPWM+SCR1TB+12  ; Write mask + screen offset + row 0 col 12
+       LI R0,VDPWM+SCR1TB+(32*0)+12  ; Write mask + screen offset + row 0 col 12
        BL @NUMBER             ; Write rupee count
 
        MOVB @KEYS,R1
-       AI R3,32               ; Next row
+       LI R0,VDPWM+SCR1TB+(32*1)+12  ; Write mask + screen offset + row 1 col 12
        BL @NUMBER             ; Write keys count
 
        MOVB @BOMBS,R1
-       AI R3,32               ; Next row
+       LI R0,VDPWM+SCR1TB+(32*2)+12  ; Write mask + screen offset + row 2 col 12
        BL @NUMBER             ; Write bombs count
 
        MOV R10,R11            ; Restore saved return address
 
-       AI R3,10               ; R3 = lower left heart position
+       LI R3,VDPWM+SCR1TB+(32*2)+22  ; Write mask + screen offset + row 2 col 22
+                              ; R3 = lower left heart position
        MOVB @R3LB,*R14        ; Send low byte of VDP RAM write address
        MOVB R3,*R14           ; Send high byte of VDP RAM write address
        AI R3,-32              ; R3 = upper left heart position
@@ -1959,9 +2855,9 @@ STATUS MOV R11,R10            ; Save return address
        SWPB R10
        ;  write hearts and move half-heart sprite
        CLR R2
-       LI R0,>6F08            ; Full heart / empty heart
+       LI R0,>1F01            ; Full heart / empty heart
        LI R12,8                ; Countdown to move up
-       LI R7,>07B0            ; Half-heart sprite coordinates
+       LI R7,>0BAC            ; Half-heart sprite coordinates
        LI R8,>E400            ; Half-heart sprite index and color (invisible)
        MOVB @HP,R1            ; R1 = hit points
        JEQ HALFH
@@ -1983,7 +2879,7 @@ FILLH
        JNE !
        MOVB @R3LB,*R14        ; Send low byte of VDP RAM write address
        MOVB R3,*R14           ; Send high byte of VDP RAM write address
-       LI R7,>FFB0            ; Half-heart sprite coordinates
+       LI R7,>03AC            ; Half-heart sprite coordinates
 !      CB  R2,R1              ; Compare counter to HP
        JL FILLH
 HALFH  MOV R7,@HARTSP         ; Save sprite coordinates
@@ -2007,6 +2903,137 @@ EMPTYH
        SZC R7,@FLAGS          ; Clear full hp flag
        RT
 
+; Do the item selection menu
+; Modifies R0-R12
+DOMENU
+       LI R2,8            ; Use item selection
+       CLR R0               ; Don't change MAPLOC
+       BL @SCROLL
+
+       LI R0,SCHSAV        ; Save 32 byte scratchpad
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW
+
+       LI R1,>1F40          ; Position B item in box
+       LI R0,SPRTAB+(2*4)
+       BL @VDPWB
+       MOVB @R1LB,*R15
+
+       MOV @HFLAGS,R4       ; Current selection
+       ANDI R4,SELITM
+       SZC R4,@HFLAGS       ; Set zeros
+       LI R6,>1C04          ; Selector sprite and color
+
+       LI R8,1
+       CLR R3
+       JMP MENUMV
+
+MENULP ; menu loop
+       BL @VSYNCM
+
+       DEC R8
+       JNE !
+       LI R8,8
+       LI R0,>0002
+       XOR R0,R6
+MENUSP
+       LI R0,SPRTAB+(3*4)     ; Update selector sprite
+       LI R1,WRKSP+(5*2)
+       LI R2,4
+       BL @VDPW
+!
+       BL @DOKEYS
+       MOV @KEY_FL, R0
+       MOV R0,R1
+
+       SLA R1,4             ; Shift EDG_RT into carry
+       JNC !
+       LI R3,1
+       JMP MENUMV
+!
+       MOV R0,R1
+       SLA R1,5             ; Shift EDG_LT into carry
+       JNC !
+       LI R3,-1
+       JMP MENUMV
+
+!
+       SLA R0,1             ; Shift EDG_C bit into carry status
+       JNC MENULP
+
+       LI R0,SCHSAV         ; Restore 32 byte scratchpad
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR
+
+       SOC R4,@HFLAGS       ; Save selected item
+
+       LI   R2,9            ; Exit item selection
+       CLR R0               ; Don't change MAPLOC
+       BL @SCROLL
+       B @MENUX
+
+MENUMV
+       A R3,R4        ; Change selected item by R3
+       ANDI R4,>0007  ; Wrap around
+
+       MOV R4,R0
+       ANDI R0,>0003  ; Get X coordinate
+       MOV R0,R5
+       A R0,R5
+       A R0,R5        ; Multiply by 3
+       SLA R5,3       ; Multiply by 8
+       MOV R4,R0
+       ANDI R0,>0004  ; Get Y coordinate
+       SLA R0,10
+       A R0,R5
+       AI R5,>1F80    ; New selector sprite location
+
+       MOV R5,R0
+       AI R0,>0100
+       LI R2,MENUM2
+       BL @TESTCH
+       JMP MENUMV
+MENUM2
+       ; R1 contains character under selector
+       MOV R1,R2
+
+       ; get color for item sprite
+       CI R1,>9800
+       JHE !
+       LI R1,>0A00   ; brown
+       JMP !!!
+!
+       CI R1,>B800
+       JL !
+       LI R1,>0600   ; red
+       JMP !!
+!
+       LI R1,>0400   ; blue
+!
+       MOVB R1,@ITEMSP+3    ; Save color in CPU sprite list
+       LI R0,SPRTAB+(2*4)+3 ; Set color in VDP sprite table
+       BL @VDPWB
+
+       LI R0,SPRPAT+(>AC*8) ; Special case for arrows, use Arrow Up sprite
+       CI R4,2
+       JEQ !
+
+       ; copy pattern from character index to sprite 62
+       MOV R2,R0
+       SRL R0,5
+       AI R0,PATTAB
+!
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR
+       LI R0,SPRPAT+(62*32)
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW
+
+       JMP MENUSP
 
 
 ; HP  Rings None  Blue  Red
@@ -2038,307 +3065,39 @@ EMOVEM DATA >FFF8,>FFF8,>F8FF,>F8FF     ; Mask alignment to 8 pixels (inverted f
 
 
 
-SPRL0  DATA >D0D0,>E002  ; Map dot
-       DATA >047B,>C404  ; Bomb item
+SPRL0  DATA >D1D0,>E002  ; Map dot
+       DATA >D1C8,>E406  ; Half-heart
+       DATA >047C,>F804  ; B item
        DATA >0494,>7C08  ; Sword item
-       DATA >07C8,>E406  ; Half-heart
-       DATA >D0D0,>0003  ; Link color
-       DATA >D0D0,>0401  ; Link outline
-       DATA >D800,>3001
-       DATA >D810,>3401
-       DATA >D820,>3801
-       DATA >D830,>3C01
-       DATA >D800,>3001
-       DATA >D810,>3401
-       DATA >D820,>3801
-       DATA >D830,>3C01
-       DATA >D800,>4001
-       DATA >D810,>4401
-       DATA >D820,>4801
-       DATA >D830,>4C01
-       DATA >D800,>5001
-       DATA >D810,>5401
-       DATA >D820,>5801
-       DATA >D830,>5C01
+       DATA >D1D0,>0003  ; Link color
+       DATA >D1D0,>0401  ; Link outline
+*       DATA >3000,>600F
+*       DATA >3010,>640F
+*       DATA >3020,>680F
+*       DATA >3030,>6C0F
+*       DATA >4000,>500F
+*       DATA >4010,>540F
+*       DATA >4020,>580F
+*       DATA >4030,>5C0F
+*       DATA >5000,>400F
+*       DATA >5010,>440F
+*       DATA >5020,>480F
+*       DATA >5030,>4C0F
+*       DATA >6000,>300F
+*       DATA >6010,>340F
+*       DATA >6020,>380F
+*       DATA >6030,>3C0F
+*       DATA >7000,>200F
+*       DATA >7010,>240F
+*       DATA >7020,>280F
+*       DATA >7030,>2C0F
+*       DATA >8000,>700F
+*       DATA >8010,>740F
+*       DATA >8020,>780F
+*       DATA >8030,>7C0F
+*       DATA >9000,>800F
+*       DATA >9010,>840F
 SPRLE
 
-****************************************
-; Map Data                              
-****************************************
-; -- Map Row 0 --                       
-MD0    DATA >2020,>6060,>6060,>6060    ;
-       DATA >6060,>2009,>5830,>20D1    ;
-       DATA >42D2,>D141,>D220,>206E    ;
-       DATA >6869,>6A6B,>6E20,>2020    ;
-* -- Map Row 1 --
-       DATA >2020,>6060,>6060,>6060    ;
-       DATA >6060,>200A,>5830,>20D5    ;
-       DATA >20D5,>D520,>D520,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 2 --
-       DATA >2020,>6060,>6060,>6060    ;
-       DATA >6060,>20D0,>5830,>20D3    ;
-       DATA >D6D4,>D3D6,>D420,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-
-
-
-
-
-****************************************
-; Sprite Patterns                       
-****************************************
-SPR8   DATA >0100,>0104,>0701,>0101    ; Color 9
-       DATA >0101,>0101,>0101,>0100    ; 
-       DATA >C000,>C010,>F0C0,>C0C0    ; 
-       DATA >C0C0,>C0C0,>C0C0,>C080    ; 
-SPR9   DATA >0000,>0000,>0000,>7FFF    ; Color 9
-       DATA >7F00,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>1810,>F5F5    ; 
-       DATA >F510,>1800,>0000,>0000    ; 
-SPR10  DATA >0000,>0000,>1808,>AFAF    ; Color 9
-       DATA >AF08,>1800,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>FEFF    ; 
-       DATA >FE00,>0000,>0000,>0000    ; 
-SPR11  DATA >0103,>0303,>0303,>0303    ; Color 9
-       DATA >0303,>030F,>0803,>0003    ; 
-       DATA >0080,>8080,>8080,>8080    ; 
-       DATA >8080,>80E0,>2080,>0080    ; 
-SPR12  DATA >0000,>0000,>0000,>0000    ; Color 1
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>78FC    ; 
-       DATA >FCE6,>C3DB,>C860,>7030    ; 
-SPR13  DATA >0000,>0000,>0000,>1E3F    ; Color 1
-       DATA >3F67,>C3DB,>1306,>0E0C    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR14  DATA >0000,>0000,>0000,>0000    ; Color 1
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >3070,>60C8,>DBC3,>E6FC    ; 
-       DATA >FC78,>0000,>0000,>0000    ; 
-SPR15  DATA >0C0E,>0613,>DBC3,>673F    ; Color 1
-       DATA >3F1E,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR16  DATA >0000,>0000,>0307,>0F0C    ; Color 10
-       DATA >0800,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>C0E0,>F030    ; 
-       DATA >1000,>0000,>0000,>0000    ; 
-SPR17  DATA >0000,>0000,>0100,>0000    ; Color 10
-       DATA >0000,>0001,>0000,>0000    ; 
-       DATA >0000,>0000,>C0E0,>7070    ; 
-       DATA >7070,>E0C0,>0000,>0000    ; 
-SPR18  DATA >0000,>0000,>0000,>0008    ; Color 10
-       DATA >0C0F,>0703,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0010    ; 
-       DATA >30F0,>E0C0,>0000,>0000    ; 
-SPR19  DATA >0000,>0000,>0307,>0E0E    ; Color 10
-       DATA >0E0E,>0703,>0000,>0000    ; 
-       DATA >0000,>0000,>8000,>0000    ; 
-       DATA >0000,>0080,>0000,>0000    ; 
-SPR20  DATA >0503,>0503,>0503,>0101    ; Color 6
-       DATA >0101,>0101,>0102,>0301    ; 
-       DATA >4080,>4080,>4080,>0000    ; 
-       DATA >0000,>0000,>0080,>8000    ; 
-SPR21  DATA >0000,>0000,>0000,>60DF    ; Color 6
-       DATA >6000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0015,>2AFF    ; 
-       DATA >2A15,>0000,>0000,>0000    ; 
-SPR22  DATA >0000,>0000,>00A8,>54FF    ; Color 6
-       DATA >54A8,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>06FB    ; 
-       DATA >0600,>0000,>0000,>0000    ; 
-SPR23  DATA >0103,>0201,>0101,>0101    ; Color 6
-       DATA >0101,>0305,>0305,>0305    ; 
-       DATA >0080,>8000,>0000,>0000    ; 
-       DATA >0000,>8040,>8040,>8040    ; 
-SPR24  DATA >100C,>0721,>180F,>4360    ; Color 4
-       DATA >3C1F,>8740,>703F,>1F07    ; 
-       DATA >0830,>E084,>18F0,>C206    ; 
-       DATA >3CF8,>E102,>0EFC,>F8E0    ; 
-SPR25  DATA >0418,>3173,>63E7,>E6E6    ; Color 4
-       DATA >E6E6,>E763,>7331,>1804    ; 
-       DATA >00C0,>8811,>3226,>646C    ; 
-       DATA >6C64,>2632,>1188,>C000    ; 
-SPR26  DATA >0003,>1188,>4C64,>2636    ; Color 4
-       DATA >3626,>644C,>8811,>0300    ; 
-       DATA >2018,>8CCE,>C6E7,>6767    ; 
-       DATA >6767,>E7C6,>CE8C,>1820    ; 
-SPR27  DATA >071F,>3F70,>4087,>1F3C    ; Color 4
-       DATA >6043,>0F18,>2107,>0C10    ; 
-       DATA >E0F8,>FC0E,>02E1,>F83C    ; 
-       DATA >06C2,>F018,>84E0,>3008    ; 
-SPR28  DATA >0100,>040D,>0303,>0303    ; Color 10
-       DATA >0303,>0305,>0E07,>0301    ; 
-       DATA >80C0,>E050,>B0B0,>B0B0    ; 
-       DATA >B0B0,>B0B0,>50E0,>C080    ; 
-SPR29  DATA >0000,>0000,>0000,>0003    ; Color 4
-       DATA >040B,>0B0F,>0F07,>0300    ; 
-       DATA >0040,>4020,>1010,>20C0    ; 
-       DATA >E0F0,>F0F0,>F0E0,>C000    ; 
-SPR30  DATA >0000,>0000,>060F,>0F0F    ; Color 6
-       DATA >0703,>0100,>0000,>0000    ; 
-       DATA >0000,>0000,>C0E0,>E0E0    ; 
-       DATA >C080,>0000,>0000,>0000    ; 
-SPR31  DATA >0307,>0E0C,>0C0F,>0F01    ; Color 10
-       DATA >0101,>0107,>0703,>0701    ; 
-       DATA >C0E0,>7030,>30F0,>F080    ; 
-       DATA >8080,>8080,>8080,>8080    ; 
-SPR32  DATA >070F,>3F77,>6F6F,>EFF7    ; Color 15
-       DATA >FFDF,>5F5B,>293C,>1F0E    ; 
-       DATA >E0F0,>FCEE,>F6F6,>F7EF    ; 
-       DATA >FFFB,>FADA,>943C,>F870    ; 
-SPR33  DATA >030E,>2923,>1130,>7694    ; Color 15
-       DATA >A829,>236B,>3118,>170A    ; 
-       DATA >C070,>94C4,>880C,>6E29    ; 
-       DATA >1594,>C4D6,>8C18,>E850    ; 
-SPR34  DATA >0200,>0820,>0310,>200A    ; Color 15
-       DATA >8009,>2001,>2004,>0106    ; 
-       DATA >4000,>1004,>C008,>0450    ; 
-       DATA >0190,>0480,>0420,>8060    ; 
-SPR35  DATA >0000,>0000,>0004,>020B    ; Color 15
-       DATA >0703,>0709,>0000,>0000    ; 
-       DATA >0000,>0000,>0040,>D0E0    ; 
-       DATA >C080,>C000,>8000,>0000    ; 
-SPR36  DATA >0000,>0000,>0000,>0000    ; Color 3
-       DATA >0000,>0000,>00F0,>F0F0    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR37  DATA >0000,>0000,>0000,>0000    ; Color 6
-       DATA >60F0,>E0F0,>E070,>2010    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-       DATA >0000,>0000,>0000,>0000    ; 
-SPR38  DATA >0000,>0010,>0104,>010A    ; Color 9
-       DATA >0A01,>0401,>1000,>0000    ; 
-       DATA >0000,>0008,>8020,>8050    ; 
-       DATA >5080,>2080,>0800,>0000    ; 
-SPR39  DATA >0140,>0110,>0904,>03AA    ; Color 9
-       DATA >AA03,>0409,>1001,>4001    ; 
-       DATA >8002,>8008,>9020,>C055    ; 
-       DATA >55C0,>2090,>0880,>0280    ; 
-SPR40  DATA >0014,>292B,>0F6F,>7F7F    ; Color 8
-       DATA >7FBF,>FEFA,>7C7C,>3F07    ; 
-       DATA >4484,>A0E4,>E8DA,>FEFD    ; 
-       DATA >FDFF,>FFBE,>1E3C,>FCF0    ; 
-SPR41  DATA >2221,>0527,>175B,>7FBF    ; Color 8
-       DATA >BFFF,>FF7D,>783C,>3F0F    ; 
-       DATA >0028,>94D4,>F0F6,>FEFE    ; 
-       DATA >FEFD,>7F5F,>3E3E,>FCE0    ; 
-SPR42  DATA >0402,>080B,>0B05,>030D    ; Color 9
-       DATA >060C,>0203,>0302,>0202    ; 
-       DATA >4080,>5090,>9020,>A040    ; 
-       DATA >C060,>80C0,>0000,>0000    ; 
-SPR43  DATA >0402,>0003,>0709,>0B0D    ; Color 9
-       DATA >0408,>0203,>0302,>0202    ; 
-       DATA >4080,>4080,>9010,>B060    ; 
-       DATA >6030,>80C0,>0000,>0000    ; 
-SPREND
-
-; Menu screen
-* -- Map Row 0 --
-MD2    DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 1 --
-       DATA >2020,>2020,>494E,>5645    ;
-       DATA >4E54,>4F52,>5920,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 2 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 3 --
-       DATA >2020,>2020,>2020,>20D1    ;
-       DATA >D7D7,>D220,>2020,>20D1    ;
-       DATA >D7D7,>D7D7,>D7D7,>D7D7    ;
-       DATA >D7D7,>D7D2,>2020,>2020    ;
-* -- Map Row 4 --
-       DATA >2020,>2020,>2020,>20D5    ;
-       DATA >2020,>D520,>2020,>20D5    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>20D5,>2020,>2020    ;
-* -- Map Row 5 --
-       DATA >2020,>2020,>2020,>20D5    ;
-       DATA >2020,>D520,>2020,>20D5    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>20D5,>2020,>2020    ;
-* -- Map Row 6 --
-       DATA >2020,>2020,>2020,>20D3    ;
-       DATA >D6D6,>D420,>2020,>20D5    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>20D5,>2020,>2020    ;
-* -- Map Row 7 --
-       DATA >2020,>5553,>4520,>4220    ;
-       DATA >4255,>5454,>4F4E,>20D5    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>20D5,>2020,>2020    ;
-* -- Map Row 8 --
-       DATA >2020,>2020,>464F,>5220    ;
-       DATA >5448,>4953,>2020,>20D3    ;
-       DATA >D6D6,>D6D6,>D6D6,>D6D6    ;
-       DATA >D6D6,>D6D4,>2020,>2020    ;
-* -- Map Row 9 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 10 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>203A,>2525,>3B20    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 11 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>202F,>3E25,>2F2F    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 12 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>202F,>2F20,>2F25    ;
-       DATA >2525,>3B20,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 13 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >203A,>2520,>2F20,>2525    ;
-       DATA >2525,>2F2F,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 14 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >202F,>3E25,>2020,>2020    ;
-       DATA >2020,>2F2F,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 15 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >203B,>3B20,>2020,>2020    ;
-       DATA >203A,>3A20,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 16 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>3B25,>3B20,>2020    ;
-       DATA >3A3A,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 17 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2025,>2F2F,>203A    ;
-       DATA >3A20,>5449,>464F,>5243    ;
-       DATA >4520,>2020,>2020,>2020    ;
-* -- Map Row 18 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>3B3B,>202F    ;
-       DATA >2F20,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 19 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>203B,>253A    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
-* -- Map Row 20 --
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2520    ;
-       DATA >2020,>2020,>2020,>2020    ;
-       DATA >2020,>2020,>2020,>2020    ;
 
 SLAST  END  MAIN
