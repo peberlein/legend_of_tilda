@@ -138,6 +138,17 @@ VDP Registers  (bit indexes are reversed)
 5  Sprite Attribute List div >80 (0000,0080 ... 3F80)
 6  Sprite Descriptor Table div >800 (0000,0800 ... 3800)
 7  Foreground and background color nibbles
+    -------- -------- -------- -------- -------- -------- -------- --------
+VR0 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [Bitmap] [Extvid]
+VR1 [4K/16K] [ Blank] [Int on] [Multic] [ Text ] [   0  ] [Size 4] [Mag 2x]
+VR2 [   0  ] [   0  ] [   0  ] [   0  ] [ Screen Image Table / >400       ]
+VR3 [ Color Table / >40                                                   ]
+ bm [ Addr ] [ Address mask                                               ]
+VR4 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Char pat table / >800  ]
+ bm [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Addr ] [ Address mask  ]
+VR5 [   0  ] [ Sprite attribute table / >80                               ]
+VR6 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Sprite pat table / >800]
+VR7 [ Text color                      ] [ Background color                ]
 
 M3 M2 M1
  0  0  0  Graphics Mode I (32x24)
@@ -209,6 +220,16 @@ R1      TB 0	TB 1	TB 2	TB 3	TB 4	TB 5	TB 6	TB 7
 0500	/	;	P	0	1	A	Q	Z
 0600	Fire1	Left1	Right1	Down1	Up1
 0700	Fire2	Left2	Right2	Down2	Up2
+
+     R1	0000	0100	0200	0300	0400	0500	0600	0700
+TB 0	=	.	,	M	N	/	Fire1	Fire2
+TB 1	space	L	K	J	H	;	Left1	Left2
+TB 2	enter	O	I	U	Y	P	Right1	Right2
+TB 3		9	8	7	6	0	Down1	Down2
+TB 4	fctn	2	3	4	5	1	Up1	Up2
+TB 5	shift	S	D	F	G	A
+TB 6	ctrl	W	E	R	T	Q
+TB 7		X	C	V	B	Z
 
 
 Joystick controller pinout
@@ -401,3 +422,7 @@ MOV 	>C000 	I 	source,dest 	HGE
 MOVB 	>D000 	I 	source,dest 	HGE P
 SOC 	>E000 	I 	source,dest 	HGE
 SOCB 	>F000 	I 	source,dest 	HGEC P
+
+
+
+PAB structure
