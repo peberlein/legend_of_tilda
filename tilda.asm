@@ -36,7 +36,7 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 ; 0000:031F Screen Table A (32*25 = 320)
 ; 0320:033F Save area scratchpad/sprite list
 ; 0340:035F Color Table (32 bytes = 20)
-; 0360:037F
+; 0360:037F MapSav
 ; 0380:03FF Sprite List Table (32*4 bytes = 80)
 ; 0400:071F Screen Table B (32*25 = 320)
 ; 0720:073F
@@ -63,6 +63,7 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 SCR1TB EQU  >0000    ; Name Table 32*24 bytes (double-buffered)
 SCHSAV EQU  >0320    ; Save area for SCRTCH scratchpad/screen list
 CLRTAB EQU  >0340    ; Color Table address in VDP RAM - 32 bytes
+MAPSAV EQU  >0360    ; Overworld map saved location when in dungeon
 SPRTAB EQU  >0380    ; Sprite List Table address in VDP RAM - 32*4 bytes
 SCR2TB EQU  >0400    ; Name Table 32*24 bytes (double-buffered)
 BCLRTB EQU  >0740    ; Bright Color Table address in VDP RAM - 32 bytes
@@ -74,6 +75,12 @@ LEVELA EQU  >2380    ; Name table for level A (copied to SCR1TB or SCR2TB)
 MENUSC EQU  >2640    ; Name table for menu screen
 PATSAV EQU  >28E0    ; Pattern table backup for menu screen 32*20 bytes
 CAVTXT EQU  >2B60    ; Cave text
+SDATA  EQU  >2E00    ; Save Data
+SDCAVE EQU  SDATA    ; Save Data - opened secret caves, 128 bits = 16 bytes
+SDITEM EQU  SDATA+16 ; Save Data - cave items collected, 128 bits = 16 bytes
+SDOPEN EQU  SDATA+32 ; Save Data - dungeon doors unlocked or walls bombed, 256 bits = 32 bytes
+SDDUNG EQU  SDATA+64 ; Save Data - dungeon items collected, 256 bits = 32 bytes
+
 
 MUSICV EQU  >3000    ; Music Base Address in VDP RAM (4k space)
 
@@ -123,8 +130,7 @@ INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
 ENEDGE EQU  >0004            ; TODO Enemies load from edge of screen
 CNDLUS EQU  >0008            ; TODO Candle used, once per screen (blue candle only)
-FLANIM EQU  >0010            ; Flame animation toggle
-DUNGON EQU  >0020            ; TODO Inside dungeon
+DUNGON EQU  >0010            ; TODO Inside dungeon
 
 
 DIR_XX EQU  >0300            ; Facing bits DIR_XX
@@ -133,6 +139,7 @@ DIR_LT EQU  >0100
 DIR_DN EQU  >0200
 DIR_UP EQU  >0300
 SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
+DUNLVL EQU  >F000            ; Current dungeon level 0-8
 ;TODO MOVE12 in here
 
 HFLAGS EQU  WRKSP+50        ; Hero Flags (part of save data)
@@ -214,8 +221,20 @@ COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16
 
 RAND16 EQU  WRKSP+60        ; Random state
 
+* RAM   00     01     02     03     04     05     06     07
+* 8320  MUSICP        MUSICC        MAPLOC RUPEES KEYS   BOMBS
+* 8328  HP     HEARTS MOVE12        _____________ DOOR
+* 8330  FLAGS         HFLAGS        HFLAG2        KEY_FL
+* 8338  OBJPTR        COUNTR        RAND16        _____________
+* 8340  HURTC
+* 8348                              SWRDOB        BSWDOB
+* 8350  ARRWOB        BMRGOB        FLAMOB        BOMBOB
+
+
 OBJECT EQU  WRKSP+64        ; 64 bytes: sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
 HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
+
+       ; TODO OBJECT+2 thru OBJECT+11 could be used for something
 
 SWRDOB EQU  OBJECT+12       ; Sword animation counter
 BSWDOB EQU  OBJECT+14       ; Beam sword/Magic counter
@@ -267,6 +286,8 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
   
 ;   (direction could be encoded in sprite index if done carefully, or sprite function index)
 
+
+; TODO attack animation & Magic Rod could be shared in 0x with walking animation
 ; Sprite patterns (16x16 pixels, total of 64) (four per line, 4*8 bytes per sprite)
 ; 0x Link (fg and outline, 2 frame animation)  (replaced when changing direction)
 ; 1x Link Attack (fg and outline)   Wand (same direction), Ladder/Raft(as needed)
@@ -280,21 +301,19 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 ; 9x Boomerang S,W,E,N
 ; Ax Arrow S,W,E,N
 ; Bx Magic S,W,E,N
-; Cx Rupee, Bomb, Heart, Key
-; Dx Cloud puff (3 frames), Spark (arrow hitting edge of screen)
+; Cx Rupee, Bomb, Heart, Clock,
+; Dx Cloud puff (3 frames), Spark (arrow or boomerang hitting edge of screen)
 ; Ex Map dot, Half-heart (status bar), Disappearing enemy (2 frames)
-; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), secondary item, Clock
-;    Flame2, Fairy2, menu selector, Compass
-;    Raft, Book, Ring, Ladder
-;    Magic Key, Power Bracelet, Arrow&Bow, Candle
-;    Flute, Meat, Letter, Potion
-;    Magic Rod, Flame3, Bow, Magic Sword
-;    Old Woman 1&2, Shopkeeper 1&2
-;    Old Man 1&2, Dungeon Man 1&2
+; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), empty, empty
+;    Flame2, Fairy2, tornado 1, tornado 2,
+;    Raft, Book, Magic Rod, Ladder
+;    Magic Key, Power Bracelet, Arrow&Bow, Flute
+;    Heart, Key, Letter, Potion
+;    Ring, Bait, Candle, Magic Shield
+;    Old Woman 1&2, Merchant 1&2
+;    Old Man 1&2, Magic Sword, Item Selector
+; NOTE: Extra sprites get copied to enemy area for cave, or patterns for menu screen
 
-
-; TODO: Compass, clock, magic book, rings, magic key, power bracelet,
-;       candle, whistle, bait, letter and medicine
 
 ; enemy sprites loaded on demand per level
 ; 20-27 Peahat 2 sprites
@@ -361,11 +380,6 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 
 
 
-BANK0  EQU  >6000
-BANK1  EQU  >6002
-BANK2  EQU  >6004
-BANK3  EQU  >6006
-
        AORG >6000         ; Cartridge header in all banks
 HEADER
        BYTE >AA     ; Standard header
@@ -383,6 +397,15 @@ PRGLST DATA >0000   ; Next program list entry
 CRTNM  TEXT 'LEGEND OF TILDA'
 CRTNME
        EVEN
+
+BANK0  EQU  >6000
+BANK1  EQU  >6002
+BANK2  EQU  >6004
+BANK3  EQU  >6006
+BANK4  EQU  >6008
+BANK5  EQU  >600A
+BANK6  EQU  >600C
+BANK7  EQU  >600E
 
 START
        LWPI WRKSP             ; Load the workspace pointer to fast RAM

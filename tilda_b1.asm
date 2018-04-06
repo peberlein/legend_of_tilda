@@ -64,6 +64,8 @@ SNDEND
 
 
 
+
+
 ; Decompression jump table
 JMPTBL DATA DONE,NORMAL,HFLIP1,VFLIP1,HFLIP2,VFLIP2,VFLIP3,CLKWS1
        DATA CLKWS2,CLKWS4,HVCENT,HVSYMM,HCENT,VCENT,HSYMM,VSYMM
@@ -533,3 +535,5 @@ FFSPR2 DATA >2221,>0527,>175b,>7fbf,>bfff,>ff7d,>783c,>3f0f,>0028,>94d4,>f0f6,>f
        ; 61: Hflip-1
        ; 62: Hflip-1
        ; 63: Hflip-1
+
+

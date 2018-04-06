@@ -22,8 +22,9 @@ https://www.spriters-resource.com/nes/legendofzelda/
 http://www.nesmaps.com/maps/Zelda/sprites/ZeldaSprites.html
 http://www.finalfantasykingdom.net/z1worldmap.php
 
-
-http://www.piskelapp.com/
+http://troygilbert.com/deconstructing-zelda/movement-mechanics/
+(not sure, this might be referring to ALTTP instead)
+LOZ always aligns to 8 pixels before turning
 
 Playthroughs
 https://www.youtube.com/watch?v=4bt5VHG3Jpw
@@ -148,9 +149,9 @@ Cave enter
 188 old man off
 189 old man on
 ...
-251 old man off
+251 old man off  (64 frames blinked)
 312 sword disappears
-313 standing normal
+313 standing normal (62 frames later, 128 total)
 
 
 943 tiles appear
@@ -432,6 +433,7 @@ Armos, touch to activate
      fast moves 1 then 2 alternating
 
 
+
 Monster flags: hurt/stun=1bit
 Hurt state: 2 bits direction, 6 bits counter (stored in VDP)
 Stun state: 6 bits counter (stored in VDP)
@@ -601,6 +603,8 @@ HERO - green
 other text - white
 Updated cave text from 2003 release:
 https://tcrf.net/The_Legend_of_Zelda/Console_Differences
+http://legendsoflocalization.com/the-legend-of-zelda/first-quest/
+http://computerarcheology.com/NES/Zelda/
 
 https://www.zeldadungeon.net/zelda-screenshots.php
 
@@ -617,35 +621,43 @@ Saved Data
 32 dungeon items collected (256 bits) (TODO Reduce if room has no item)
 64 dungeon walls unlocked/bombed (2 per room?, 512 bits) (TODO reduce)
 64 overworld enemies count (4 bits per screen, 0-15 enemies, 512 bits)
+1 tiforce collected (1 per dungeon up to 8)
+4 map/compass collected (1 each per dungeon up to 9, 32 bits)
 232 total bytes
 
-  tiforces collected (technically part of dungeon items collected)
 
+Dungeon door types:
+Wall
+Open
+Bombable
+Locked
+Shutters (one-way, kill enemies, push block, kill enemies & push block)
 
-
+Dungeon bosses do not respawn when defeated (TODO verify)
 
 
 TODO: High priority
-Tektite AI
-Add Zora bullet (blocked by magic shield, at either angle diagonal)
-Add octorok bullets (stationary 24 frames before shooting, blocked by tiles, moves by 3)
-Add moblin arrows (move by 2, go through tiles, spark at screen edge)
-Add lynel swords (same as sword beam, move by 3, no splash, blocked by magic shield)
-Bullets/arrows bounce off shield
-Cloud/edge spawning for octorok/moblin/lynel
+Edge spawning for octorok/moblin/lynel
 Animate going up/down cave (animate in bank 3) (move up/down 1 pixel every 4 frames, animate every 6 frames)
-Add Armos
-Arrows
-Boomerang (enemy collision)
-Bomb hurt enemies
-Bomb open secrets
+Add Armos (activation and AI, moves by 1&0 or 1&2)
+Push rock to open secret cave (14 frames to start moving, moves every other frame)
+Push locked door in dungeon to open (uses 1 key)
 Bomb counter decrement
-Candle hurt enemies
-Candle open secrets
+Enemy collision with Arrow, Boomerang, Candle, Bomb
 Magic Rod (damage amount)
-Push rock to open secret
+Caves and stores
+Fix flickering when item is collected
+Hold up item when bought in store / acquired in cave
+ TODO which items are one or two-handed
+ 2handed: bigheart, triforce, raft, ladder
+ 1handed: all else
+ 0handed: rupees
+
 
 TODO:
+Fairy pond - filling hearts (circle movement)
+Tektite AI
+Add Zora bullet (blocked by magic shield, at either angle diagonal)
 Enemy stun (requires boomerang or clock)
 Title screen music
 Smooth scrolling text after title screen
@@ -653,23 +665,21 @@ Rewrite sound player
   Sound effect playback
   Pattern music 4 channel compression
 Drops: bombs(4), fairy(3 hearts), clock(stun all enemies)
-Drop table and forced item drops
+  Drop table and forced item drops
 Heart container item
 Ladder
 Raft
 Flute (Tornado)
 Flute (open level 7)
-Fairy pond - filling hearts
 Enemy respawn (8 screen LRU)
 Save enemy count per screen
-Implement forest maze and up up up mountain
-Secrets opened by bombs/flame/power bracelet
+Implement forest maze and up up mountain
 Show letter to old woman for potions
-Caves and stores
 Dungeons & music
 Dungeon enemies and bosses
  Bats use peahat AI
-Pushable rock to open cave
+Dungeon palette changes for darkness (use candle)
+
 Continue/save/retry screen
 Character selection / enter your name
 FG99 saving
@@ -716,3 +726,12 @@ Magic shield sprite for purchase in shop
 Pattern table and screen table compression (LZW? Huffman coding? LZ77)
 Rocks AI
 Dungeon tileset
+Bomb open secrets
+Candle open secrets
+Sprite masking (walking thru dungeon doors)
+Arrows (hero)
+Cloud spawning for octorok/moblin/lynel/tektite
+Add octorok bullets (stationary 24 frames before shooting, blocked by tiles, moves by 3)
+Add moblin arrows (move by 2, go through tiles, spark at screen edge)
+Add lynel swords (same as sword beam, move by 3, no splash, blocked by magic shield)
+Bullets/arrows/swords bounce off shield (except when attacking)
