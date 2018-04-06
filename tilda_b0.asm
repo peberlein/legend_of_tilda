@@ -72,7 +72,7 @@ RESTRT
        JNE -!
        BL @SPRUPD
 
-       LI   R0,>6300         ; Initial map location is 7,7
+       LI   R0,>7700         ; Initial map location is 7,7
        MOVB R0,@MAPLOC
 
        LI R0,>0A00           ; Initial HP
@@ -80,7 +80,8 @@ RESTRT
 
        CLR @FLAGS
 
-       MOV @VDPINI+2,R0      ; Turn off blanking
+       MOV @VDPINI,R0      ; Turn off blanking
+       ORI R0,>0100        ; Reg 1
        BL @VDPREG
 
 
@@ -784,7 +785,7 @@ BSWDDN
 !
        MOV @OBJPTR,R0
        CI R0,LASTOB-OBJECT ; Is it the player beam sword?
-       JLE BSWNXT
+       JL BSWNXT
        BL @LNKHIT         ; hit player if not player weapon
        JMP BSWNXT
 
@@ -2681,9 +2682,6 @@ LEEVER
 LHALF  MOV @LEVERP-28(R3),R6 ; Half-up/down sprite
        JMP LEEVR2
 
-!      CI R1,19        ; Pulsing?
-       JEQ LPULSE
-
 * Lever move every 6 frames (TODO should be 6 then 7)
 LEMOV6
        MOV @COUNTR,R0
@@ -2692,6 +2690,8 @@ LEMOV6
        JEQ LEMOVE
        JMP OBNXT3
 
+!      CI R1,19        ; Pulsing?
+       JEQ LPULSE
 
        CI R1,28        ; Underground?
        JNE !
