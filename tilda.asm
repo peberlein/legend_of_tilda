@@ -116,31 +116,22 @@ ENEMHP EQU  >07E0    ; Enemy HP
 MUSICP EQU  WRKSP+32        ; Music Pointer
 MUSICC EQU  WRKSP+34        ; Music Counter
 
-MAPLOC EQU  WRKSP+36        ; Map location YX 16x8
-RUPEES EQU  WRKSP+37        ; Rupee count (max 255)
-KEYS   EQU  WRKSP+38        ; Key count max 9
-BOMBS  EQU  WRKSP+39        ; Bomb count (max 8,12,16)
-HP     EQU  WRKSP+40        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
-HEARTS EQU  WRKSP+41        ; Max hearts - 1 (min 2, max 15)
-MOVE12 EQU  WRKSP+42        ; Movement by 1 or 2
 
-DOOR   EQU  WRKSP+46        ; YYXX position of doorway or secret
-FLAGS  EQU  WRKSP+48        ; Various Flags
-INCAVE EQU  >0001            ; Inside cave
-FULLHP EQU  >0002            ; Full hearts, able to use beam sword
-ENEDGE EQU  >0004            ; TODO Enemies load from edge of screen
-CNDLUS EQU  >0008            ; TODO Candle used, once per screen (blue candle only)
-DUNGON EQU  >0010            ; TODO Inside dungeon
+TRACK1 EQU WRKSP+32
+SOUND1 EQU WRKSP+34
+
+TRACK2 EQU WRKSP+36
+SOUND2 EQU WRKSP+38
+
+TRACK3 EQU WRKSP+40
+SOUND3 EQU WRKSP+42
+
+TRACK4 EQU WRKSP+44
+SOUND4 EQU WRKSP+46
 
 
-DIR_XX EQU  >0300            ; Facing bits DIR_XX
-DIR_RT EQU  >0000
-DIR_LT EQU  >0100
-DIR_DN EQU  >0200
-DIR_UP EQU  >0300
-SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
-DUNLVL EQU  >F000            ; Current dungeon level 0-8
-;TODO MOVE12 in here
+MOVE12 EQU  WRKSP+48        ; Movement by 1 or 2
+
 
 HFLAGS EQU  WRKSP+50        ; Hero Flags (part of save data)
 SELITM EQU  >0007            ; Selected item 0-7
@@ -229,12 +220,39 @@ RAND16 EQU  WRKSP+60        ; Random state
 * 8340  HURTC
 * 8348                              SWRDOB        BSWDOB
 * 8350  ARRWOB        BMRGOB        FLAMOB        BOMBOB
-
+* 8358  enemies
+*  ...
+* 8580  sprite list
 
 OBJECT EQU  WRKSP+64        ; 64 bytes: sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
 HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
 
-       ; TODO OBJECT+2 thru OBJECT+11 could be used for something
+MAPLOC EQU  OBJECT+2        ; Map location YX 16x8
+RUPEES EQU  OBJECT+3        ; Rupee count (max 255)
+KEYS   EQU  OBJECT+4        ; Key count max 9
+BOMBS  EQU  OBJECT+5        ; Bomb count (max 8,12,16)
+HP     EQU  OBJECT+6        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
+HEARTS EQU  OBJECT+7        ; Max hearts - 1 (min 2, max 15)
+
+DOOR   EQU  OBJECT+8        ; YYXX position of doorway or secret
+FLAGS  EQU  OBJECT+10       ; Various Flags
+INCAVE EQU  >0001            ; Inside cave
+FULLHP EQU  >0002            ; Full hearts, able to use beam sword
+ENEDGE EQU  >0004            ; TODO Enemies load from edge of screen
+CNDLUS EQU  >0008            ; TODO Candle used, once per screen (blue candle only)
+DUNGON EQU  >0010            ; TODO Inside dungeon
+
+
+DIR_XX EQU  >0300            ; Facing bits DIR_XX
+DIR_RT EQU  >0000
+DIR_LT EQU  >0100
+DIR_DN EQU  >0200
+DIR_UP EQU  >0300
+SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
+DUNLVL EQU  >F000            ; Current dungeon level 0-8
+* TODO MOVE12 in here
+
+
 
 SWRDOB EQU  OBJECT+12       ; Sword animation counter
 BSWDOB EQU  OBJECT+14       ; Beam sword/Magic counter

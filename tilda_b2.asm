@@ -2,7 +2,7 @@
 ; Legend of Tilda
 ; Copyright (c) 2017 Pete Eberlein
 ;
-; Bank 2: overworld map and transition functions
+; Bank 2: overworld map, cave, dungeon map
 ;
 
        COPY 'tilda.asm'
@@ -11,6 +11,7 @@
 ; Load a map into VRAM
 ; Load map screen from MAPLOC
 ; Use transition in R2
+; (transition is actually performed in bank 5)
 ;      0=none
 ;      1=scroll up
 ;      2=down
@@ -645,7 +646,7 @@ MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
        DATA >6300,>CCD2  ; Green Dungeon NE
        DATA >2020,>2020  ; Black square
        DATA >DCDD,>DEDF  ; Armos
-       DATA >001B,>00EF  ; Water inner corner SE
+       DATA >0013,>00EF  ; Water inner corner SE
        DATA >7475,>7677  ; Brown brick Hidden path
        DATA >E0E9,>E1EA  ; Water edge E
 

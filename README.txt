@@ -481,7 +481,7 @@ GohmaB     1     (3 arrows to eye)
  projectile 1
 GoriyaR    .5   3/2/1  (boomerangs can be blocked with any shield)
 GoriyaB    1    5/3/2
-Keese      .5   1/1/1  (can be killed by boomerang)
+Keese      .5   1/1/1  (blue, can be killed by boomerang)
 LanmolaR   2    4/2/1  (centipedes, fast)
 LanmolaB   2    8/4/2  (really fast)
 Likelike   1    9/5/3  (swallow hero, eats magic shield)
@@ -494,7 +494,7 @@ RopeR/B    .5   1/1/1
 Stalfos    .5   2/1/1
 Stone statue .5    (projectile can be blocked by magic shield)
 Trap       1
-Vire       1    2/1/1 (spawns 2 keese, unless killed w/ magic sword)
+Vire       1    2/1/1 (spawns 2 red keese, unless killed w/ magic sword)
 Wall master .5  2/1/1  (if catches you, go to level start)
 WizzrobeR  1    4/2/1  (boomerang has no effect)
   projectile 4         (can be blocked by magic shield)
@@ -623,6 +623,7 @@ Saved Data
 64 overworld enemies count (4 bits per screen, 0-15 enemies, 512 bits)
 1 tiforce collected (1 per dungeon up to 8)
 4 map/compass collected (1 each per dungeon up to 9, 32 bits)
+8 save name
 232 total bytes
 
 
@@ -636,7 +637,26 @@ Shutters (one-way, kill enemies, push block, kill enemies & push block)
 Dungeon bosses do not respawn when defeated (TODO verify)
 
 
+Fairy pond: Fills hearts - 1/2 heart every 22 frames
+46 first heart appears (moving counterclockwise)
+54 2nd heart  (8)
+64 3rd heart  (10)
+75 4th heart  (11)
+86 5th heart  (11)
+96 6th heart  (10)
+107 7th heart (11)
+118 8th heart (11)
+130-ish full rotation (or until hearts are full)
+215-ish 2nd rotation
+218-blink
+299-all off
+diameter appears to be 106 pixels
+full rotation 84 frames
+
+
 TODO: High priority
+Fairy pond - filling hearts (circle movement)
+
 Edge spawning for octorok/moblin/lynel
 Animate going up/down cave (animate in bank 3) (move up/down 1 pixel every 4 frames, animate every 6 frames)
 Add Armos (activation and AI, moves by 1&0 or 1&2)
@@ -646,6 +666,7 @@ Bomb counter decrement
 Enemy collision with Arrow, Boomerang, Candle, Bomb
 Magic Rod (damage amount)
 Caves and stores
+Cave with steps + warp zone
 Fix flickering when item is collected
 Hold up item when bought in store / acquired in cave
  TODO which items are one or two-handed
@@ -655,7 +676,6 @@ Hold up item when bought in store / acquired in cave
 
 
 TODO:
-Fairy pond - filling hearts (circle movement)
 Tektite AI
 Add Zora bullet (blocked by magic shield, at either angle diagonal)
 Enemy stun (requires boomerang or clock)

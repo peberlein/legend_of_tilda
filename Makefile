@@ -1,4 +1,15 @@
 AS:=../xdt99-master/xas99.py
+ARCH:=$(shell uname -m)-$(shell uname -s)
+
+MAG:=tools/$(ARCH)/mag
+DAN2:=tools/$(ARCH)/dan2
+FT2ASM:=tools/$(ARCH)/ft2asm
+BIN2ASM:=tools/$(ARCH)/bin2asm
+CH:=tools/$(ARCH)/ch
+SP:=tools/$(ARCH)/sp
+MP:=tools/$(ARCH)/mp
+TXT:=tools/$(ARCH)/txt
+OVERMAP:=tools/$(ARCH)/overmap
 
 ifneq ($(shell uname -s),Darwin)
   QUIET := status=none
@@ -7,14 +18,14 @@ endif
 tilda.rpk: layout.xml tilda_8.bin
 	zip -q $@ $^
 
-tilda_8.bin: tilda_b0_6000.bin tilda_b1_6000.bin tilda_b2_6000.bin tilda_b3_6000.bin tilda_b4_6000.bin tilda_b5_6000.bin
+tilda_8.bin: tilda_b0_6000.bin tilda_b1_6000.bin tilda_b2_6000.bin tilda_b3_6000.bin tilda_b4_6000.bin tilda_b5_6000.bin tilda_b6_6000.bin 
 	@dd $(QUIET) if=tilda_b0_6000.bin of=$@ bs=8192
 	@dd $(QUIET) if=tilda_b1_6000.bin of=$@ bs=8192 seek=1
 	@dd $(QUIET) if=tilda_b2_6000.bin of=$@ bs=8192 seek=2
 	@dd $(QUIET) if=tilda_b3_6000.bin of=$@ bs=8192 seek=3
 	@dd $(QUIET) if=tilda_b4_6000.bin of=$@ bs=8192 seek=4
 	@dd $(QUIET) if=tilda_b5_6000.bin of=$@ bs=8192 seek=5
-	@dd $(QUIET) if=tilda_b4_6000.bin of=$@ bs=8192 seek=6
+	@dd $(QUIET) if=tilda_b6_6000.bin of=$@ bs=8192 seek=6
 	@dd $(QUIET) if=tilda_b4_6000.bin of=$@ bs=8192 seek=7
 	@dd $(QUIET) if=/dev/null         of=$@ bs=8192 seek=8
 	@ls -l $^
@@ -37,53 +48,76 @@ tilda_b4_6000.bin: tilda_b4.asm tilda.asm
 tilda_b5_6000.bin: tilda_b5.asm tilda.asm
 	$(AS) -b -R $< -L tilda_b5_6000.lst
 
+tilda_b6_6000.bin: tilda_b6.asm tilda.asm music.asm
+	$(AS) -b -R $< -L tilda_b6_6000.lst
 
-title.d2: mag/title.mag tools/mag tools/dan2 tools/mag
-	tools/mag $< | tools/dan2 > $@
-overworld1.d2: mag/sprites.mag tools/dan2 tools/ch
-	tools/ch $< 4 23 | tools/dan2 > $@
-overworld2.d2: mag/sprites.mag tools/dan2 tools/ch
-	tools/ch $< 96 247 | tools/dan2 > $@
-menu.d2: mag/sprites.mag tools/dan2 tools/mp
-	tools/mp $< 3 | tools/dan2 > $@
-cavetext.d2: mag/sprites.mag tools/dan2 tools/txt
-	tools/txt $< 6 | tools/dan2 > $@
 
-dungeon1.d2: mag/dungeon.mag tools/dan2 tools/ch
-	tools/ch $< 4 23 | tools/dan2 > $@
-dungeon2.d2: mag/dungeon.mag tools/dan2 tools/ch
-	tools/ch $< 96 247 | tools/dan2 > $@
-dungeonm.d2: mag/dungeon.mag tools/dan2 tools/mp
-	tools/mp $< 10 | tools/dan2 > $@
+title.d2: mag/title.mag $(MAG) $(DAN2)
+	$(MAG) $< | $(DAN2) > $@
+overworld1.d2: mag/sprites.mag $(DAN2) $(CH)
+	$(CH) $< 4 23 | $(DAN2) > $@
+overworld2.d2: mag/sprites.mag $(DAN2) $(CH)
+	$(CH) $< 96 247 | $(DAN2) > $@
+menu.d2: mag/sprites.mag $(DAN2) $(MP)
+	$(MP) $< 3 | $(DAN2) > $@
+cavetext.d2: mag/sprites.mag $(DAN2) $(TXT)
+	$(TXT) $< 6 | $(DAN2) > $@
 
-tools/ch: tools/mag.c
-	$(CC) $< -o $@
-tools/sp: tools/mag.c
-	$(CC) $< -o $@
-tools/mp: tools/mag.c
-	$(CC) $< -o $@
-tools/txt: tools/mag.c
-	$(CC) $< -o $@
+dungeon1.d2: mag/dungeon.mag $(DAN2) $(CH)
+	$(CH) $< 4 23 | $(DAN2) > $@
+dungeon2.d2: mag/dungeon.mag $(DAN2) $(CH)
+	$(CH) $< 96 247 | $(DAN2) > $@
+dungeonm.d2: mag/dungeon.mag $(DAN2) $(MP)
+	$(MP) $< 10 | $(DAN2) > $@
 
+$(MAG): tools/mag.c
+	$(CC) $< -o $@
+$(CH): tools/mag.c
+	$(CC) $< -o $@
+$(SP): tools/mag.c
+	$(CC) $< -o $@
+$(MP): tools/mag.c
+	$(CC) $< -o $@
+$(TXT): tools/mag.c
+	$(CC) $< -o $@
+$(DAN2): tools/dan2.c
+	$(CC) $< -o $@
+$(BIN2ASM): tools/bin2asm.c
+	$(CC) $< -o $@
+$(FT2ASM): music/ft2asm.c
+	$(CC) $< -o $@ -lm
+$(OVERMAP): tools/overmap.c
+	$(CC) $< -o $@ -lpng -g
+
+
+music.asm: Makefile $(FT2ASM) $(BIN2ASM)
+	echo "OVERW0" > $@
+	$(FT2ASM) -c 0 music/Zelda3.txt | $(BIN2ASM) -b >> $@
+	echo "OVERW1" >> $@
+	$(FT2ASM) -c 1 music/Zelda3.txt | $(BIN2ASM) -b >> $@
+	echo "OVERW2" >> $@
+	$(FT2ASM) -c 2 music/Zelda3.txt | $(BIN2ASM) -b >> $@
+	echo "OVERW3" >> $@
+	$(FT2ASM) -c 3 music/Zelda3.txt | $(BIN2ASM) -b >> $@
+	echo "       EVEN" >> $@
+	echo "NOTETB" >> $@
+	$(BIN2ASM) < noteuse.dat >> $@
+	
 
 music.snd: music/ft2asm music/zelda.txt
 	music/ft2asm music/zelda.txt > $@
 dungeon.snd: music/ft2asm music/dungeon.txt
 	$^ > $@
 title.snd: music/ft2asm music/title.txt
-	music/ft2asm -t 12 music/title.txt  > $@
+	music/ft2asm music/title.txt  > $@
 
-music/ft2asm: LDLIBS=-lm
-
-tools/overmap: LDLIBS+=-lpng
-tools/overmap: CFLAGS+=-g
 
 # This is disabled since we made changes to overworld.txt
 #overworld.txt: tools/overmap levels/z1map.png
 #	tools/overmap levels/z1map.png > /dev/null
 
-overworld.bin: tools/overmap overworld.txt
-	tools/overmap > $@
+overworld.bin: $(OVERMAP) overworld.txt
+	$(OVERMAP) > $@
 
 
 dbgmame:

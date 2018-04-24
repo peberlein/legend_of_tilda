@@ -2,7 +2,7 @@
 ; Legend of Tilda
 ; Copyright (c) 2017 Pete Eberlein
 ;
-; Bank 3: title screen, game over animation, hero sprites
+; Bank 3: title screen, load overworld tiles, load dungeon tiles
 ;
 
        COPY 'tilda.asm'
