@@ -122,6 +122,16 @@ A000-  High memory expansion (upper 24k)
 83C2   ISRCTL * Four flags: disable all, skip sprite, skip sound, skip QUIT
 83C4   USRISR * Interrupt service routine hook address
 
+8400   TMS9919 sound chip register
+  Generator  Frequency  Volume
+  Tone 1     >8z >xy    >9v
+  Tone 2     >Az >xy    >Bv
+  Tone 3     >Cz >xy    >Dv
+  Noise      >En        >Fv
+  Frequency = 111860.8 Hz / xyz
+  Volume v: +1 = -2dB (>F = off)
+  Noise n: 0=6991Hz 1=3496Hz 2=1748Hz 3=gen3 +4=White noise (otherwise periodic; freq/15)
+
 8800   VDP RAM read data register
 8802   VDP RAM read status register
 8C00   VDP RAM write data register
