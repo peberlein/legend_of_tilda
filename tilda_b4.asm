@@ -19,6 +19,7 @@
 ;      8 load hero sprites masked TOP (R3 = direction, R4=count)
 ;      9 load hero sprites holding item
 ;     10 load enemies
+;
 
 MAIN
        MOV R11,R13      ; Save return address for later
@@ -136,7 +137,7 @@ GAMOVR       ; GAME OVER
        ORI R0,VDPWM+(3*32)
        MOVB @R0LB,*R14
        MOVB R0,*R14
-       LI R1,>2000  ; Space
+       LI R1,>2000  ; Fill screen with Space
        LI R2,21*32
 !      MOVB R1,*R15
        DEC R2
@@ -166,8 +167,8 @@ GAMOVR       ; GAME OVER
        DEC R2
        JNE -!
 
-       LI R0,>0000
-       MOVB R0,@HEROSP+3   ; Set hero color to transparent
+       CLR @HEROSP+2   ; Set hero color to transparent
+       CLR @HEROSP+6   ; Set hero color to transparent
        BL @SPRUPD
        LI R2,46
 !      BL @VSYNCM
@@ -220,45 +221,56 @@ FGCSET MOV R11,R10  ; Save return address
 
 LNKSPN DATA DIR_RT,DIR_DN,DIR_LT,DIR_UP
 
-       ; 939 2 brown on dark red palette
-DEDCLR BYTE >16,>1B,>16,>96            ;
+* palette is in sprites.mag, also tilda_b2.asm:CLRSET
+* Overworld Colorset Definitions
+*CLRSET BYTE >1B,>1E,>4B,>61            ; black/yellow black/gray blue/yellow red/black
+*       BYTE >F1,>F1,>F1,>F1            ; white/black
+*       BYTE >F1,>F1,>F1,>F1            ; white/black
+*       BYTE >6B,>1B,>16,>1C            ; red/yellow black/yellow black/red black/green
+*       BYTE >1C,>1C,>CB,>6B            ; black/green black/green green/yellow red/yellow
+*       BYTE >16,>16,>16,>16            ; black/red
+*       BYTE >16,>16,>1B,>4B            ; black/red black/red black/yellow blue/yellow
+*       BYTE >4B,>4B,>1F,>41            ; blue/yellow blue/yellow black/white blue/black
+
+* 939 2 brown on dark red palette
+DEDCLR BYTE >16,>96,>96,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>86,>86            ;
        BYTE >18,>18,>18,>18            ;
-       BYTE >18,>18,>14,>96            ;
-       BYTE >96,>96,>16,>16            ;
+       BYTE >18,>18,>16,>96            ;
+       BYTE >96,>96,>16,>41            ;
 
-       ; 1018 10 brown on lightred palette
-DEDCL2 BYTE >18,>1B,>68,>98            ;
+* 1018 10 brown on lightred palette
+DEDCL2 BYTE >18,>98,>98,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >18,>16,>16,>16            ;
        BYTE >16,>18,>98,>98            ;
        BYTE >19,>19,>19,>19            ;
-       BYTE >19,>19,>14,>98            ;
-       BYTE >98,>98,>18,>18            ;
+       BYTE >19,>19,>18,>98            ;
+       BYTE >98,>98,>18,>41            ;
 
-       ; 1028 10 dark brown on darkred palette
-DEDCL3 BYTE >16,>1B,>16,>96            ;
+* 1028 10 dark brown on darkred palette
+DEDCL3 BYTE >16,>96,>96,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>86,>86            ;
        BYTE >18,>18,>18,>18            ;
-       BYTE >18,>18,>14,>96            ;
-       BYTE >96,>96,>16,>16            ;
+       BYTE >18,>18,>16,>96            ;
+       BYTE >96,>96,>16,>41            ;
 
-       ; 1038 10 black on darkred palette
-DEDCL4 BYTE >16,>1B,>16,>16            ;
+* 1038 10 black on darkred palette
+DEDCL4 BYTE >16,>16,>16,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>16,>16            ;
-       BYTE >16,>16,>14,>16            ;
        BYTE >16,>16,>16,>16            ;
+       BYTE >16,>16,>16,>41            ;
 
 
 LNKADR ; Calculate sprites source address
@@ -869,6 +881,8 @@ CAVDAT DATA >D05F,>5748,>0000 ; Flame object id, location, sprite
 
 
 
+
+
 ****************************************
 * Enemy pattern indexes (XXYZ -> XX = source pattern offset, Y = dest index*4+20, Z = count)
 * Y table 0:20 1:28 2:30 3:38 4:40 5:48 6:50 7:58 8:60 9:68
@@ -958,3 +972,7 @@ ENEMYS BYTE >00,>01,>01,>02,>03,>04,>05,>06,>02,>00,>87,>08,>09,>09,>00,>00
        BYTE >25,>26,>27,>28,>A1,>95,>A1,>2B,>2B,>8D,>A1,>27,>19,>19,>26,>92
        BYTE >05,>26,>26,>29,>12,>AB,>2B,>21,>21,>A1,>A1,>29,>1A,>1A,>29,>96
        BYTE >0D,>26,>1B,>19,>2D,>90,>11,>00,>21,>1D,>1E,>9F,>9F,>93,>A1,>98
+
+
+
+

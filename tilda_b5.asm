@@ -23,6 +23,7 @@
 ;      11=cave items
 ;      12=draw status
 ;      13=go into door, returning thru bank 2
+;      14=Armos spawning something
 ; Modifies R0-R13,R15
 MAIN
        MOV R11,R12          ; Save return address for later
@@ -31,7 +32,7 @@ MAIN
        B *R2
 
 JMPTBL DATA DONE2,SCRLUP,SCRLDN,SCRLLT,SCRLRT,WIPE,CAVEIN,CAVOUT
-       DATA MENUDN,MENUUP,GETSEL,CAVEIT,STATUS,GODOOR
+       DATA MENUDN,MENUUP,GETSEL,CAVEIT,STATUS,GODOOR,ARMOSS
 
 ; save for menudn
 
@@ -332,13 +333,15 @@ SCRLR2
 
 
 CAVOUT
-       MOV  @DOOR,R5        ; Move link to door location
-       AI R5,->0100         ; Move Y up one
-       MOV R5,@HEROSP	    ; Update color sprite
-       MOV R5,@HEROSP+4     ; Update outline sprite
+
+       ;MOV  @DOOR,R5        ; Move link to door location
+       ;AI R5,->0100         ; Move Y up one
+       ;MOV R5,@HEROSP	    ; Update color sprite
+       ;MOV R5,@HEROSP+4     ; Update outline sprite
        ;LI R0,>0100
        ;MOVB R0,@HEROSP+7    ; Set outline color to black
 
+       ; fall thru
 CAVEIN
        LI R0,SCRFLG
        XOR @FLAGS,R0  ; Set dest to flipped screen
@@ -359,9 +362,7 @@ CAVEIN
 !      BL @VSYNCM
        DEC R9
        JNE -!
-
-
-
+       ; fall thru
 CUT    
        LI R4,LEVELA     ; Set source to new screen
        LI  R9,22        ; Copy 22 lines
@@ -395,6 +396,10 @@ CUT
 ; Wipe screen from center
 ; R4 - pointer to new screen in VRAM
 WIPE
+       ;TODO turn on screen
+       LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
+       BL @VDPREG
+
        LI   R8,16           ; Scroll through 16 columns
 
 WIPE2
@@ -855,47 +860,6 @@ MENUUP
 
 
 
-       ; Dungeon starting positions
-DUNGSP   ;    1   2   3   4   5   6   7   8   9
-       BYTE >73,>7D,>7C,>71,>76,>79,>F1,>F6,>FE
-       EVEN
-
-GODOOR
-       LI R4,INCAVE
-
-       MOVB @MAPLOC,R1
-       SRL R1,8
-       MOVB @CAVMAP(R1),R0  ; get cave entry
-       CI R0,>2000
-       JL !            ; entering dungeon if starting with 2X
-
-       MOV R0,R4
-       LI R0,MAPSAV    ; Save overworld map location in VDP ram
-       MOVB @MAPLOC,R1
-       BL @VDPWB
-
-       SRL R4,8
-       AI R4,->21            ; R4=dungeon level 0-8
-       MOVB @DUNGSP(R4),R1   ; dungeon starting position
-       MOVB R1,@MAPLOC
-
-       SLA R4,12             ; Get dungeon level in >X000
-       ORI R4,DUNGON         ; Set dungeon flag
-!      SOC R4,@FLAGS         ; Set in cave or dungeon flag
-
-       ;AI R5,->0100          ; Move Y up one
-       ;MOV R5,@HEROSP	     ; Update color sprite
-       ;MOV R5,@HEROSP+4      ; Update outline sprite
-       ;AI R5,>0100           ; Move Y down one
-       ;MOV R11,R12
-       ;BL @SPRUPD
-       ;MOV R12,R11
-
-       LI   R0,BANK2         ; Overworld is in bank 2
-       LI   R1,HDREND        ; First function in bank 1
-       LI   R2,6             ; Use cave animation
-       B    @BANKSW
-
 
 
 * Draw the byte number in R1 as (right-justified) [space][space]n or [space]nn or nnn
@@ -981,7 +945,7 @@ STATUS CLR R1
        AI R3,-32              ; R3 = upper left heart position
 
        CLR R9
-       MOVB @HEARTS,R9        ; R4 = max hearts - 1
+       MOVB @HEARTS,R9        ; R9 = max hearts - 1
        AI   R9,>100
        MOV  @HFLAGS,R0
        LI   R10,1             ; R10 = 1 hp per half-heart
@@ -1045,7 +1009,7 @@ EMPTYH
        JL EMPTYH
        SZC R7,@FLAGS          ; Clear full hp flag
 STDONE
-       B @DONE3
+       B @DONE2
 
 
 
@@ -1099,6 +1063,38 @@ OBSLOT
        AI R5,>0100        ; Adjust Y pos
        MOV R6,*R1
        RT
+
+* Armos spawn underneath
+* Preserve R4-R6
+*
+ARMOSS
+       C @DOOR,R5
+       JNE !
+       ; TODO bracelet
+       ;LI R1,>7879    ; Green stairs
+       ;LI R2,>7A7B    ; Green stairs
+       LI R1,>7071    ; Red stairs
+       LI R2,>7273    ; Red stairs
+
+       JMP !!!
+!
+       ; ground, either yellow or gray
+       LI R0,CLRTAB+27  ; Get palette entry for Armos chars
+       BL @VDPRB
+       CI R1,>4E00      ; black on gray
+       JNE !
+       LI R1,>0808      ; gray char
+       MOV R1,R2
+       JMP !!
+!
+       CLR R1
+       CLR R2
+!
+       BL @STORCH
+       B @DONE2
+
+
+
 
 * These need to match tilda_b0.asm
 CAVEID EQU >001F ; Cave NPC ID
@@ -1206,6 +1202,59 @@ CAVEIT
        MOV R8,R6      ; Restore sprite
 
        B @DONE2       ; return to bank0
+
+
+
+* Dungeon starting positions
+DUNGSP   ;    1   2   3   4   5   6   7   8   9
+       BYTE >73,>7D,>7C,>71,>76,>79,>F1,>F6,>FE
+       EVEN
+* Go into door or something. R3=tile at our position
+GODOOR
+       LI R4,INCAVE
+
+       MOVB @MAPLOC,R1
+       SRL R1,8
+       CLR R0
+       MOVB @CAVMAP(R1),R0  ; get cave entry
+
+       CI R0,>1800     ; raft?
+       JNE !
+
+
+
+       ; riding the raft here
+       LI R0,>1000
+       SB R0,@MAPLOC
+       LI R2,1 ; scroll up
+       CLR R4
+       JMP !!
+!
+       LI   R2,6             ; Use cave animation
+
+       CI R0,>2000
+       JL !            ; entering dungeon if starting with 2X
+
+       MOV R0,R4
+       LI R0,MAPSAV    ; Save overworld map location in VDP ram
+       MOVB @MAPLOC,R1
+       BL @VDPWB
+
+       SRL R4,8
+       AI R4,->21            ; R4=dungeon level 0-8
+       MOVB @DUNGSP(R4),R1   ; dungeon starting position
+       MOVB R1,@MAPLOC
+
+       SLA R4,12             ; Get dungeon level in >X000
+       ORI R4,DUNGON         ; Set dungeon flag
+!      SOC R4,@FLAGS         ; Set in cave or dungeon flag
+
+       MOV R12,R11
+
+       LI   R0,BANK2         ; Overworld is in bank 2
+       LI   R1,HDREND        ; First function in bank 1
+       B    @BANKSW
+
 
 * Cave map, index of item group in CAVTBL
 CAVMAP BYTE >00,>05,>00,>05,>10,>29,>17,>05,>00,>00,>02,>25,>17,>10,>04,>0F

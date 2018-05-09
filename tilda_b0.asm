@@ -40,7 +40,7 @@ MAIN
 ;       DEC  R2
 ;       JNE -!
 
-       LI R0,>FA00           ; Initial Rupees
+       LI R0,>0000           ; Initial Rupees
        MOVB R0,@RUPEES
        LI R0,>0000           ; Initial Keys
        MOVB R0,@KEYS
@@ -50,13 +50,14 @@ MAIN
        MOVB R0,@HEARTS
 
        CLR R0
-       ;LI R0,MAGSHD      ; Test initial magic shield
+       LI R0,MAGSHD+RAFT      ; Test initial magic shield
        MOV R0,@HFLAGS     ; TODO get hero flags from save data
        CLR R0
        MOV R0,@HFLAG2
 
 RESTRT
-       CLR @FLAGS
+       CLR @FLAGS         ; Reset flags
+       CLR @HURTC         ; Reset hurt counter
 
        LI   R0,BANK1         ; Music is in bank 1
        LI   R1,HDREND        ; First function in bank 1
@@ -72,17 +73,15 @@ RESTRT
        JNE -!
        BL @SPRUPD
 
-       LI   R0,>7700         ; Initial map location is 7,7
+       ;LI   R0,>7700         ; Initial map location is 7,7 (5,3 is by fairy)(3,7 is D-1)
+       LI R0,>4900
        MOVB R0,@MAPLOC
 
        LI R0,>0A00           ; Initial HP
+       ;LI R0,>0100
        MOVB R0,@HP
 
        CLR @FLAGS
-
-       MOV @VDPINI,R0      ; Turn off blanking
-       ORI R0,>0100        ; Reg 1
-       BL @VDPREG
 
 
        LI R9,32-6
@@ -129,15 +128,16 @@ VDPINI
 OBJTAB DATA OBNEXT,PEAHAT,TKTITE,TKTITE  ; 0-3 - - Red Blue
        DATA OCTORK,OCTORK,OCTRKF,OCTRKF  ; 4-7 Red Blue Red Blue
        DATA MOBLIN,MOBLIN,LYNEL, LYNEL   ; 8-B Red Blue Red Blue
-       DATA GHINI, ROCK, LEEVER,LEEVER   ; C-F - - Red Blue
-       DATA ZORA, FLAME, FAIRY2, HEART2  ; 10-13
-       DATA BSWORD,MAGIC,BSPLSH,BADNXT   ; 14-17
+       DATA GHINI, BOULDR,LEEVER,LEEVER  ; C-F - - Red Blue
+       DATA ZORA, FLAME, FAIRY, HEART2   ; 10-13
+       DATA BSWORD,MAGIC,BSPLSH,ARMOS    ; 14-17
        DATA DEAD, BOMB, BMRNG, CAVITM    ; 18-1B
        DATA BULLET,ARROW,ASPARK,CAVNPC   ; 1C-1F
-       DATA RUPEE, BRUPEE,HEART,FAIRY    ; 20-23
-       DATA TEXTER                       ; 24-27
+       DATA RUPEE, BRUPEE,HEART,AFAIRY   ; 20-23
+       DATA TEXTER,ROCK                  ; 24-27
                                          ; 28-2B
                                          ; 2C-2F
+* TODO combine RUPEE,BRUPEE,HEART,FAIRY,
 
 BSWDID EQU >0014 ; Beam Sword ID
 MAGCID EQU >0015 ; Magic ID
@@ -161,8 +161,12 @@ TEXTID EQU >0024 ; Cave Message Texter ID
 BULLID EQU >001C ; Octorok bullet ID
 FRY2ID EQU >0012 ; Fairy at pond ID
 HRT2ID EQU >0013 ; Heart that spins around fairy ID
+SPOFID EQU >001E ; Sprite off (Spark ID with initial counter=0)
+IDLEID EQU >0040 ; Idle object, jumps to OBNEXT but nonzero so it can't be reused
+ARMOID EQU >FC17 ; Armos ID and initial counter
+ROCKID EQU >8025 ; Rock ID and initial counter
 
-       ; Enemy sprite index and color
+* Enemy sprite index and color
 ECOLOR DATA >0000,>2009  ; None, Peahat
        DATA >3009,>3005  ; Red Tektite, Blue Tektite
        DATA >4008,>4004  ; Octorok sprites
@@ -174,7 +178,7 @@ ECOLOR DATA >0000,>2009  ; None, Peahat
        DATA >680D,>0000  ; Zora, Fire
        DATA >0000,>0000  ;
        DATA >0000,>0000  ; Beam Sword, Magic
-       DATA >0000,>0000  ; Beam splash
+       DATA >0000,>6005  ; Beam splash, Armos
        DATA >0000,>0000  ; Dead
        DATA >0000,>0000  ;
        DATA >0000,>0000  ; Bullet,arrow
@@ -189,10 +193,16 @@ CLOUD3 EQU >D80F    ; Cloud sparse
 BULLSP EQU >6006    ; Octorok bullet, red
 FARYSP EQU >F409    ; Fairy
 HRT2SP EQU >C806    ; Heart
+SPARK  EQU >DC0F    ; Spark, white
+BOOMSP EQU >900A    ; normal boomerang, brown
+MBOMSP EQU >9004    ; magic boomerang, blue
+MRODC  EQU >1804    ; Magic Rod sprite, blue
+ARMOSP EQU >6000    ; Armos, transparent
+PULSE  EQU >280A    ; Pulsing sprite, dark yellow
 
-
-       ; Damage enemies do to attack hero
-       ; 1 dmg = 1/2 heart w/ no ring = 1/4 heart w/ blue ring = 1/8 heart w/ red ring
+* Damage enemies do to attack hero
+*         no ring     blue ring   red ring
+* 1 dmg = 1/2 heart   1/4 heart   1/8 heart
 EDAMAG BYTE >00,>01  ; None, Peahat
        BYTE >01,>01  ; Red/Blue Tektite
        BYTE >01,>01  ; Octorok
@@ -204,11 +214,12 @@ EDAMAG BYTE >00,>01  ; None, Peahat
        BYTE >01,>01  ; Zora, Fire
        BYTE >00,>00  ;
        BYTE >04,>04  ; Beam Sword, Magic
-       BYTE >00,>00  ; Beam splash
+       BYTE >00,>02  ; Beam splash, Armos
        BYTE >00,>00  ; Dead
        BYTE >00,>00  ;
        BYTE >01,>01  ; Bullet,arrow
        BYTE >00,>00  ;
+
 
 OBNEXT
        MOV @OBJPTR,R1       ; Get sprite index
@@ -307,20 +318,20 @@ ITEMX ; item done
        JHE !
 
        MOV @KEY_FL,R0
-       SLA R0,14
+       SRC R0,3
        JOC MOVEDN
 
        MOV @KEY_FL,R0
-       SLA R0,15
+       SRC R0,2
        JOC MOVEUP
 
 HKEYS
        MOV @KEY_FL,R0
-       SLA R0,13
+       SRC R0,4
        JOC MOVELT
 
        MOV @KEY_FL,R0
-       SLA R0,12
+       SRC R0,5
        JOC MOVERT
 !
 
@@ -342,7 +353,7 @@ MOVEDN
 !
        MOV R5,R0
        AI R0,>1004    ; 16 pixels down, 4 right
-       LI R2,HKEYS
+       LI R2,VSOLID
        BL @TESTCH
        MOV R5,R0
        AI R0,>100C    ; 16 pixels down, 12 right
@@ -366,7 +377,7 @@ MOVEUP
 !      
        MOV R5,R0
        AI R0,>0704    ; 7 pixels down, 4 right
-       LI R2,HKEYS
+       LI R2,VSOLID
        BL @TESTCH
        MOV R5,R0
        AI R0,>070C    ; 7 pixels down, 12 right
@@ -412,7 +423,7 @@ MOVER2 MOV R5,R0     ; Check at right edge of screen
 !      LI R3,DIR_RT
        MOV R5,R0
        AI R0,>0810    ; 8 pixels down, 16 right
-       LI R2,MOVE4
+       LI R2,HSOLID
        BL @TESTCH
 
 MOVER3 INC R5        ; Move X coordinate right
@@ -435,7 +446,7 @@ MOVEL2 MOV R5,R0     ; Check at left edge of screen
 !      LI R3,DIR_LT
        MOV R5,R0
        AI R0,>07FF  ; 8 pixels down, 1 left
-       LI R2,MOVE4
+       LI R2,HSOLID
        BL @TESTCH
        
 MOVEL3 DEC R5        ; Move X coordinate left
@@ -464,7 +475,6 @@ MOVE2
        C @DOOR,R5
        JNE MOVE3
        BL @GODOOR
-
 
        MOV @FLAGS,R3
        ANDI R3,DIR_XX
@@ -564,10 +574,55 @@ LNKSP3
        SWPB R5     ; Restore to YYXX
        JMP LNKSP1
 
+; jumped to by TESTCH with char in R1
+VSOLID
+       BL @SOLID     ; armos touched? push block?
+       B @HKEYS
+
+HSOLID
+       BL @SOLID     ; armos touched? push block?
+       B @MOVE4
 
 
-* Go into doorway or stairs
+
+* Go into doorway or stairs or dock(raft)
 GODOOR
+       ; check what tile is under hero (doorway, stairs, or dock)
+       MOV R11,R13
+       MOV R5,R0
+       LI R2,GODOO2
+       BL @TESTCH
+       ; Either stairs or dock
+       CI R1,>7C00    ; Green dock char
+       JEQ RAFTUP
+       CI R1,>1C00    ; Red dock char
+       JEQ RAFTUP
+       LI R9,16   ; delay 16 frames
+!      BL @VSYNCM
+       DEC R9
+       JNE -!
+
+       JMP GODOO3
+
+GODOO2 ; Solid tile means Cave/Doorway
+       CLR R9
+       LI R10,3
+!
+       BL @ANDOOR       ; Animate going in the door
+
+       LI R0,BANK4
+       LI R1,MAIN
+       LI R2,7
+       LI R3,DIR_UP
+       INC R9
+       MOV R9,R4
+       BL @BANKSW
+       AI R5,>0100     ; Move down
+
+       CI R9,16
+       JNE -!
+
+GODOO3
        LI R0,BANK5
        LI R1,MAIN
        LI R2,13
@@ -577,6 +632,26 @@ GODOOR
        ANDI R3,DIR_XX
        LI R2,2       ; Load hero sprites
        JMP LNKSP2
+
+
+
+* Ride the raft upward, or return to R13 if no raft
+RAFTUP
+       LI R0,RAFT
+       CZC @HFLAGS,R0
+       JNE !
+       B *R13     ; dock - no raft
+!
+       AI R5,->0100          ; Move Y up one
+       MOV R5,@HEROSP	     ; Update color sprite
+       MOV R5,@HEROSP+4      ; Update outline sprite
+       BL @SPRUPD
+
+       BL @VSYNCM
+       CI R5,>1800
+       JH -!
+       LI R11,INFLP
+       JMP SCRLUP
 
 
 SCRLRT LI   R0,>0100         ; Add 1 to MAPLOC X
@@ -589,11 +664,15 @@ SCRLLT LI   R0,>FF00         ; Add -1 to MAPLOC X
 
 SCRLDN LI  R0,INCAVE
        CZC @FLAGS,R0         ; Are we leaving a cave?
+       JNE CAVOUT
+       LI R0,DUNGON
+       CZC @FLAGS,R0         ; Are we in a dungeon?
        JEQ !
-       SZC  R0,@FLAGS        ; Clear in cave flag
-       LI   R2,7             ; Use cave out animation
-       JMP SCROLL
-
+       MOVB @MAPLOC,R0
+       ANDI R0,>7000
+       CI R0,>7000           ; Going down at bottom of dungeon map?
+       JNE !
+       LI R11,CAVOU2         ; Return to CAVOU2 to animate exiting door
 !      LI   R0,>1000         ; Add 1 to MAPLOC Y
        LI   R2,2             ; Use scroll down 2
        JMP SCROLL
@@ -606,7 +685,190 @@ SCROLL AB   R0,@MAPLOC
        LI   R1,HDREND        ; First function in bank 1
        B    @BANKSW
 
-MRODC  EQU >1804    ; Magic Rod sprite and color
+CAVOUT
+       SZC  R0,@FLAGS        ; Clear in cave flag
+       LI   R0,BANK2         ; Overworld is in bank 2
+       LI   R1,HDREND        ; First function in bank 1
+       LI   R2,7             ; Use cave out animation
+       BL    @BANKSW
+CAVOU2
+       ; check what tile is under hero (doorway, stairs, or dock)
+       MOV @DOOR,R5  ; R5=YYXX hero
+       MOV R5,R0
+       LI R2,!
+       BL @TESTCH
+!
+       CI R1,>7F00           ; doorway
+       JEQ !
+
+       AI R5,-(17*256)-16
+       MOV R5,@HEROSP	     ; Update color sprite
+       MOV R5,@HEROSP+4      ; Update outline sprite
+       JMP CAVOU3
+
+!
+
+       AI R5,>1100
+       LI R9,16
+       LI R10,3
+!
+       LI R0,BANK4
+       LI R1,MAIN
+       LI R2,7
+       LI R3,DIR_DN
+       MOV R9,R4
+       BL @BANKSW
+       AI R5,->0100     ; Move up
+
+       BL @ANDOOR       ; Animate going out door
+
+       DEC R9
+       JNE -!
+CAVOU3
+       B @INFLP
+
+* Animate going in/out the door
+* Move every 4 frames, animate every 6 (R10 counts down from 3 every 2 frames)
+ANDOOR
+       MOV R11,R13        ; Save return address
+       AI R5,->0100          ; Move Y up one
+       MOV R5,@HEROSP	     ; Update color sprite
+       MOV R5,@HEROSP+4      ; Update outline sprite
+       AI R5,>0100           ; Move Y down one
+       BL @SPRUPD
+
+       BL @VSYNCM
+       BL @VSYNCM
+
+       DEC R10
+       JNE !
+       LI R10,3
+       ; Animate by toggle sprite index bit on
+       LI R0,>0800
+       SOC R0,@HEROSP+2
+       SOC R0,@HEROSP+6
+!
+       BL @VSYNCM
+       BL @VSYNCM
+
+       DEC R10
+       JNE !
+       LI R10,3
+       ; Animate by toggle sprite index bit off
+       LI R0,>0800
+       SZC R0,@HEROSP+2
+       SZC R0,@HEROSP+6
+!
+       B *R13         ; Return to saved address
+
+       ; touching armos, or pushing block?
+SOLID
+       ANDI R1,>FC00
+       CI R1,>DC00    ; armos statue DC-DF
+       JEQ ARMOST
+       CI R1,>F400    ; gravestone F4-F7
+       ; TODO spawn ghini
+
+       ; TODO have bracelet?
+       CI R1,>9400    ; green rock 94-97
+       JEQ ROCKMV
+       CI R1,>9C00    ; red rock 9C-9F
+       JEQ ROCKMV
+!      RT
+ROCKMV ; rock move
+       ; locate rock
+       MOV R5,R9     ; save hero pos
+       CI R3,DIR_UP
+       JEQ !
+       CI R3,DIR_DN
+       JNE -!
+       AI R5,>1800   ; rock is below player
+!      AI R5,->0800  ; rock is above player
+
+       ; find location of door
+       MOV R5,R0
+       AI R0,16      ; right 16
+       C R0,@DOOR    ; door to right of rock
+       JEQ !
+       AI R0,->2000+16  ; up 32 right 16
+       C R0,@DOOR    ; door two space up and right
+       JEQ !
+       MOV R9,R5     ; restore hero pos
+       RT
+!
+       MOV R11,R10   ; save return address
+       LI R6,>1C06   ; red rock
+       CI R1,>9400
+       JNE !
+       LI R6,>1C02   ; green rock
+!
+
+       LI R0,SCHSAV
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW      ; save scratch area
+
+       LI R0,PATTAB+(>9C*8)
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR      ; read rock pattern
+
+       LI R0,SPRPAT+(>1C*8)
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW      ; store rock pattern in sprite
+
+       LI R0,SCHSAV
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR      ; restore scratch area
+
+       MOV R3,R4     ; save direction in rock object
+       ORI R4,ROCKID ; rock ID and initial counter
+       BL @OBSLOT    ; spawn rock sprite
+
+       ; erase rock tiles
+       CLR R1
+       CLR R2
+       BL @STORCH    ; Draw R1 R2 at R5 (modifies R3)
+
+       MOV R4,R3
+       ANDI R3,DIR_XX ; restore direction
+       MOV R9,R5     ; restore hero pos
+       B *R10        ; return to saved address
+
+
+ARMOST ; armos touched
+       MOV R5,R9  ; save R5
+
+       AI R0,-3*32   ; -3 rows
+       SLA R0,3
+       ; R0 = screen pointer, extra bits 000yyyy0 xxxx0000
+       MOV R0,R5
+       SLA R0,3
+       MOVB R0,R5
+       ANDI R5,>F0F0  ; mask Y and X
+       AI R5,>1700  ; +3 rows -1 line adjust Y pos
+
+       ; make sure armos not already spawned here
+       LI R1,LASTSP      ; Start at sprite 13
+!      C *R1+,R5
+       JEQ !
+       INCT R1
+       CI R1,SPRLST+128
+       JNE -!
+       ; Didn't find existing sprite
+
+       MOV R11,R10  ; Save return address
+       LI R4,ARMOID
+       AI R5,>100   ; adjust Y pos
+       LI R6,ARMOSP
+       BL @OBSLOT
+       MOV R10,R11  ; Restore return address
+
+!      MOV R9,R5  ; restore R5
+       RT
+
 
 SWORD  CLR R0
        MOVB @SWRDOB,R0       ; Get sword counter
@@ -807,15 +1069,22 @@ BSWPOP
        LI R4,BSPLID+>C0    ; Create splash SE
        LI R6,>8C0F         ; Sprite
        BL @OBSLOT
+       LI R4,IDLEID        ; sword off but can't fire again
        JMP !
 BSPOFF ; Beam splash off (from below)
        CLR @BSWDOB       ; Clear sword so it can be fired again
 SPROFF
-!      CLR R4
-       LI R5,>D200        ; Disappear (offscreen)
+       CLR R4
+!      LI R5,>D200        ; Disappear (offscreen)
 BSWNXT B @OBNEXT
 
 
+ARROW
+       MOV @OBJPTR,R0
+       CI R0,ARRWOB-OBJECT
+       JEQ BSWRD2         ; Hero arrow just moves like beam sword (by 3)
+       ; Enemy arrow hit test will happen at BSWRD3
+       JMP MAGIC2  ; Move by 2 (magic)
 
 MAGIC
        ; TODO enemy magic hero hit test and colors
@@ -835,12 +1104,6 @@ MAGIC2
        A @MAGICD(R2),R5    ; Add movement from table
        JMP BSWRD3
 
-ARROW
-       MOV @OBJPTR,R0
-       CI R0,ARRWOB-OBJECT
-       JEQ BSWRD2         ; Hero arrow just moves like beam sword (by 3)
-       ; Enemy arrow hit test will happen at BSWRD3
-       JMP MAGIC2  ; Move by 2 (magic)
 
 ; Arrow spark
 ASPARK
@@ -855,10 +1118,6 @@ ASPARK
 * R4[15..8] = countdown
 *   [7..6] = direction (not from sprite since also used for bullet reflect)
 BSPLSH
-       ;MOV R6,R1
-       ;ANDI R1,>0F00       ; Get facing from sprite index
-       ;SRL  R1,9
-
        MOV R4,R1
        ANDI R1,>00C0       ; Get facing from object index
        SRL  R1,5
@@ -1008,6 +1267,9 @@ THROWU
        RT
 
 BMRGFN ; Boomerang
+       MOV @BMRGOB,R0
+       JNE ITMNXT    ; Boomerang already active
+
        MOV @HFLAGS,R0
        ANDI R0,BMRANG+MAGBMR
        ;JEQ ITMNXT
@@ -1035,12 +1297,12 @@ BMRGFN ; Boomerang
        JNE !
 
        AI R4,45*>0200
-       LI R6,>900A       ; Boomerang
+       LI R6,BOOMSP       ; Boomerang
 
        JMP ITMSPN
 !
        AI R4,>FE00       ; max counter
-       LI R6,>9004       ; Magic boomerang
+       LI R6,MBOMSP       ; Magic boomerang
 
 ITMSPN ; Item spawn: R7=index, R4=object id, R6=sprite idx and color
        MOV R4,@OBJECT(R7)
@@ -1329,7 +1591,6 @@ SETBIT MOV R0,R2
 ; 8 move by 1 1 1 1 1 1 1 1
 ; 0 move by 2
 
-SPARK  EQU >DC0F        ; Spark Sprite Index and color white
 
 BMRNG
        CI R4,16*>0200
@@ -1429,13 +1690,11 @@ BMRNG7 ; Screen edge hit
 BMRNG8 ; wait for spark countdown to 0
        CI R4,>0100
        JHE BMRNXT
-       LI R6,>90
-       MOV @HFLAGS,R0
-       LI R6,>900A   ; normal boomerang color
+       LI R6,BOOMSP   ; normal boomerang color
        LI R0,MAGBMR
        COC @HFLAGS,R0
-       JNE BMRNXT
-       LI R6,>9004  ; magic boomerang color
+       JEQ BMRNXT
+       LI R6,MBOMSP  ; magic boomerang color
 BMRNXT B @OBNEXT
 
 
@@ -1693,7 +1952,7 @@ STORCH
 
 
 
-; Look at character at pixel coordinate in R0, and jump to R2 if solid (character is in R0)
+; Look at character at pixel coordinate in R0, and jump to R2 if solid (character is in R1)
 ; Modifies R0,R1
 TESTCH
 ; Convert pixel coordinate YYYYYYYY XXXXXXXX 
@@ -1712,8 +1971,8 @@ TESTCH
        CLR R1
        MOVB @VDPRD,R1
        
-       CI R1,>7DFF  ; Characters >7E and higher are solid
-       JH !
+       CI R1,>7E00  ; Characters >7E and higher are solid
+       JHE !
        RT
 !      B *R2        ; Jump alternate return address
 
@@ -1768,7 +2027,7 @@ OBSLOT
        MOV R6,*R1
        RT
 
-FAIRY
+AFAIRY
 BADNXT JMP BADNXT
 
 
@@ -1882,6 +2141,7 @@ TEXTER
        A R2,R0
        BL @VDPWB
        INC R5
+FARYRT
 TEXTRT B @OBNEXT
 
 
@@ -1894,7 +2154,7 @@ TEXTRT B @OBNEXT
 *  51..56 = low cloud
 *  57..62 = mid cloud
 *  63..  = high cloud
-FAIRY2
+FAIRY
        MOV R4,R0
        ANDI R0,>FF00
        JNE !
@@ -1904,7 +2164,7 @@ FAIRY2
 
        BL @SAVESP   ; Save sprite, start with cloud animation
        ORI R4,>4FC0
-       JMP TEXTRT
+       JMP FARYRT
 
 !      CI R0,51*>100
        JL !
@@ -1913,33 +2173,31 @@ FAIRY2
        CI R0,>100
        JEQ FAIRYX   ; not triggered
 
-
-       AI R4,>200
+       AI R4,>200   ; increment counter
 
        ANDI R0,>FE00
        CI R0,12*>200
        JEQ !
 
        CI R0,23*>200
-       JL TEXTRT
+       JL FARYRT
        AI R4,-22*>200
 !
-       MOV R4,R0
-       ANDI R0,>01C0
-       JEQ TEXTRT
+       MOV R4,R1
+       ANDI R1,>01C0 ; remaining spinning hearts to spawn
+       JEQ FAIRY6    ; restore player half-heart
 
-       AI R4,->0040
-
+       AI R4,->0040  ; decrement remaining spinning hearts
        JMP FAIRY5  ; Spawn a heart
 
 FAIRYX
-       LI R2,FAIRY4
-       LI R5,>7378
+       LI R2,FAIRY4   ; jump here on collision
+       LI R5,>7378    ; location to collide to hero
        MOV @HEROSP,R3
        BL @COLIDE
 FAIRY3
-       LI R5,>5378  ; Restore Position
-       JMP TEXTRT
+       LI R5,>5378  ; Restore fairy location
+       JMP FARYRT
 
 FAIRY4 ; start spawning hearts
        LI R4,FRY2ID+>05C0
@@ -1952,31 +2210,53 @@ FAIRY5 ; spawn a heart
        LI R6,FARYSP
        JMP FAIRY3
 
-* Hearts that spin around fairy in pond (counterclockwise)
-* R4[15..7] = countdown 0..88
-HEART2
-       LI R0,>100
-       C R4,R0
-       JHE !
-       AI R4,88*>100
-!      S R0,R4
+FAIRY6 ; filling hero hearts mode
+       CI R0,23*>200
+       JNE FARYRT      ; only every 22 frames
 
-       MOV R4,R1    ; Get rotation from R4
-       SRL R1,8
+       CLR R9
+       MOVB @HEARTS,R9        ; R9 = max hearts - 1
+       AI   R9,>100
+       MOV  @HFLAGS,R0
+       LI   R10,1             ; R10 = 1 hp per half-heart
+       ANDI R0,BLURNG+REDRNG  ; test either ring
+       JEQ  !
+       A    R9,R9             ; double max hp
+       INC  R10               ; R10 = 2 hp per half-heart
+       ANDI R0,REDRNG         ; red ring
+       JEQ  !
+       A    R9,R9             ; double max hp again
+       INCT R10               ; R10 = 4 hp per half-heart
+!      A R9,R9                ; R9 = max hp
+       SWPB R10
+       A R10,@HP              ; add a half-heart
+       CB   @HP,R9
+       JHE FAIRY8             ; hp full
 
-       LI R5,>786A  ; Center Position (byte swapped)
+FAIRY7
+       BL @STATUS
 
-       BL @AR5SIN   ; Add sine to X
+       ; if hero hearts are full, turn off all spinning hearts, otherwise add 1 half-heart
+       JMP FARYRT
+FAIRY8
+       MOVB R9,@HP            ; set hearts to max
+       LI R4,IDLEID            ; set to idle object
 
-       MOV R4,R1    ; Get rotation from R4
-       SRL R1,8
-       AI R1,-22    ; Subtract 1/4 to get cosine
-       JOC !        ; overflow?
-       AI R1,88     ; wrap around
+       ; turn off all spinning hearts
+       LI R1,LASTOB
 !
-       SWPB R5
-       BL @AR5SIN   ; Add cosine to Y
-       JMP TEXTRT
+       CI R1,OBJECT+64
+       JEQ FAIRY7
+
+       MOV *R1+,R0       ; get object data
+       ANDI R0,>003F     ; mask object type
+       CI R0,HRT2ID      ; spinning heart?
+       JNE -!
+       LI R0,SPOFID      ; Set object to turn off sprite
+       MOV R0,@-2(R1)
+
+       JMP -!
+
 
 * Add sine of R1 to R5
 * R1 = 0..44..88 ~ 0..pi..2pi
@@ -2002,6 +2282,33 @@ SINTBL ; sine table - 23 bytes to pi/2, scaled to 53
        BYTE >25,>28,>2A,>2D,>2F,>30,>32,>33,>34,>34,>35,>35
        EVEN
 
+* Hearts that spin around fairy in pond (counterclockwise)
+* R4[15..8] = countdown 0..88
+HEART2
+       LI R0,>100
+       C R4,R0
+       JHE !
+       AI R4,88*>100
+!      S R0,R4
+
+       MOV R4,R1    ; Get rotation from R4
+       SRL R1,8
+
+       LI R5,>786A  ; Center Position (byte swapped)
+
+       BL @AR5SIN   ; Add sine to X
+
+       MOV R4,R1    ; Get rotation from R4
+       SRL R1,8
+       AI R1,-22    ; Subtract 1/4 to get cosine
+       JOC !        ; overflow?
+       AI R1,88     ; wrap around
+!
+       SWPB R5
+       BL @AR5SIN   ; Add cosine to Y
+       JMP PEAHRT
+
+
 
 * Store the current sprite in object HP and set to cloud
 SAVESP
@@ -2016,7 +2323,7 @@ SAVESP
        RT
 
 
-* Rock AI
+* Boulder AI
 * R4: 0 init
 *     1-18  y+=2
 *     19-21 y+=1
@@ -2024,10 +2331,10 @@ SAVESP
 *     24-26 y-=1
 *     27-29 y-=2
 *     30+   y+=0 x+=0
-ROCK   LI R3,>0100
+BOULDR LI R3,>0100
        C R3,R4
        JLE !
-ROCKI  BL @RANDOM
+BOULDI BL @RANDOM
        MOV R0,R1
        ANDI R1,>3F80
        AI R1,>2000
@@ -2044,37 +2351,37 @@ ROCKI  BL @RANDOM
        BL @RANDOM
        ANDI R0,>0080
        XOR R0,R4      ; Change direction randomly
-       JMP ROCK3
+       JMP BOULD3
 
 !      CI R4,27*>100
        JL !
        AI R5,->0200    ; Move up 2
-       JMP ROCK2
+       JMP BOULD2
 
 !      CI R4,24*>100
        JL !
        S R3,R5        ; Move up 1
-       JMP ROCK2
+       JMP BOULD2
 
 !      CI R4,22*>100
-       JHE ROCK2
+       JHE BOULD2
        CI R4,19*>100
        JL !
        A R3,R5       ; Move down 1
-       JMP ROCK2
+       JMP BOULD2
 
 !      AI R5,>0200
        CI R5,>D000   ; Reinit at bottom of screen
-       JHE ROCKI
-ROCK2
+       JHE BOULDI
+BOULD2
        MOV R4,R0
        SLA R0,9
        JOC !
        INC R5        ; Move right
-       JMP ROCK3
+       JMP BOULD3
 !      DEC R5        ; Move left
 
-ROCK3  S R3,R4       ; Decrement counter
+BOULD3 S R3,R4       ; Decrement counter
        C R3,R4
        JL !
        AI R4,30*>100   ; Bounce
@@ -2437,8 +2744,9 @@ LERAND
        XOR R0,R4          ; Get random direction
 * Lever move
 LEMOVE
-       LI R2,LERAND      ; EMOVE4 will go to R2 if solid
        LI R10,OBNEXT     ; EMOVE4 will return to R10
+LEMOV2
+       LI R2,LERAND      ; EMOVE4 will go to R2 if solid
 
        MOV R4,R3         ; Get direction in R3
        SRL R3,6
@@ -2448,6 +2756,10 @@ LEMOVE
        AI R0,>0800
        ANDI R0,>0F0F    ; Aligned to 16 pixels?
        JNE EMOVE5       ; No? Keep moving
+
+       BL @RANDOM
+       ANDI R0,7        ; 1 in 8 chance to change direction
+       JEQ LERAND
 
        JMP EMOVE4
 
@@ -2550,7 +2862,7 @@ LEMOV6
 !      CI R1,34        ; Pulsing?
        JNE LEEVR2
 
-LPULSE LI R6,>2809     ; Pulsing sprite
+LPULSE LI R6,PULSE     ; Pulsing sprite
 
 LEEVR2
        CI R1,16        ; Normal?
@@ -2645,6 +2957,73 @@ ZORA5
 
 OBNXT3 B @OBNEXT
 
+
+* Armos AI
+* R4:  6 bits animation counter
+*      1 bit 0=slow 1=fast
+*      2 bits direction
+*      1 bits hurt/stun flag
+*      6 bits object id
+ARMOS
+       LI R0,>0400    ; minimum counter
+       C R4,R0
+       JL !
+       LI R1,15       ; white
+       XOR R1,R6      ; toggle color between transparent
+
+       S R0,R4        ; decrement counter
+       C R4,R0
+       JHE OBNXT3     ; until zero
+
+       LI R0,BANK5
+       LI R1,MAIN
+       LI R2,14      ; Draw armos underneath
+       BL @BANKSW
+
+       ; store armos HP
+       MOV @OBJPTR,R1       ; Get object idx
+       SRL R1,1
+       AI R1,ENEMHP+VDPWM   ; Use HP array in VDP
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       LI R0,>0300       ; Armos has 3 HP
+       MOVB R0,*R15      ; Store HP
+
+       BL @RANDOM
+       ANDI R0,>0380  ; get only 3 bits
+       SOC R0,R4
+
+       MOV @ECOLOR+>2E,R6  ; change to light blue from white
+
+!
+       BL @HITEST
+
+       ANDI R6,>67FF  ; use down-facing sprite
+       MOV R4,R0
+       ANDI R0,>0180  ; get direction bits
+       CI R0,>0180    ; up?
+       JNE !
+       ORI R6,>0800   ; use up-facing sprite
+!
+
+
+       BL @ANIM6     ; Animate - R0 contains counter
+
+       SLA R0,8
+       JOC !
+       BL @LEMOVE    ; move 1
+       JMP OBNXT3
+!
+       MOV R4,R0
+       SLA R0,7      ; C = fast/slow bit
+       JNC OBNXT3
+       ; move twice
+       LI R10,LEMOVE  ; LEMOVE2 will return to LEMOVE, which returns to OBNEXT
+       B @LEMOV2
+
+
+
+
 * dead - little 6 big 6 little 6
 * R4[15..8] = counter, initially 18
 DEAD   MOV R4,R1
@@ -2660,7 +3039,60 @@ DEAD   MOV R4,R1
        AI R4,->0100
        CI R4,>0100
        JHE OBNXT3
-       B @SPROFF
+DEAD2  B @SPROFF
+
+
+* rock sprite, moves up or down
+* R4[15..10] = countdown, initially 32
+* R4[9..8] = direction  DIR_UP or DIR_DN
+ROCK
+       MOV R4,R0
+       ANDI R0,>FC00 ; get counter
+       JEQ ROCK2     ; stop if zero
+       AI R4,->0400
+
+       MOV R4,R1
+       ANDI R1,DIR_XX ; get direction
+       SRL R1,7     ; get direction index
+       MOV @EMOVED(R1),R1
+
+       MOV R5,R2
+       S @HEROSP,R2
+       CI R2,>1000
+       JGT !          ; hero overlapping rock?
+       CI R2,->0800
+       JLT !
+       S R1,@HEROSP  ; push back hero
+!
+       SLA R0,6      ; C = bottom counter bit
+       JNC OBNXT3    ; move every other frame
+       A R1,R5       ; move rock
+       JMP OBNXT3
+ROCK2
+       CI R6,>1C06   ; red rock?
+       JNE !
+       LI R1,>9C9E   ; red rock
+       LI R2,>9D9F
+       BL @STORCH
+       LI R1,>7071   ; red stairs
+       LI R2,>7273
+       JMP !!
+!
+       LI R1,>9496   ; green rock
+       LI R2,>9597
+       BL @STORCH
+       LI R1,>7879   ; green stairs
+       LI R2,>7A7B
+!
+       MOV @DOOR,R5
+       BL @STORCH    ; draw door
+
+       MOVB @MAPLOC,R0
+       SRL R0,8
+       LI R1,SDCAVE ; Save data - opened secret caves
+       BL @SETBIT   ; Set bit R0 in VDP at R1
+
+       JMP DEAD2    ; SPROFF
 
 
 * test if sword is hitting enemy, and if enemy is hitting hero (LNKHIT)
@@ -2731,8 +3163,9 @@ HITES1
 !
        LI R4,DEADID          ; Change object type to DEAD, counter to 19
        CLR R6                ; Clear sprite and color transparent
+OBNXT4
+       B @OBNEXT
 
-       JMP OBNXT3
 * Spawn item
 SPITEM
        MOV R4,R6
@@ -2875,8 +3308,18 @@ SPAWN2 BL @RANDOM           ; Get a random screen location
        AI R0,>0808
        BL @TESTCH
 
-       C @DOOR,R5     ; Don't spawn on a door
+       C @DOOR,R5      ; Don't spawn on a door
        JEQ SPAWN2
+
+       MOV R5,R0       ; Don't spawn too close to the hero
+       S @HEROSP,R0
+       ABS R0
+       CI R0,>2000
+       JLT SPAWN2
+       SWPB R0
+       ABS R0
+       CI R0,>2000
+       JLT SPAWN2
 
        BL @RANDOM
        ANDI R0,>1800  ; Face random direction
@@ -3307,8 +3750,8 @@ CAVNP3 JMP CAVNP2
 !      ; load cave items in bank 5
        LI R0,BANK5
        LI R1,MAIN
-       LI R2,11
-       B @BANKSW
+       LI R2,11      ; load cave items
+       BL @BANKSW
        JMP CAVNP2
 
 

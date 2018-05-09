@@ -205,6 +205,22 @@ DONE3
        AI R5,>0100            ; Move Y down one
        JMP DONE2
 
+KEYTST
+       CLR R1
+       LI R12, >0024
+       LDCR R1,3            ; Turn on Keyboard Col 0
+       LI R12, >0006
+       TB 2                 ; Key Enter
+       JNE DONE           ; Sword key down
+
+       LI R1,>0600
+       LI R12, >0024
+       LDCR R1,3            ; Turn on Joystick Col 0
+       LI R12, >0006
+       TB 0                 ; Joystick 1 Fire
+       JNE DONE           ; Sword key down
+       RT
+
 OWTILE
        ;TODO turn off screen for faster VDP memory access
        LI R0,>01A5          ; VDP Register 1: Blank screen
@@ -253,21 +269,6 @@ DNTILE
        B    @BANKSW
 
 
-KEYTST
-       CLR R1
-       LI R12, >0024
-       LDCR R1,3            ; Turn on Keyboard Col 0
-       LI R12, >0006
-       TB 2                 ; Key Enter
-       JNE DONE           ; Sword key down
-
-       LI R1,>0600
-       LI R12, >0024
-       LDCR R1,3            ; Turn on Joystick Col 0
-       LI R12, >0006
-       TB 0                 ; Joystick 1 Fire
-       JNE DONE           ; Sword key down
-       RT
 
 SWDGRY DATA >E3E3,>E1E1    ; Sword gray on green
 TIPURP DATA >05FF

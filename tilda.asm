@@ -59,7 +59,6 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 ; TODO 1000:17FF Dungeon Pattern Descriptor Table
 
 
-
 SCR1TB EQU  >0000    ; Name Table 32*24 bytes (double-buffered)
 SCHSAV EQU  >0320    ; Save area for SCRTCH scratchpad/screen list
 CLRTAB EQU  >0340    ; Color Table address in VDP RAM - 32 bytes
@@ -88,6 +87,10 @@ ENEMHS EQU  >07A0    ; Enemy hurt/stun counters interleaved:
                      ; stun: count=6bits
                      ; hurt: direction=2bits count=6bits
 ENEMHP EQU  >07E0    ; Enemy HP
+
+CNDLUS EQU  >0008    ; TODO Candle used, once per screen (blue candle only, locate at Flame HP)
+MAZEST EQU  >0000    ; TODO Maze state (Forest Maze, Mountain)
+
 
 ; CPU RAM layout
 ; 8300:  32 bytes - workspace
@@ -137,7 +140,7 @@ HFLAGS EQU  WRKSP+50        ; Hero Flags (part of save data)
 SELITM EQU  >0007            ; Selected item 0-7
 
 MAGSHD EQU  >0008            ; Magic Shield
-SWORD1 EQU  >0010            ; Wood  Sword 1x damage (brown)
+SWORDA EQU  >0010            ; Wood  Sword 1x damage (brown)
 WSWORD EQU  >0020            ; White Sword 2x damage (white)
 MSWORD EQU  >0040            ; Magic Sword 4x damage (white slanted)
 BOW    EQU  >0080            ; Bow (brown)
@@ -186,9 +189,9 @@ BAIT   EQU  >0100            ; Bait (lures monsters or give to grumble grumble)
 RCANDL EQU  >0200            ; Red candle (unlimited)
 PBRACE EQU  >0400            ; Power Bracelet (red)
 BOOKMG EQU  >0800            ; Book of Magic (adds flames to magic rod)
-
 LETPOT EQU  >1000            ; Gave the letter to old woman, potions available
-
+COMPAS EQU  >2000            ; Compass (for current dungeon)
+MINMAP EQU  >4000            ; Dungeon map (current dungeon)
 
 KEY_FL EQU WRKSP+54         ; key press flags
 KEY_UP EQU  >0002           ; J1 Up / W
@@ -209,39 +212,37 @@ EDG_C  EQU  KEY_C*256
 
 OBJPTR EQU  WRKSP+56        ; Object pointer for processing sprites
 COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16:[4..0]
-
 RAND16 EQU  WRKSP+60        ; Random state
 
 * RAM   00     01     02     03     04     05     06     07
-* 8320  MUSICP        MUSICC        MAPLOC RUPEES KEYS   BOMBS
-* 8328  HP     HEARTS MOVE12        _____________ DOOR
-* 8330  FLAGS         HFLAGS        HFLAG2        KEY_FL
+* 8320  TRACK1        SOUND1        TRACK2        SOUND2
+* 8328  TRACK3        SOUND3        TRACK4        SOUND4
+* 8330  MOVE12        HFLAGS        HFLAG2        KEY_FL
 * 8338  OBJPTR        COUNTR        RAND16        _____________
-* 8340  HURTC
-* 8348                              SWRDOB        BSWDOB
+* 8340  HURTC         MAPLOC RUPEES KEYS   BOMBS  HP     HEARTS
+* 8348  DOOR          FLAGS         SWRDOB        BSWDOB
 * 8350  ARRWOB        BMRGOB        FLAMOB        BOMBOB
 * 8358  enemies
 *  ...
-* 8580  sprite list
+* 8380  sprite list
 
 OBJECT EQU  WRKSP+64        ; 64 bytes: sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
 HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
 
 MAPLOC EQU  OBJECT+2        ; Map location YX 16x8
-RUPEES EQU  OBJECT+3        ; Rupee count (max 255)
-KEYS   EQU  OBJECT+4        ; Key count max 9
-BOMBS  EQU  OBJECT+5        ; Bomb count (max 8,12,16)
-HP     EQU  OBJECT+6        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
-HEARTS EQU  OBJECT+7        ; Max hearts - 1 (min 2, max 15)
+HEARTS EQU  OBJECT+3        ; Max hearts - 1 (min 2, max 15)
+HP     EQU  OBJECT+4        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
+RUPEES EQU  OBJECT+5        ; Rupee count (max 255)
+KEYS   EQU  OBJECT+6        ; Key count max 9 or (or A for magic key)
+BOMBS  EQU  OBJECT+7        ; Bomb count (max 8,12,16)
 
 DOOR   EQU  OBJECT+8        ; YYXX position of doorway or secret
 FLAGS  EQU  OBJECT+10       ; Various Flags
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
-ENEDGE EQU  >0004            ; TODO Enemies load from edge of screen
-CNDLUS EQU  >0008            ; TODO Candle used, once per screen (blue candle only)
-DUNGON EQU  >0010            ; TODO Inside dungeon
+DUNGON EQU  >0004            ; TODO Inside dungeon
 
+PUSHC  EQU  >00F0            ; pushing block counter 0..14
 
 DIR_XX EQU  >0300            ; Facing bits DIR_XX
 DIR_RT EQU  >0000
@@ -249,6 +250,7 @@ DIR_LT EQU  >0100
 DIR_DN EQU  >0200
 DIR_UP EQU  >0300
 SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
+ENEDGE EQU  >0800            ; TODO Enemies load from edge of screen
 DUNLVL EQU  >F000            ; Current dungeon level 0-8
 * TODO MOVE12 in here
 

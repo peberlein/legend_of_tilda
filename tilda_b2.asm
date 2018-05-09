@@ -88,34 +88,6 @@ INWIPE   ;  Initial wipe
        CI R2, 6      ; Cave in
        JNE !
 
-       LI R9,16             ; Step down 16 lines
-
-       CLR R1
-       MOVB R1,@SCRTCH      ; Clear top line
-
-STEPDN LI R4, 4             ; Step downward first four sprites
-       LI R0,SPRPAT         ; Read 1st sprite pattern
-STEPD2 LI R1,SCRTCH+1       ; Write to scratchpad
-       BL @READ31
-       CLR R1
-       MOVB R1,@SCRTCH+16  ; Clear top right edge
-       BL @PUTSCR
-
-       AI R0,-VDPWM+32   ; Clear write bit and add 32
-       DEC R4
-       JNE STEPD2
-
-       BL @VSYNCM
-       BL @VSYNCM
-       BL @VSYNCM
-       BL @VSYNCM
-       BL @VSYNCM
-
-       DEC R9
-       JNE STEPDN
-
-       MOV R3,R2            ; Restore R2 since PUTSCR modified it
-
        BL @CLRSCN           ; Clear the screen so palette changes won't be visible
        BL @VSYNCM
 
@@ -523,13 +495,13 @@ TESTSC
        CLR R0
        MOVB @VDPRD,R0
 
+       LI R1,>7071  ; Red stairs
+       LI R2,>7273
+
+       CI R0,>9000  ; Green bush
+       JNE !
        LI R1,>7879  ; Green stairs
        LI R2,>7A7B
-
-       CI R0,>9800  ; Brown bush
-       JNE !
-       LI R1,>7071  ; Brown stairs
-       LI R2,>7273
 !      CI R0,>8000  ; Green brick
        JEQ !
        CI R0,>A000  ; Red brick
@@ -582,7 +554,7 @@ PALETT DATA >0000,>0000,>0000,>0000
 ; YX coordinates of secrets/door on overworld screens
 DOORS  BYTE >00,>19,>00,>47,>1C,>65,>00,>4A,>00,>00,>12,>47,>18,>19,>45,>48
        BYTE >19,>00,>18,>12,>1C,>00,>16,>00,>00,>00,>46,>00,>4B,>35,>1C,>46
-       BYTE >00,>59,>47,>54,>00,>1A,>13,>1E,>6D,>00,>00,>00,>69,>15,>00,>46
+       BYTE >00,>59,>47,>54,>4E,>1A,>13,>1E,>6D,>00,>00,>00,>69,>15,>00,>46
        BYTE >00,>00,>00,>1A,>44,>00,>00,>47,>00,>00,>00,>00,>47,>49,>00,>46
        BYTE >00,>00,>56,>00,>14,>48,>79,>7B,>2D,>35,>1B,>2B,>00,>6D,>4A,>00
        BYTE >00,>69,>00,>00,>00,>48,>6A,>00,>00,>00,>00,>62,>00,>00,>17,>00
@@ -600,7 +572,7 @@ MT00   DATA >A0A1,>A2A3  ; Brown Brick
        DATA >A8A9,>05A6  ; Brown corner SW
        DATA >7F7F,>2020  ; Black doorway
        DATA >04A4,>AAAB  ; Brown corner NW
-       DATA >9C9D,>9E9F  ; Brown rock
+       DATA >9C9E,>9D9F  ; Brown rock
        DATA >E6E7,>E5E1  ; Water corner NW
        DATA >E5E0,>E4E1  ; Water edge W
        DATA >E4E0,>E3E2  ; Water corner SW
@@ -628,14 +600,14 @@ MT10   DATA >00ED,>0011  ; Water inner corner NE
 MT20   DATA >D8D9,>DADB  ; Waterfall
        DATA >D8D9,>1717  ; Waterfall bottom
        DATA >B8B9,>BABB  ; Tree face
-       DATA >F4F5,>F6F7  ; Gravestone
+       DATA >F4F6,>F5F7  ; Gravestone
        DATA >9899,>9A9B  ; Bush
        DATA >1200,>EE00  ; Water inner corner SW
        DATA >6061,>6263  ; Sand
        DATA >1C1C,>1D1D  ; Red Bridge
        DATA >878E,>8F08  ; Grey corner SE
        DATA >0808,>0808  ; Grey Ground
-       DATA >F4F5,>F6F7  ; Gravestone
+       DATA >F4F6,>F5F7  ; Gravestone  FIXME duplicated?
        DATA >8485,>8B8C  ; Grey top
        DATA >7879,>7A7B  ; Grey stairs
        DATA >F0F1,>F2F3  ; Grey bush
@@ -669,7 +641,7 @@ MTGREN ; green metatiles
        DATA >8506,>8C8D  ; Green corner NE
        DATA >8889,>0586  ; Green corner SW
        DATA >0484,>8A8B  ; Green corner NW
-       DATA >9495,>9697  ; Green rock
+       DATA >9496,>9597  ; Green rock
        DATA >7879,>7A7B  ; Green Steps
        DATA >9091,>9293  ; Green bush
        DATA >7C7C,>7D7D  ; Green Bridge
@@ -890,6 +862,8 @@ STDUN3
        CI R10,LEVELA+(18*32)+VDPWM   ; At bottom?
        JL STDUN2
 
+       ; draw doorways or locked doors, bombholes or walls
+
        AI R10,-(14*32)+2  ; Move up and right 2
        CI R10,LEVELA+(4*32)+28+VDPWM  ; At rightmost?
        JL STDUN1
@@ -971,7 +945,7 @@ DHDOOR  ; Draw horizontal door
 LOKBOM ; Draw locked door or bomb hole
        SLA R3,1
        CZC R3,R0
-       JNE !      ; Locked or bombable bit set?
+       ;JNE !      ; Locked or bombable bit set?   FIXME dungeons unlocked for demo
        SRL R3,1
        RT
 !      SRL R3,1
@@ -1050,10 +1024,58 @@ WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
        BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
 
+       ; 4 bits item type
+       ;   0 stairs - open
+       ;   1 stairs - hidden, kill all enemies
+       ;   2 stairs - hidden, kill all enemies and push block
+       ;   3 stairs - hidden, push block
+       ;   3 stairs - hidden, open and push block
+       ;   4 boomerang - kill all enemies
+       ;   5 bomb - kill all enemies
+       ;   6 heart container - kill boss
+       ;   7 key - kill all enemies
+       ;   8 map - kill all enemies
+       ;   9 compass - kill all enemies
+       ;     bomb item - kill all enemies
+       ;   3 shutters - push block to open
+       ;     key - follows one enemy until killed
+
+       ; possible cave items (descend stairs)
+       ;   bow
+       ;   raft
+       ;   flute
+       ;   ladder
+       ;   magic rod
+       ;   red magic rod
+       ;   book of magic
+       ;   passageway starting left
+       ;   passageway starting right
+
+
+       ; 8 bits stairs/item location
+LOCMAP
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+
+
 
        ; 6 bits map
-       ; 2 bits door type (0=wall 1=open 2=bomb 3=lock)
-       ;
+       ; 2 bits
 DUNMAP BYTE >28,>26,>10,>0C,>00,>09,>0A,>00,>00,>0F,>0F,>28,>0C,>0C,>02,>00
        BYTE >0E,>28,>0F,>11,>0C,>28,>22,>28,>11,>25,>22,>05,>0E,>14,>08,>28
        BYTE >21,>23,>0A,>21,>12,>13,>24,>21,>08,>24,>07,>28,>00,>25,>07,>00
@@ -1080,33 +1102,33 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >00,>80,>2A,>00,>03,>81,>2A,>07,>07,>81,>2A,>03,>00,>80,>2A,>00  ; 1 Starting room (sand)
        BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 2 Room full of dark sand
 
-       BYTE >FF,>84,>85,>86,>87  ; brick
-       BYTE >00,>00,>00,>00,>00,>1C,>1C,>00,>00,>00,>00,>00   ; 3 Six bricks in center
-       BYTE >00,>00,>14,>00,>00,>00,>00,>00,>00,>14,>00,>00   ; 4 Four bricks squat rect
-       BYTE >00,>00,>22,>00,>00,>00,>00,>00,>00,>22,>00,>00   ; 5 Four bricks rect
-       BYTE >00,>22,>22,>00,>00,>08,>08,>00,>00,>22,>22,>00   ; 6 Five sets of two bricks
-       BYTE >00,>00,>1C,>1C,>00,>00,>00,>00,>1C,>1C,>00,>00   ; 7 Two sets of six bricks
-       BYTE >00,>2A,>00,>2A,>00,>2A,>2A,>00,>2A,>00,>2A,>00   ; 8 Two sets of separated nine bricks
-       BYTE >00,>00,>00,>00,>00,>08,>00,>00,>00,>00,>00,>00   ; 9 Single brick
-       BYTE >00,>00,>00,>00,>08,>14,>22,>14,>08,>00,>00,>00   ; A Diamond bricks
+       BYTE >FF,>84,>85,>86,>87  ; block
+       BYTE >00,>00,>00,>00,>00,>1C,>1C,>00,>00,>00,>00,>00   ; 3 Six blocks in center
+       BYTE >00,>00,>14,>00,>00,>00,>00,>00,>00,>14,>00,>00   ; 4 Four blocks squat rect
+       BYTE >00,>00,>22,>00,>00,>00,>00,>00,>00,>22,>00,>00   ; 5 Four blocks rect
+       BYTE >00,>22,>22,>00,>00,>08,>08,>00,>00,>22,>22,>00   ; 6 Five sets of two blocks
+       BYTE >00,>00,>1C,>1C,>00,>00,>00,>00,>1C,>1C,>00,>00   ; 7 Two sets of six blocks
+       BYTE >00,>2A,>00,>2A,>00,>2A,>2A,>00,>2A,>00,>2A,>00   ; 8 Two sets of separated nine blocks
+       BYTE >00,>00,>00,>00,>00,>08,>00,>00,>00,>00,>00,>00   ; 9 Single block
+       BYTE >00,>00,>00,>00,>08,>14,>22,>14,>08,>00,>00,>00   ; A Diamond blocks
        BYTE >00,>00,>00,>00,>00,>00,>00,>41,>41,>63,>77,>77   ; B Right boss room
        BYTE >00,>3E,>22,>A2,>08,>A2,>10,>20,>20,>A2,>10,>A2,>08,>22,>3E,>00  ; C Tiforce room
        BYTE >01,>22,>44,>08,>10,>20,>02,>04,>08,>11,>22,>40   ; D Angled walls
-       BYTE >80,>01,>08,>00,>02,>00,>00,>00,>00,>02,>00,>08,>80,>01  ; E Four bricks, two statues
-       BYTE >00,>00,>00,>00,>08,>00,>00,>08,>00,>00,>00,>00   ; F Two bricks near center
+       BYTE >80,>01,>08,>00,>02,>00,>00,>00,>00,>02,>00,>08,>80,>01  ; E Four blocks, two statues
+       BYTE >00,>00,>00,>00,>08,>00,>00,>08,>00,>00,>00,>00   ; F Two blocks near center
        BYTE >00,>08,>14,>00,>00,>00,>00,>00,>00,>14,>08,>00   ; 10 Small <  >
        BYTE >70,>70,>62,>60,>40,>00,>00,>40,>60,>62,>70,>70   ; 11 Top boss room
        BYTE >80,>41,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>80,>41  ; 12 Four statues in corners
-       BYTE >00,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>00   ; 13 Three brick strips horizontal
+       BYTE >00,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>00   ; 13 Three block strips horizontal
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>63,>77,>77,>77   ; 14 Right stair room
        BYTE >14,>14,>14,>14,>14,>14,>14,>14,>14,>14,>14,>14   ; 15 Two long strips horizontal
        BYTE >00,>22,>22,>22,>22,>22,>22,>22,>22,>22,>3E,>00   ; 16 Big backward C
-       BYTE >00,>00,>3E,>22,>22,>22,>22,>22,>22,>3E,>00,>00   ; 17 Brick rect
+       BYTE >00,>00,>3E,>22,>22,>22,>22,>22,>22,>3E,>00,>00   ; 17 Block rect
        BYTE >00,>00,>00,>00,>80,>08,>00,>00,>80,>08,>00,>00,>00,>00 ; 18 Two statues near center
        BYTE >00,>3E,>22,>22,>22,>2A,>2A,>2A,>3A,>02,>7E,>00   ; 19 Spiral with stairs
        BYTE >BE,>41,>7F,>43,>1B,>38,>04,>04,>38,>1B,>43,>7F,>BE,>41  ; 1A Final boss room
        BYTE >7F,>40,>D8,>01,>58,>E0,>04,>40,>40,>E0,>04,>58,>D8,>01,>40,>7F  ; 1B Princess room
-       BYTE >00,>7C,>05,>6C,>20,>3E,>00,>23,>20,>3E,>10,>13    ; 1C Brick maze
+       BYTE >00,>7C,>05,>6C,>20,>3E,>00,>23,>20,>3E,>10,>13    ; 1C Block maze
        BYTE >00,>00,>00,>00,>7F,>00,>00,>7F,>00,>00,>00,>00    ; 1D Two long strips vertical
        BYTE >00,>3E,>00,>3E,>00,>3E,>3E,>00,>3E,>00,>3E,>00    ; 1E Five strips vertical
        BYTE >77,>77,>77,>77,>77,>36,>08,>77,>77,>77,>77,>77    ; 1F Crossroads
