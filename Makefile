@@ -26,7 +26,7 @@ tilda_8.bin: tilda_b0_6000.bin tilda_b1_6000.bin tilda_b2_6000.bin tilda_b3_6000
 	@dd $(QUIET) if=tilda_b4_6000.bin of=$@ bs=8192 seek=4
 	@dd $(QUIET) if=tilda_b5_6000.bin of=$@ bs=8192 seek=5
 	@dd $(QUIET) if=tilda_b6_6000.bin of=$@ bs=8192 seek=6
-	@dd $(QUIET) if=tilda_b4_6000.bin of=$@ bs=8192 seek=7
+	@dd $(QUIET) if=tilda_b6_6000.bin of=$@ bs=8192 seek=7
 	@dd $(QUIET) if=/dev/null         of=$@ bs=8192 seek=8
 	@ls -l $^
 

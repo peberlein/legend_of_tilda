@@ -446,11 +446,11 @@ TektiteB .5	1
 Zola	.5	2/1/1
 
 
-BubbleW   none    (takes away sword temporarily)
+BubbleW   none    (takes away sword temporarily, use flute to dispel)
 BubbleR   none    (takes away sword until touch blue or triforce)
 BubbleB   none    (restores sword)
-DarknutR   1    4/2/1  (only vuln to sword or bombs)
-DarknutB   2    8/4/2  (only vuln to sword or bombs)
+DarknutR   1    4/2/1  (only vuln to sword from side or back, or bombs)
+DarknutB   2    8/4/2  (only vuln to sword from side or back, or bombs)
 Flame      1    1/1/1  (block access to princess)
 Gel        .5   1/1/1  (can be killed by boomerang)
 Gibdo      2    7/4/2  (mummy)
@@ -495,6 +495,29 @@ http://www.zeldaspeedruns.com/loz/generalknowledge/item-drops-chart
 http://www.zeldaspeedruns.com/loz/tech/forced-item-drops
 https://kb.speeddemosarchive.com/The_Legend_of_Zelda
 
+
+Group A     B     C     D
+0   Rupee Bomb  Rupee Heart
+1   Heart Rupee Heart Fairy
+2   Rupee Clock Rupee Rupee
+3   Fairy Rupee BlRup Heart
+4   Rupee Heart Heart Fairy
+5   Heart Bomb  Clock Heart
+6   Heart Rupee Rupee Heart
+7   Rupee Bomb  Rupee Heart
+8   Rupee Heart Rupee Rupee
+9   Heart Heart BlRup Heart
+
+A - OctorokR, TektiteR, MoblinR, LeeverB, WizzrobeB
+B - OctorokB, MoblinB, LynelB, GoriyaR, Gibdo, Vire, DarknutR, WizzrobeR
+C - TektiteB, LeeverR, Stalfos, Gel, Ghini, RopeR/B, WallMaster, PolsVoice, LanmolaB
+D - Peahat, Zora, LynelR, GoriyaB, DarknutB, Moldorm, Aquamentus
+    Dodongo, Digdogger, Patra, Gleeok, Gohma, LanmolaR
+
+Kill counter (reset to zero if link is hit)
+10 - killed w/ bomb, drops bomb, else 5 rupee
+16 - drops fairy
+26, 36, 46, etc. - killed w/ bomb, drops bomb, else 5 rupee
 
 
 Weapon Damage [http://zelda.gamepedia.com/Weapon_Strength#The_Legend_of_Zelda]
@@ -667,7 +690,7 @@ Hold up item when bought in store / acquired in cave
 
 
 TODO:
-Caves and stores
+Finish caves and stores
 Bracelet under armos
 Push gravestone to open secret cave
 Touch gravestone to spawn invincible ghini
@@ -678,14 +701,12 @@ Title screen music
 Smooth scrolling text after title screen
 Bait (attracts enemies, or give to Grumble Grumble)
 Ladder (crosses one water tile)
-Raft (ride northward from dock)
 Flute (Tornado)
 Flute (open level 7)
 Enemy respawn (8 screen LRU)
 Save enemy count per screen
 Implement forest maze and up up mountain
 Show letter to old woman for potions
-Dungeons & music
 Dungeon enemies and bosses
  Bats use peahat AI
 Dungeon palette changes for darkness (use candle)
@@ -763,3 +784,4 @@ Fix game over animation palette
 Animate going up/down cave (animate in bank 3) (move up/down 1 pixel every 4 frames, animate every 6 frames)
 Add Armos (activation and AI, moves by 1&0 or 1&2)
 Push rock to open secret cave (0 frames to start moving, moves every other frame)
+Raft (ride north/south from dock)
