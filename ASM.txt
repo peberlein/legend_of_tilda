@@ -137,7 +137,12 @@ A000-  High memory expansion (upper 24k)
 8C00   VDP RAM write data register
 8C02   VDP RAM write address register
 
+9000   Speech
 
+9800   GROM read data
+9802   GROM read address+1
+9C00   GROM write data
+9C02   GROM write address
 
 VDP Registers  (bit indexes are reversed)
 0  000000xx 6=M3 7=Ext vid enable
@@ -159,6 +164,7 @@ VR4 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Char pat table / >800  ]
 VR5 [   0  ] [ Sprite attribute table / >80                               ]
 VR6 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Sprite pat table / >800]
 VR7 [ Text color                      ] [ Background color                ]
+VST [ INTF ] [  5S  ] [   C  ] [  Fifth sprite number                     ]
 
 M3 M2 M1
  0  0  0  Graphics Mode I (32x24)
@@ -167,14 +173,14 @@ M3 M2 M1
  1  0  0  Bitmap Mode (32x24)
 
 Colors
-0 Transparent	8 Medium Red
-1 Black		9 Light Red
-2 Medium Green	A Dark Yellow
-3 Light Green	B Light Yellow
-4 Dark Blue	C Dark Green
-5 Light Blue	D Magenta
-6 Dark Red	E Gray
-7 Cyan		F White
+0 Transparent   8 Medium Red
+1 Black         9 Light Red
+2 Medium Green  A Dark Yellow
+3 Light Green   B Light Yellow
+4 Dark Blue	    C Dark Green
+5 Light Blue    D Magenta
+6 Dark Red      E Gray
+7 Cyan          F White
 
 Screen Image Table
 32x24 1 byte per character
@@ -256,6 +262,7 @@ TI Pin           Wire    Pin
 
 
 
+
 Instruction Formats
 Format Operands     [>80][>40][>20][>10][>08][>04][>02][>01][>80][>40][>20][>10][>08][>04][>02][>01]
 I      source,dest  [ Opcode      ][ B ][ Td     ][ destination(reg) ][ Ts     ][ source(reg)      ]
@@ -278,6 +285,77 @@ Ts and Td define the type of addressing for source and destination operand respe
 Source and dest contain the workspace register, use in the way indicated by the addressing mode.
 
 Immed operands also require an additional word to store the immediate value.
+
+LI 	>0200 	VIII 	reg,immed 	HGE
+AI 	>0220 	VIII 	reg,immed 	HGECO
+ANDI 	>0240 	VIII 	reg,immed 	HGE
+ORI 	>0260 	VIII 	reg,immed 	HGE
+CI 	>0280 	VIII 	reg,immed 	HGE
+STWP 	>02A0 	VIII 	reg 	        -
+STST 	>02C0 	VIII 	reg 	        -
+LWPI 	>02E0 	VIII 	immed 	        -
+LIMI 	>0300 	VIII 	immed 	        -
+IDLE 	>0340 	VII 	- 	        -
+RSET 	>0360 	VII 	- 	        -
+RTWP 	>0380 	VII 	- 	        All
+CKON 	>03A0 	VII 	- 	        -
+CKOF 	>03C0 	VII 	- 	        -
+LREX 	>03E0 	VII 	- 	        -
+BLWP 	>0400 	VI 	dest 	        -
+B 	>0440 	VI 	dest 	        -
+X 	>0480 	VI 	dest 	        depends
+CLR 	>04C0 	VI 	dest 	        -
+NEG 	>0500 	VI 	dest 	        HGECO
+INV 	>0540 	VI 	dest 	        HGE
+INC 	>0580 	VI 	dest 	        HGECO
+INCT 	>05C0 	VI 	dest 	        HGECO
+DEC 	>0600 	VI 	dest 	        HGECO
+DECT 	>0640 	VI 	dest 	        HGECO
+BL 	>0680 	VI 	dest 	        -
+SWPB 	>06C0 	VI 	dest 	        -
+SETO 	>0700 	VI 	dest 	        -
+ABS 	>0740 	VI 	dest 	        HGECO
+SRA 	>0800 	V 	reg,count 	HGEC
+SRL 	>0900 	V 	reg,count 	HGECO
+SLA 	>0A00 	V 	reg,count 	HGECO
+SRC 	>0B00 	V 	reg,count 	HGEC
+JMP 	>1000 	II 	PC-rel 	        Always
+JLT 	>1100 	II 	PC-rel 	        G=0 E=0
+JLE 	>1200 	II 	PC-rel 	        H=0 E=1
+JEQ 	>1300 	II 	PC-rel 	        E=1
+JHE 	>1400 	II 	PC-rel 	        H=1 E=1
+JGT 	>1500 	II 	PC-rel 	        G=1
+JNE 	>1600 	II 	PC-rel 	        E=0
+JNC 	>1700 	II 	PC-rel 	        C=0
+JOC 	>1800 	II 	PC-rel 	        C=1
+JNO 	>1900 	II 	PC-rel 	        O=0
+JL 	>1A00 	II 	PC-rel 	        H=0 E=0
+JH 	>1B00 	II 	PC-rel 	        H=1 E=0
+JOP 	>1C00 	II 	PC-rel 	        P=1
+SBO 	>1D00 	II 	bit 	        -
+SBZ 	>1E00 	II 	bit 	        -
+TB 	>1F00 	II 	bit 	        E
+COC 	>2000 	III 	source,reg 	E
+CZC 	>2400 	III 	source,reg 	E
+XOR 	>2800 	III 	source,reg 	HGE
+XOP 	>2C00 	IX 	source,xop# 	X
+LDCR 	>3000 	IV 	source,nbits 	HGECOP
+STCR 	>3400 	IV 	dest,nbits 	HGE P
+MPY 	>3800 	IX 	source,reg2 	-
+DIV 	>3C00 	IX 	source,reg2 	O
+SZC 	>4000 	I 	source,dest 	HGE
+SZCB 	>5000 	I 	source,dest 	HGE P
+S 	>6000 	I 	source,dest 	HGECO
+SB 	>7000 	I 	source,dest 	HGECOP
+C 	>8000 	I 	source,dest 	HGE
+CB 	>9000 	I 	source,dest 	HGE P
+A 	>A000 	I 	source,dest 	HGECO
+AB 	>B000 	I 	source,dest 	HGECOP
+MOV 	>C000 	I 	source,dest 	HGE
+MOVB 	>D000 	I 	source,dest 	HGE P
+SOC 	>E000 	I 	source,dest 	HGE
+SOCB 	>F000 	I 	source,dest 	HGEC P
+
 
 Opcode 	Value 	Fmt 	Operands 	Status
 A 	>A000 	I 	source,dest 	HGECO
@@ -317,7 +395,7 @@ JNO 	>1900 	II 	PC-rel 	        O=0
 JOC 	>1800 	II 	PC-rel 	        C=1
 JOP 	>1C00 	II 	PC-rel 	        P=1
 LDCR 	>3000 	IV 	source,nbits 	HGECOP
-LI 	>2000 	VIII 	reg,immed 	HGE
+LI 	>0200 	VIII 	reg,immed 	HGE
 LIMI 	>0300 	VIII 	immed 	        -
 LREX 	>03E0 	VII 	- 	        -
 LWPI 	>02E0 	VIII 	immed 	        -
@@ -363,75 +441,6 @@ O - Overflow - carry for signed arithmetic
 P - Parity - odd count of bits set to 1
 X - Xop - only for XOP instruction
 Interrupt Mask - set to 0 or 1, disallow interrupts - set to 2 to 15, allow interrupts
-
-AI 	>0220 	VIII 	reg,immed 	HGECO
-ANDI 	>0240 	VIII 	reg,immed 	HGE
-ORI 	>0260 	VIII 	reg,immed 	HGE
-CI 	>0280 	VIII 	reg,immed 	HGE
-STWP 	>02A0 	VIII 	reg 	        -
-STST 	>02C0 	VIII 	reg 	        -
-LWPI 	>02E0 	VIII 	immed 	        -
-LIMI 	>0300 	VIII 	immed 	        -
-IDLE 	>0340 	VII 	- 	        -
-RSET 	>0360 	VII 	- 	        -
-RTWP 	>0380 	VII 	- 	        All
-CKON 	>03A0 	VII 	- 	        -
-CKOF 	>03C0 	VII 	- 	        -
-LREX 	>03E0 	VII 	- 	        -
-BLWP 	>0400 	VI 	dest 	        -
-B 	>0440 	VI 	dest 	        -
-X 	>0480 	VI 	dest 	        depends
-CLR 	>04C0 	VI 	dest 	        -
-NEG 	>0500 	VI 	dest 	        HGECO
-INV 	>0540 	VI 	dest 	        HGE
-INC 	>0580 	VI 	dest 	        HGECO
-INCT 	>05C0 	VI 	dest 	        HGECO
-DEC 	>0600 	VI 	dest 	        HGECO
-DECT 	>0640 	VI 	dest 	        HGECO
-BL 	>0680 	VI 	dest 	        -
-SWPB 	>06C0 	VI 	dest 	        -
-SETO 	>0700 	VI 	dest 	        -
-ABS 	>0740 	VI 	dest 	        HGECO
-SRA 	>0800 	V 	reg,count 	HGEC
-SRL 	>0900 	V 	reg,count 	HGECO
-SLA 	>0A00 	V 	reg,count 	HGECO
-SRC 	>0B00 	V 	reg,count 	HGEC
-JMP 	>1000 	II 	PC-rel 	        Always
-JLT 	>1100 	II 	PC-rel 	        G=0 E=0
-JLE 	>1200 	II 	PC-rel 	        H=0 E=1
-JEQ 	>1300 	II 	PC-rel 	        E=1
-JHE 	>1400 	II 	PC-rel 	        H=1 E=1
-JGT 	>1500 	II 	PC-rel 	        G=1
-JNE 	>1600 	II 	PC-rel 	        E=0
-JNC 	>1700 	II 	PC-rel 	        C=0
-JOC 	>1800 	II 	PC-rel 	        C=1
-JNO 	>1900 	II 	PC-rel 	        O=0
-JL 	>1A00 	II 	PC-rel 	        H=0 E=0
-JH 	>1B00 	II 	PC-rel 	        H=1 E=0
-JOP 	>1C00 	II 	PC-rel 	        P=1
-SBO 	>1D00 	II 	bit 	        -
-SBZ 	>1E00 	II 	bit 	        -
-TB 	>1F00 	II 	bit 	        E
-COC 	>2000 	III 	source,reg 	E
-CZC 	>2400 	III 	source,reg 	E
-XOR 	>2800 	III 	source,reg 	HGE
-XOP 	>2C00 	IX 	source,xop# 	X
-LDCR 	>3000 	IV 	source,nbits 	HGECOP
-STCR 	>3400 	IV 	dest,nbits 	HGE P
-MPY 	>3800 	IX 	source,reg2 	-
-DIV 	>3C00 	IX 	source,reg2 	O
-SZC 	>4000 	I 	source,dest 	HGE
-SZCB 	>5000 	I 	source,dest 	HGE P
-S 	>6000 	I 	source,dest 	HGECO
-SB 	>7000 	I 	source,dest 	HGECOP
-C 	>8000 	I 	source,dest 	HGE
-CB 	>9000 	I 	source,dest 	HGE P
-A 	>A000 	I 	source,dest 	HGECO
-AB 	>B000 	I 	source,dest 	HGECOP
-MOV 	>C000 	I 	source,dest 	HGE
-MOVB 	>D000 	I 	source,dest 	HGE P
-SOC 	>E000 	I 	source,dest 	HGE
-SOCB 	>F000 	I 	source,dest 	HGEC P
 
 
 
