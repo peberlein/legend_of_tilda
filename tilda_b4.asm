@@ -10,8 +10,8 @@
 ;
 ; R2 = 0
 ;      1 game over screen
-;      2 load hero sprites (R3 = direction)
-;      3 load hero sprite attack stance (R3 = direction) TODO
+;      2 load hero sprites, walk and attack (R3 = direction)
+;      3 TODO load hero sprite attack stance (R3 = direction)
 ;      4
 ;      5 load hero sprites masked LEFT (R3 = direction, R4=count)
 ;      6 load hero sprites masked RIGHT (R3 = direction, R4=count)
@@ -659,7 +659,6 @@ DONE3
        BL @READ32            ; Restore saved scratchpad
 
        MOV @HEROSP,R5        ; Get hero YYXX
-       AI R5,>0100           ; Move Y down one
 
        LI   R0,BANK0         ; Load bank 0
        MOV  R13,R1           ; Jump to our return address
@@ -684,7 +683,7 @@ LENEMY
 
        MOV @FLAGS,R0
        MOV R0,R7
-       ANDI R7,DUNGON
+       ANDI R7,DUNLVL
        JNE LDUNGE           ; Load dungeon enemies
        ANDI R0,INCAVE
        JNE LCAVE            ; Load cave items instead
@@ -812,27 +811,6 @@ LCAVE
        CI R8,WRKSP+256        ; Clear sprite table
        JNE -!
 
-       ;LI R0,BANK4
-       ;LI R1,MAIN
-       ;LI R2,4                ; Link face direction up
-       ;BL @BANKSW
-
-       LI R3,DIR_UP
-       BL @LNKSPR
-
-
-       LI R9,5                ; Link walks upward for 5 frames
-!      BL @VSYNCM
-       LI R1,->100
-       BL @DOSPRT
-
-       DEC R9
-       JNE -!
-
-       BL @VSYNCM
-       BL @VSYNCM
-       BL @VSYNCM
-
 
        LI R5,SPRPAT+(76*32)   ; copy cave item sprites
        LI R9,SPRPAT+(8*32)    ; into enemies spots
@@ -873,9 +851,9 @@ LCAVE
 CAVERT
        B @DONE3
 
-CAVDAT DATA >D05F,>5748,>0000 ; Flame object id, location, sprite
-       DATA >D05F,>57A8,>0000 ; Flame object id, location, sprite
-       DATA >C0DF,>5778,>D00F ; Old man object id, location, sprite
+CAVDAT DATA >D05F,>5848,>0000 ; Flame object id, location, sprite
+       DATA >D05F,>58A8,>0000 ; Flame object id, location, sprite
+       DATA >C0DF,>5878,>D00F ; Old man object id, location, sprite
 
 
 

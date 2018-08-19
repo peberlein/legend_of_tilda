@@ -55,6 +55,10 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 
 ; 3000:3fff Music Sound List (would it be better in banked ROM?)
 
+; TODO Enemy Status Bytes (32 bytes = 20)
+;  Drop table type
+;  Stunnable by boomerang
+;  Killable by boomerang
 
 ; TODO 1000:17FF Dungeon Pattern Descriptor Table
 
@@ -83,6 +87,7 @@ SDDUNG EQU  SDATA+64 ; Save Data - dungeon items collected, 256 bits = 32 bytes
 
 MUSICV EQU  >3000    ; Music Base Address in VDP RAM (4k space)
 
+ENEMDT EQU  >0760    ; Enemy drop table, status flags
 ENEMHS EQU  >07A0    ; Enemy hurt/stun counters interleaved:
                      ; stun: count=6bits
                      ; hurt: direction=2bits count=6bits
@@ -213,13 +218,14 @@ EDG_C  EQU  KEY_C*256
 OBJPTR EQU  WRKSP+56        ; Object pointer for processing sprites
 COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16:[4..0]
 RAND16 EQU  WRKSP+60        ; Random state
+CAVTYP EQU  WRKSP+62        ; Cave type (NPC / dungeon)
 
 * RAM   00     01     02     03     04     05     06     07
 * 8320  TRACK1        SOUND1        TRACK2        SOUND2
 * 8328  TRACK3        SOUND3        TRACK4        SOUND4
 * 8330  MOVE12        HFLAGS        HFLAG2        KEY_FL
-* 8338  OBJPTR        COUNTR        RAND16        _____________
-* 8340  HURTC         MAPLOC RUPEES KEYS   BOMBS  HP     HEARTS
+* 8338  OBJPTR        COUNTR        RAND16        CAVTYP ______
+* 8340  HURTC  ______ MAPLOC RUPEES KEYS   BOMBS  HP     HEARTS
 * 8348  DOOR          FLAGS         SWRDOB        BSWDOB
 * 8350  ARRWOB        BMRGOB        FLAMOB        BOMBOB
 * 8358  enemies
@@ -240,7 +246,6 @@ DOOR   EQU  OBJECT+8        ; YYXX position of doorway or secret
 FLAGS  EQU  OBJECT+10       ; Various Flags
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
-DUNGON EQU  >0004            ; TODO Inside dungeon
 
 PUSHC  EQU  >00F0            ; pushing block counter 0..14
 
@@ -251,7 +256,7 @@ DIR_DN EQU  >0200
 DIR_UP EQU  >0300
 SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
 ENEDGE EQU  >0800            ; TODO Enemies load from edge of screen
-DUNLVL EQU  >F000            ; Current dungeon level 0-8
+DUNLVL EQU  >F000            ; Current dungeon level 1-9 (0=overworld)
 * TODO MOVE12 in here
 
 
@@ -393,9 +398,48 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 ; number of rupees, keys and bombs, max hearts,
 ; and number of enemies remaining on each screen (reset at game start)
 
+* Some sprites and color
+CLOUD1 EQU >D00F    ; Cloud full
+CLOUD2 EQU >D40F    ; Cloud mid
+CLOUD3 EQU >D80F    ; Cloud sparse
+BULLSC EQU >6006    ; Octorok bullet, red
+FARYSC EQU >F409    ; Fairy
+HRT2SC EQU >C806    ; Heart
+SPARK  EQU >DC0F    ; Spark, white
+BOOMSC EQU >900A    ; normal boomerang, brown
+MBOMSC EQU >9004    ; magic boomerang, blue
+MRODC  EQU >1804    ; Magic Rod sprite, blue
+ARMOSC EQU >6000    ; Armos, transparent
+PULSE  EQU >280A    ; Pulsing sprite, dark yellow
+RAFTSC EQU >1C0A    ; Raft sprite index, dark yellow
 
 
-
+BSWDID EQU >0014 ; Beam Sword ID
+MAGCID EQU >0015 ; Magic ID
+BPOPID EQU >0040 ; Beam Sword/Magic Pop ID (SOC on BSWDID or MAGCID)
+BSPLID EQU >0816 ; Beam Sword Splash ID with initial counter
+DEADID EQU >1218 ; Dead Enemy Pop ID w/ counter=18
+RUPYID EQU >5020 ; Rupee ID with initial counter
+BRPYID EQU >5021 ; Blue Rupee ID with initial counter
+HARTID EQU >5022 ; Heart ID with initial counter
+FARYID EQU >5023 ; Fairy ID with initial counter
+ZORAID EQU >0010 ; Zora ID
+BOMBID EQU >4C19 ; Bomb ID with initial counter
+FLAMID EQU >5D11 ; Flame ID with initial counter
+BMFMID EQU >BF11 ; Book of Magic Flame ID with initial counter
+BMRGID EQU >001A ; Boomerang ID
+ARRWID EQU >001D ; Arrow ID
+SPRKID EQU >00DE ; Spark ID with initial counter=3
+CAVEID EQU >001F ; Cave NPC ID
+ITEMID EQU >001B ; Cave item ID
+TEXTID EQU >0024 ; Cave Message Texter ID
+BULLID EQU >001C ; Octorok bullet ID
+FRY2ID EQU >0012 ; Fairy at pond ID
+HRT2ID EQU >0013 ; Heart that spins around fairy ID
+SPOFID EQU >001E ; Sprite off (Spark ID with initial counter=0)
+IDLEID EQU >0040 ; Idle object, jumps to OBNEXT but nonzero so it can't be reused
+ARMOID EQU >FC17 ; Armos ID and initial counter
+ROCKID EQU >8025 ; Rock ID and initial counter
 
 
 

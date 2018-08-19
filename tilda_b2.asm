@@ -10,17 +10,8 @@
        
 ; Load a map into VRAM
 ; Load map screen from MAPLOC
-; Use transition in R2
-; (transition is actually performed in bank 5)
-;      0=none
-;      1=scroll up
-;      2=down
-;      3=left
-;      4=right
-;      5=wipe from center
-;      6=cave in
-;      7=cave out
 ; Modifies R0-R12,R15
+; R2=5 (load overworld tileset)
 MAIN
        MOV R11,R12          ; Save return address for later
 
@@ -34,42 +25,7 @@ MAIN
        DEC R1
        JNE -!
 
-       MOV R2,R3
-       CI R3,5              ; Load initial color table on WIPE
-       JNE !
 
-INWIPE   ;  Initial wipe
-       BL @CLRSCN
-
-       MOV R12,@DOOR
-       LI R0,BANK3
-       LI R1,MAIN
-       LI R2,3             ; Load overworld tileset
-       BL @BANKSW
-       LI R3,5           ; wipe from center
-       MOV @DOOR,R12
-
-       LI   R0,CLRTAB+VDPWM         ; Color table
-       LI   R1,CLRSET
-       LI   R2,32
-       BL   @VDPW
-
-       LI   R0,MCLRTB+VDPWM         ; Menu Color table
-       LI   R1,CLRSET
-       LI   R2,32
-       BL   @VDPW
-
-       LI   R0,MCLRTB+16+VDPWM      ; Menu Color table
-       LI   R1,MCLRST
-       LI   R2,10
-       BL   @VDPW
-
-       LI   R0,BCLRTB+VDPWM         ; Bright Color table
-       LI   R1,BCLRST
-       LI   R2,32
-       BL   @VDPW
-
-!
        ; Copy the top 3 rows from the current screen to the flipped screen
        LI   R6,VDPRD        ; Keep VDPRD address in R6
        LI   R10,SCRFLG+VDPWM
@@ -84,6 +40,20 @@ INWIPE   ;  Initial wipe
        DEC  R9
        JNE -!
 
+
+       B @SKIP
+
+
+
+
+       MOV R2,R3
+       CI R3,5              ; Load initial color table on WIPE
+       JNE !
+
+INWIPE   ;  Initial wipe
+       BL @CLRSCN
+
+!
        MOV R3,R2
        CI R2, 6      ; Cave in
        JNE !
@@ -94,9 +64,10 @@ INWIPE   ;  Initial wipe
 
        MOV @FLAGS,R0
        MOV R0,R1
-       ANDI R0,DUNGON     ; Test for dungeon
+       ANDI R0,DUNLVL     ; Test for dungeon
        JEQ CAVEX
 
+       MOV @FLAGS,R1
        ANDI R1,DUNLVL
        SRL R1,8
        MOV R1,R0
@@ -104,12 +75,12 @@ INWIPE   ;  Initial wipe
        A R0,R1      ; R1 = dungeon level * 5 * 4
 
        LI   R0,CLRTAB+(3*4)       ; Color table
-       AI   R1,DUNSET+(3*4)
+       ;AI   R1,DUNSET+(3*4)
        LI   R2,5*4
        BL   @VDPW
 
        LI   R0,CLRTAB       ; Color table
-       LI   R1,DUNSET
+       ;LI   R1,DUNSET
        LI   R2,3*4
        BL   @VDPW
 
@@ -129,31 +100,38 @@ INWIPE   ;  Initial wipe
        JMP !!
 CAVEX
 
-       CLR  @DOOR            ; Clear door location inside cave
-
-       LI   R0,CLRTAB+15
-       LI   R1,>1E00        ; Use gray on black palette for warp stairs
-       BL   @VDPWB
-       LI   R0,>B178        ; Put hero at cave entrance
-       MOV  R0,@HEROSP      ; Update color sprite
-       MOV  R0,@HEROSP+4    ; Update outline sprite
-       LI   R0,LEVELA+VDPWM  ; R0 is screen table address in VRAM (with write bits)
-       LI   R3,CAVE          ; Use cave layout
-       JMP  STINIT
 !
        CI R2, 7       ; Cave out
        JNE !
        BL @CLRCAV     ; Clear cave background
 !
 
+SKIP
+
        CLR  R3
        MOVB @MAPLOC,R3      ; Get MAPLOC as >YX00
 
        MOV @FLAGS,R0
-       ANDI R0,DUNGON     ; Test for dungeon
+       ANDI R0,INCAVE
+       JEQ !
+
+       CLR  @DOOR            ; Clear door location inside cave
+
+       LI   R0,CLRTAB+15
+       LI   R1,>1E00        ; Use gray on black palette for warp stairs
+       BL   @VDPWB
+
+       LI   R0,LEVELA+VDPWM  ; R0 is screen table address in VRAM (with write bits)
+       LI   R3,CAVE          ; Use cave layout
+       JMP  STINIT
+
+!
+       MOV @FLAGS,R0
+       ANDI R0,DUNLVL     ; Test for dungeon
        JEQ !
        B @GODUNG          ; Dungeon strips
 !
+
 
        MOV R3,R1            ; Get door/secret location from MAPLOC
        SWPB R1
@@ -309,16 +287,9 @@ ENDPAL AI   R6,3
 
 ; TODO Show secret if persistent bit is set
        BL @TESTSC
-JMPMOD
-       LI   R6,VDPRD        ; Keep VDPRD address in R6
-       
-       LI R0,BANK5       ; Use R2=transition in bank 5
-       LI R1,MAIN
-       MOV R12,R11       ; Restore saved return address
-       B @BANKSW
 
 DONE
-       LI R0,>000A-(10*256)
+       LI R0,>000A-(9*256)
        MOVB @MAPLOC,R1      ; Mapdot Y = MAPDOT[(MAPLOC & 0x7000) >> 12]
        ANDI R1,>7000
        SRL R1,4
@@ -338,18 +309,6 @@ DONE
        MOV R12,R11            ; Restore our return address
        B    @BANKSW
 
-DONE3
-       LI R0,SCHSAV
-       BL @READ32            ; Restore saved scratchpad
-
-       MOV @HEROSP,R5        ; Get hero YYXX
-       AI R5,>0100           ; Move Y down one
-
-       LI   R0,BANK0         ; Load bank 0
-       MOV  R12,R1           ; Jump to our return address
-       B    @BANKSW
-
-
 
 
 ; Test for vsync and play music if set
@@ -365,14 +324,6 @@ VMUSIC
        RT
 
 
-; Add R1 to hero sprite YYXX, and update VDP sprite list
-DOSPRT
-       A R1,@HEROSP
-       A R1,@HEROSP+4
-       LI R0,SPRTAB+(HEROSP-SPRLST)
-       LI R1,HEROSP
-       LI R2,8
-       B @VDPW
 
 ; Copy scratchpad to the screen at R0
 ; Modifies R0,R1,R2
@@ -416,17 +367,6 @@ READ31
        JMP READ3           ; Use loop in READ32 minus 1
 
 
-; Flip the current page, the visible page is stored in VDP2 and SCRPTR
-; Modifies R0
-FLIP   LI   R0,SCRFLG      ; Screen flag mask
-       XOR  @FLAGS,R0      ; Get flags into R0 with screen flag toggled
-       MOV  R0,@FLAGS      ; Save the updated flags word
-       ANDI R0,SCRFLG      ; Mask only the screen flag
-       SRL  R0,10          ; Lower 10 bits of screen table are not used
-       ORI  R0,>8200       ; VDP Register 2: Screen Table 1
-       MOVB @R0LB,*R14      ; Send low byte of VDP register
-       MOVB R0,*R14         ; Send high byte of VDP register
-       RT
 
 
 CLRCAV
@@ -530,9 +470,9 @@ TESTS2 RT
 
 WORLD  BCOPY "overworld.bin" ; World strip indexes 16*8*16 bytes
 WORLDE
-CAVE   EQU WORLD+>800       ; Cave strips 16 bytes
-STRIPO EQU WORLD+>810       ; Strip offsets 16 words
-STRIPB EQU WORLD+>830       ; Strip base (variable size)
+CAVE   EQU WORLD+>800       ; Cave strips 48 bytes
+STRIPO EQU WORLD+>830       ; Strip offsets 16 words
+STRIPB EQU WORLD+>850       ; Strip base (variable size)
  
 ;   outer inner Palette options
 ; 0 brown brown 000 
@@ -622,6 +562,13 @@ MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
        DATA >7475,>7677  ; Brown brick Hidden path
        DATA >E0E9,>E1EA  ; Water edge E
 
+       ; These are for dungeon underground (item room or passage)
+       DATA >F7F7,>F7F7  ; Solid black square
+       DATA >7272,>7272  ; Gray Brick
+       DATA >6767,>6767  ; Ladder
+       DATA >F7F7,>2020  ; Passable black square
+
+
 MTGREY ; white metatiles
        DATA >0808,>0808  ; Grey Ground
        DATA >0A0B,>0A0B  ; Grey Ladder
@@ -652,140 +599,47 @@ PALMTG BYTE >00,>03,>04,>05,>06,>08,>09,>1A,>24,>27  ; green conversions
 PALMTE
 
 
-; Master is sprites.mag
 
-****************************************
-* Overworld Colorset Definitions
-****************************************
-CLRSET BYTE >1B,>1E,>4B,>61            ;
-       BYTE >F1,>F1,>F1,>F1            ;
-       BYTE >F1,>F1,>F1,>F1            ;
-       BYTE >6B,>1B,>16,>1C            ;
-       BYTE >1C,>1C,>CB,>6B            ;
-       BYTE >16,>16,>16,>16            ;
-       BYTE >16,>16,>1B,>4B            ;
-       BYTE >4B,>4B,>1F,>41            ;
-
-****************************************
-* Menu Colorset Definitions starting at char >80
-****************************************
-MCLRST BYTE >A1,>A1,>A1,>41            ;
-       BYTE >41,>41,>41,>61            ;
-       BYTE >61,>61
-
-****************************************
-* Bright Colorset Definitions
-****************************************
-BCLRST BYTE >EF,>EF,>EF,>FE            ;
-       BYTE >FE,>FE,>FE,>FE            ;
-       BYTE >FE,>FE,>FE,>FE            ;
-       BYTE >EF,>EF,>EF,>EF            ;
-       BYTE >EF,>EF,>EF,>EF            ;
-       BYTE >EF,>EF,>EF,>EF            ;
-       BYTE >EF,>EF,>EF,>EF            ;
-       BYTE >EF,>EF,>EF,>FE            ;
-
-****************************************
-* Dungeon Colorset Definitions
-****************************************
-DUNSET BYTE >1B,>1B,>1B,>61            ;
-       BYTE >F1,>F1,>F1,>F1            ;
-       BYTE >F1,>F1,>F1,>F1            ;
-
-       BYTE >47,>17,>17,>75            ; Level-1
-       BYTE >47,>47,>47,>47            ; Level-1
-       BYTE >47,>47,>47,>47            ; Level-1
-       BYTE >47,>17,>17,>17            ; Level-1
-       BYTE >17,>4E,>41,>41            ; Level-1
-
-       BYTE >14,>14,>15,>54            ; Level-2
-       BYTE >15,>14,>14,>14            ; Level-2
-       BYTE >14,>14,>14,>14            ; Level-2
-       BYTE >14,>14,>14,>14            ; Level-2
-       BYTE >14,>48,>41,>41            ; Level-2
-
-       BYTE >12,>12,>12,>2C            ; Level-3
-       BYTE >13,>12,>12,>12            ; Level-3
-       BYTE >12,>12,>12,>12            ; Level-3
-       BYTE >12,>12,>12,>12            ; Level-3
-       BYTE >12,>C6,>41,>41            ; Level-3
-
-       BYTE >1A,>1A,>1A,>BA            ; Level-4
-       BYTE >4B,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>A4,>41,>41            ; Level-4
-
-       BYTE >C3,>12,>12,>32            ; Level-5
-       BYTE >13,>C3,>C3,>C3            ; Level-5
-       BYTE >C3,>C3,>C3,>C3            ; Level-5
-       BYTE >C3,>13,>13,>13            ; Level-5
-       BYTE >13,>16,>41,>41            ; Level-5
-
-       BYTE >1A,>1A,>1A,>BA            ; Level-6
-       BYTE >6B,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>A6,>41,>41            ; Level-6
-
-       BYTE >C3,>12,>12,>32            ; Level-7
-       BYTE >13,>C3,>C3,>C3            ; Level-7
-       BYTE >C3,>C3,>C3,>C3            ; Level-7
-       BYTE >C3,>13,>13,>13            ; Level-7
-       BYTE >13,>15,>41,>41            ; Level-7
-
-       BYTE >1E,>1E,>1E,>FE            ; Level-8
-       BYTE >1F,>1E,>1E,>1E            ; Level-8
-       BYTE >1E,>1E,>1E,>1E            ; Level-8
-       BYTE >1E,>1E,>1E,>1E            ; Level-8
-       BYTE >1E,>E4,>41,>41            ; Level-8
-
-       BYTE >1E,>1E,>1E,>FE            ; Level-9
-       BYTE >1F,>1E,>1E,>1E            ; Level-9
-       BYTE >1E,>1E,>1E,>1E            ; Level-9
-       BYTE >1E,>1E,>1E,>1E            ; Level-9
-       BYTE >1E,>1E,>41,>41            ; Level-9
 
 
 ; Note: must preserve R2,R12
 ; R3 = MAPLOC
 GODUNG
-       CI R2,2        ; Down?
-       JNE !
-       MOV R3,R0
-       ANDI R0,>7000  ; at bottom of dungeon?
-       JNE !
-
-       ; exiting dungeon
-       LI R0,MAPSAV
-       BL @VDPRB
-       MOVB R1,@MAPLOC   ; Restore saved overworld map location
-
-       SRL R1,8
-       MOVB @DOORS(R1),R0   ; Lookup in DOORS table
-       MOV  R0,R1           ; Convert >YX00 to >Y0X0
-       ANDI R0,>F000
-       ANDI R1,>0F00
-       SRL  R1,4
-       SOC  R1,R0           ; (SOC is OR)
-       AI   R0,>1800
-       MOV  R0,@DOOR        ; Store it
-
-       MOV  @DOOR,R5        ; Move link to door location
-       AI R5,->0100         ; Move Y up one
-       MOV R5,@HEROSP	    ; Update color sprite
-       MOV R5,@HEROSP+4     ; Update outline sprite
-       LI R0,SPRTAB+(HEROSP-SPRLST)
-       LI R1,>D000
-       BL @VDPWB            ; Turn off hero sprite
-
-       LI R0,DUNGON+DUNLVL
-       SZC R0,@FLAGS     ; Clear dungeon flag
-       LI R2,5           ; Wipe
-       B @INWIPE
-
-!
-
+;       CI R2,2        ; Down?
+;       JNE !
+;       MOV R3,R0
+;       ANDI R0,>7000  ; at bottom of dungeon?
+;       JNE !
+;
+;       ; exiting dungeon
+;       LI R0,MAPSAV
+;       BL @VDPRB
+;       MOVB R1,@MAPLOC   ; Restore saved overworld map location
+;
+;       SRL R1,8
+;       MOVB @DOORS(R1),R0   ; Lookup in DOORS table
+;       MOV  R0,R1           ; Convert >YX00 to >Y0X0
+;       ANDI R0,>F000
+;       ANDI R1,>0F00
+;       SRL  R1,4
+;       SOC  R1,R0           ; (SOC is OR)
+;       AI   R0,>1800
+;       MOV  R0,@DOOR        ; Store it
+;
+;       MOV  @DOOR,R5        ; Move link to door location
+;       MOV R5,@HEROSP	    ; Update color sprite
+;       MOV R5,@HEROSP+4     ; Update outline sprite
+;       LI R0,SPRTAB+(HEROSP-SPRLST)
+;       LI R1,>D000
+;       BL @VDPWB            ; Turn off hero sprite
+;
+;       LI R0,DUNGON+DUNLVL
+;       SZC R0,@FLAGS     ; Clear dungeon flag
+;       LI R2,5           ; Wipe
+;       B @INWIPE
+;
+;!
+       CLR @DOOR          ; TODO maybe this should be somewhere else
 
        LI R10,LEVELA+(4*32)+4+VDPWM  ; First metatile location + write mask
        SRL R3,8             ; Map location
@@ -906,9 +760,7 @@ STDUN3
        LI R1,NWALL
        BL @DVDOOR      ; Draw north door or wall
 
-
-
-       B @JMPMOD   ; Jump to mode
+       B @DONE   ; Jump to mode
 
 DVDOOR  ; Draw vertical door
        LI R4,3

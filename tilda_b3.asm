@@ -12,11 +12,8 @@ CLRSAV EQU WRKSP+>20
 
 ; Load title screen
 ; R2 = 0 title screen
-;      1
-;      2
-;      3 load overworld tiles (return to bank 2)
-;      4
-;      5 load dungeon tiles and screen (return to bank 2)
+;      1 load overworld tiles
+;      2 load dungeon tiles and screen
 MAIN
        MOV R11,R13      ; Save return address for later
        LI R11,DONE2     ; LNKSPR needs this
@@ -24,7 +21,7 @@ MAIN
        MOV @JMPTBL(R2),R2
        B *R2
 
-JMPTBL DATA MAIN2,DONE2,DONE2,OWTILE,DONE2,DNTILE
+JMPTBL DATA MAIN2,OWTILE,DNTILE
 
 MAIN2
 
@@ -202,7 +199,6 @@ DONE2  LI   R0,BANK0         ; Load bank 0
        B    @BANKSW
 DONE3
        MOV @HEROSP,R5         ; Get hero YYXX
-       AI R5,>0100            ; Move Y down one
        JMP DONE2
 
 KEYTST
@@ -221,6 +217,40 @@ KEYTST
        JNE DONE           ; Sword key down
        RT
 
+
+; Master is sprites.mag
+
+****************************************
+* Overworld Colorset Definitions
+****************************************
+CLRSET BYTE >1B,>1E,>4B,>61            ;
+       BYTE >F1,>F1,>F1,>F1            ;
+       BYTE >F1,>F1,>F1,>F1            ;
+       BYTE >6B,>1B,>16,>1C            ;
+       BYTE >1C,>1C,>CB,>6B            ;
+       BYTE >16,>16,>16,>16            ;
+       BYTE >16,>16,>1B,>4B            ;
+       BYTE >4B,>4B,>1F,>41            ;
+
+****************************************
+* Menu Colorset Definitions starting at char >80
+****************************************
+MCLRST BYTE >A1,>A1,>A1,>41            ;
+       BYTE >41,>41,>41,>61            ;
+       BYTE >61,>61
+
+****************************************
+* Bright Colorset Definitions
+****************************************
+BCLRST BYTE >EF,>EF,>EF,>FE            ;
+       BYTE >FE,>FE,>FE,>FE            ;
+       BYTE >FE,>FE,>FE,>FE            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>EF            ;
+       BYTE >EF,>EF,>EF,>FE            ;
+
 OWTILE
        ;TODO turn off screen for faster VDP memory access
        LI R0,>01A5          ; VDP Register 1: Blank screen
@@ -237,13 +267,96 @@ OWTILE
        LI R7,CAVTXT       ; decompress tiles
        BL @DAN2DC   ; Dan2 decompress
 
+       LI   R0,CLRTAB+VDPWM         ; Color table
+       LI   R1,CLRSET
+       LI   R2,32
+       BL   @VDPW
+
+       LI   R0,MCLRTB+VDPWM         ; Menu Color table
+       LI   R1,CLRSET
+       LI   R2,32
+       BL   @VDPW
+
+       LI   R0,MCLRTB+16+VDPWM      ; Menu Color table
+       LI   R1,MCLRST
+       LI   R2,10
+       BL   @VDPW
+
+       LI   R0,BCLRTB+VDPWM         ; Bright Color table
+       LI   R1,BCLRST
+       LI   R2,32
+       BL   @VDPW
+
+
        ;TODO turn on screen
        LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
        BL @VDPREG
 
-       LI   R0,BANK2         ; Load bank 2
+       LI   R0,BANK0         ; Load bank 0
        MOV  R13,R1           ; Jump to our return address
        B    @BANKSW
+
+
+****************************************
+* Dungeon Colorset Definitions
+****************************************
+DUNSET BYTE >1B,>1B,>1B,>61            ;
+       BYTE >F1,>F1,>F1,>F1            ;
+       BYTE >F1,>F1,>F1,>F1            ;
+
+       BYTE >47,>17,>17,>75            ; Level-1
+       BYTE >47,>47,>47,>47            ; Level-1
+       BYTE >47,>47,>47,>47            ; Level-1
+       BYTE >47,>17,>17,>17            ; Level-1
+       BYTE >17,>4E,>41,>41            ; Level-1
+
+       BYTE >14,>14,>15,>54            ; Level-2
+       BYTE >15,>14,>14,>14            ; Level-2
+       BYTE >14,>14,>14,>14            ; Level-2
+       BYTE >14,>14,>14,>14            ; Level-2
+       BYTE >14,>48,>41,>41            ; Level-2
+
+       BYTE >12,>12,>12,>2C            ; Level-3
+       BYTE >13,>12,>12,>12            ; Level-3
+       BYTE >12,>12,>12,>12            ; Level-3
+       BYTE >12,>12,>12,>12            ; Level-3
+       BYTE >12,>C6,>41,>41            ; Level-3
+
+       BYTE >1A,>1A,>1A,>BA            ; Level-4
+       BYTE >4B,>1A,>1A,>1A            ; Level-4
+       BYTE >1A,>1A,>1A,>1A            ; Level-4
+       BYTE >1A,>1A,>1A,>1A            ; Level-4
+       BYTE >1A,>A4,>41,>41            ; Level-4
+
+       BYTE >C3,>12,>12,>32            ; Level-5
+       BYTE >13,>C3,>C3,>C3            ; Level-5
+       BYTE >C3,>C3,>C3,>C3            ; Level-5
+       BYTE >C3,>13,>13,>13            ; Level-5
+       BYTE >13,>16,>41,>41            ; Level-5
+
+       BYTE >1A,>1A,>1A,>BA            ; Level-6
+       BYTE >6B,>1A,>1A,>1A            ; Level-6
+       BYTE >1A,>1A,>1A,>1A            ; Level-6
+       BYTE >1A,>1A,>1A,>1A            ; Level-6
+       BYTE >1A,>A6,>41,>41            ; Level-6
+
+       BYTE >C3,>12,>12,>32            ; Level-7
+       BYTE >13,>C3,>C3,>C3            ; Level-7
+       BYTE >C3,>C3,>C3,>C3            ; Level-7
+       BYTE >C3,>13,>13,>13            ; Level-7
+       BYTE >13,>15,>41,>41            ; Level-7
+
+       BYTE >1E,>1E,>1E,>FE            ; Level-8
+       BYTE >1F,>1E,>1E,>1E            ; Level-8
+       BYTE >1E,>1E,>1E,>1E            ; Level-8
+       BYTE >1E,>1E,>1E,>1E            ; Level-8
+       BYTE >1E,>E4,>41,>41            ; Level-8
+
+       BYTE >1E,>1E,>1E,>FE            ; Level-9
+       BYTE >1F,>1E,>1E,>1E            ; Level-9
+       BYTE >1E,>1E,>1E,>1E            ; Level-9
+       BYTE >1E,>1E,>1E,>1E            ; Level-9
+       BYTE >1E,>1E,>41,>41            ; Level-9
 
 DNTILE
        ;TODO turn off screen for faster VDP memory access
@@ -260,11 +373,30 @@ DNTILE
        LI R7,LEVELA              ; decompress tiles
        BL @DAN2DC   ; Dan2 decompress
 
+
+       MOV @FLAGS,R1
+       ANDI R1,DUNLVL
+       SRL R1,8
+       MOV R1,R0
+       SRL R1,2
+       A R0,R1      ; R1 = dungeon level * 5 * 4
+
+       LI   R0,CLRTAB+(3*4)       ; Color table
+       AI   R1,DUNSET+(3*4)-(5*4)
+       LI   R2,5*4
+       BL   @VDPW
+
+       LI   R0,CLRTAB       ; Color table
+       LI   R1,DUNSET
+       LI   R2,3*4
+       BL   @VDPW
+
+
        ;TODO turn on screen
        LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
        BL @VDPREG
 
-       LI   R0,BANK2         ; Load bank 2
+       LI   R0,BANK0         ; Load bank 0
        MOV  R13,R1           ; Jump to our return address
        B    @BANKSW
 
