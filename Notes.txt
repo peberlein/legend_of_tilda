@@ -420,7 +420,7 @@ Armos, touch to activate
 
 Monster flags: hurt/stun=1bit
 Hurt state: 2 bits direction, 6 bits counter (stored in VDP)
-Stun state: 6 bits counter (stored in VDP)
+Stun state: 8 bits counter (stored in VDP, duration 157)
 (can be hurt or stunned independently: stun can wear off during hurt, etc)
 HP (stored in VDP)
 

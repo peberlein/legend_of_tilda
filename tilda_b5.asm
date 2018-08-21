@@ -1064,9 +1064,9 @@ COLIDE
 !      RT                 ; no collision
 
 
-       ; Hit test R5 with our hero
-       ; Enemy direction in R2: 0=right 2=left 4=down 6=up
-       ; Modifies R0,R3
+* Hit test R5 with our hero
+* Enemy direction in R2: 0=right 2=left 4=down 6=up
+* Modifies R0,R3
 LNKHIT
        MOV @HURTC,R0     ; Can't get hurt again if still flashing
        JNE -!
@@ -1721,8 +1721,11 @@ OCTOR2
        CI R4,51*>100  ; cloud animation?
        JHE OCTOR4
 
-       BL @HITEST
        BL @ANIM6     ; Animate - R0 contains counter
+
+       BL @HITEST
+
+       MOV @COUNTR,R0
        SLA R0,8
        JOC OBNXT     ; Move every other frame (unless it's fast octorok)
 
@@ -1781,8 +1784,9 @@ OCTRKF
        CI R4,51*>100 ; cloud animation?
        JHE OCTOR4
 
-       BL @HITEST
        BL @ANIM6
+
+       BL @HITEST
        JMP OCTOR3    ; Move every frame
 
 OCTOR4 ; cloud animation
@@ -1962,7 +1966,6 @@ LEEVER
        B @OBNEXT
 
 !      MOV @COUNTR,R0
-
        ANDI R0,>000F
        JNE LEEVR2
        AI R4,->0200    ; Decrement counter every 16 frames
@@ -1972,6 +1975,7 @@ LEEVER
        JNE !
        AI R4,35*>0200  ; Change counter to pulsing (down)
        LI R1,35
+       ANDI R4,~>0040  ; Clear hurt/stun bit
        JMP LHALF
 
 !      CI R1,16
@@ -2174,6 +2178,7 @@ ROCK2
        JMP DEAD2    ; SPROFF
 
 
+
 * test if sword is hitting enemy, and if enemy is hitting hero (LNKHIT)
 * modifies R0-R3 R7 R8
 HITEST
@@ -2182,6 +2187,7 @@ HITEST
        SRC R0,7   ; Get hurt/stun bit in carry flag
        JOC HSBIT
 
+HITES0
        ; get position of sword sprite
        LI R7,-(LASTSP-SWRDSP)
 HITES1
@@ -2244,11 +2250,6 @@ HITES1
 OBNXT4
        B @OBNEXT
 
-BMRHIT
-       CLR R0
-       MOVB R0,@BMRGOB       ; Set boomerang state to returning
-       JMP HITES2
-
 * Spawn item
 SPITEM
        MOV R4,R6
@@ -2258,12 +2259,53 @@ SPITEM
        BL @OBSLOT
        JMP -!
 
+BMRHIT
+       CLR R0
+       MOVB R0,@BMRGOB       ; Set boomerang state to returning
 
-HITES2 AI R7,4
+       ; Set stun counter to stun duration
+       LI R2,157*>100          ; Initial stun counter 157
+
+       ORI R4,>0040     ; Set hurt/stun bit
+
+       MOV @OBJPTR,R1       ; Get object idx
+       AI R1,ENEMHS+VDPWM   ; Put counter to VDP
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       MOVB R2,*R15         ; Enemy stun counter in R2
+       MOVB R0,*R15         ; Clear Enemy hurt counter
+
+       JMP HITES2
+
+
+HITES2 AI R7,4      ; Next object
        JNE HITES1
-       B  @LNKHIT
+
+       MOV R4,R0
+       SRC R0,7   ; Get hurt/stun bit in carry flag
+       JOC OBNXT4  ; Stun bit doesn't return to object movement
+
+       B  @LNKHIT  ; Test enemy hitting hero
+
 HITES3 RT
 
+
+HURT   ; Enemy hit by sword or beam
+       ORI R1,VDPWM
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       MOVB R2,*R15         ; Store updated HP in VDP
+
+       ORI R4,>0040         ; Set hurt/stun bit
+
+       MOV @LASTSP+2(R7),R2   ; Get sword sprite index in R2
+       ANDI R2,>0C00        ; Mask direction bits
+       SLA R2,4
+       ORI R2,>2000         ; Get new direction bits and hurt counter = 32
+
+       MOV @OBJPTR,R1       ; Get object idx
+       AI R1,ENEMHS         ; Get counters from VDP
+       JMP HURT2
 
 HSBIT   ; Enemy is hurt or stunned
        MOV @OBJPTR,R1       ; Get object idx
@@ -2272,15 +2314,21 @@ HSBIT   ; Enemy is hurt or stunned
        MOVB R1,*R14
        NOP
        MOVB @VDPRD,R2       ; Enemy stun counter in R2
-       SWPB R2
-       MOVB @VDPRD,R2       ; Enemy hurt counter in R2
+       SWPB R2              ; doesn't modify status flags
+       JEQ !
+       DEC R2               ; Decrement stun counter if nonzero
+!      MOVB @VDPRD,R2       ; Enemy hurt counter in R2
        JEQ STBIT
 
+       ; R2[15:14] direction of movement
+       ; R2[13:8]  hurt countdown
+       ; R2[7:0]   stun countdown
+
 HURT2  AI R2,-256           ; Decrement counter
-       INC R1
        ORI R1,VDPWM
        MOVB @R1LB,*R14
        MOVB R1,*R14
+       MOVB @R2LB,*R15      ; Store updated stun counter in VDP
        MOVB R2,*R15         ; Store updated Hurt counter in VDP
 
        MOV R2,R3
@@ -2316,26 +2364,17 @@ HURT2  AI R2,-256           ; Decrement counter
        B @OBNEXT
 
 
-HURT       ; Enemy hurt
-       ORI R1,VDPWM
+
+STBIT  ; Stun counter is nonzero
+
+       ORI R1,VDPWM     ; Set stun/HP write address in VDP
        MOVB @R1LB,*R14
        MOVB R1,*R14
-       MOVB R2,*R15         ; Store updated HP in VDP
+       MOVB @R2LB,*R15  ; Save decremented counter
+       JNE !   ; counter nonzero
+       ANDI R4,~>0040  ; Clear stun bit
+!      B @HITES0
 
-       ORI R4,>0040         ; Set hurt/stun bit
-
-       MOV @LASTSP+2(R7),R2   ; Get sword sprite index in R2
-       ANDI R2,>0C00        ; Mask direction bits
-       SLA R2,4
-       ORI R2,>2000         ; Get new direction bits and hurt counter = 32
-
-       MOV @OBJPTR,R1       ; Get object idx
-       AI R1,ENEMHS         ; Get counters from VDP
-       JMP HURT2
-
-
-STBIT
-       ; TODO
 
 
 
@@ -2512,6 +2551,8 @@ ARMOS
        MOV @ECOLOR+>2E,R6  ; change to light blue from white
 
 ARMOS2
+       BL @ANIM6     ; Animate - R0 contains counter
+
        BL @HITEST
 
        ANDI R6,>67FF  ; use down-facing sprite
@@ -2523,8 +2564,7 @@ ARMOS2
 !
 
 
-       BL @ANIM6     ; Animate - R0 contains counter
-
+       MOV @COUNTR,R0
        SLA R0,8
        JOC !
        BL @LEMOVE    ; move 1
