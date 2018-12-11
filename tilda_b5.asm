@@ -8,7 +8,7 @@
        COPY 'tilda.asm'
 
        
-; Use transition in R2
+; Use function in R2
 ;      0=do moving objects
 ;      1=draw status
 ; Modifies R0-R13,R15
@@ -36,7 +36,12 @@ OBJTAB DATA OBNEXT,PEAHAT,TKTITE,TKTITE  ; 0-3 - - Red Blue
        DATA TEXTER,ROCK                  ; 24-27
        ; 28-2B
        ; 2C-2F
-       ; TODO combine RUPEE,BRUPEE,HEART,FAIRY,
+       ; 30-33
+       ; 34-37
+       ; 38-3B
+       ; 3C-3F
+
+       ; TODO combine RUPEE,BRUPEE,HEART,FAIRY, other collectible items
 
 
 * Damage enemies do to attack hero
@@ -93,7 +98,7 @@ OBSTRT
        LI R1,7*2-2         ; Process sprites starting with flying sword (7)
 OBLOOP INCT R1
        CI R1,64            ; Stop after last sprite
-       JEQ DONE2
+       JEQ DONE
 
        MOV R1,@OBJPTR      ; Save pointer
        MOV @OBJECT(R1),R4  ; Get func index and data
@@ -114,27 +119,6 @@ OBLOOP INCT R1
 
 * Update map dot location, and load enemies thru bank4
 DONE
-       LI R0,>000A-(10*256)
-       MOVB @MAPLOC,R1      ; Mapdot Y = MAPDOT[(MAPLOC & 0x7000) >> 12]
-       ANDI R1,>7000
-       SRL R1,4
-       A R1,R0
-       A R1,R0
-       A R1,R0
-
-       MOVB @MAPLOC,R1      ; Mapdot X = ((MAPLOC & 0x0F00) >> 6) + 16
-       ANDI R1,>0F00
-       SRL  R1,6
-       A    R1,R0         ; Set XX
-       MOV  R0,@MPDTSP    ; Set Map Dot YYXX  (YY=16,20...76 XX=-13,-10,-7,-4,-1,2,5,8)
-
-       LI R0,BANK4
-       LI R1,MAIN
-       LI R2,10               ; Load enemies
-       MOV R12,R11            ; Restore our return address
-       B    @BANKSW
-
-DONE2
        LI   R0,BANK0         ; Load bank 0
        MOV  R12,R1           ; Jump to our return address
        B    @BANKSW
@@ -208,7 +192,7 @@ NUMBE4 MOVB R0,*R15        ; Write second digit
 * Modifies R0-R4,R7-R11,R13
 STATS  ; status called from another bank
        BL @STATUS
-       B @DONE2
+       B @DONE
 
 * Draw number of rupees, keys, bombs and hearts
 * Modifies R0-R3,R7-R11,R13
@@ -765,24 +749,59 @@ FLMDO2 CI R1,>9000  ; Green bush
 
        JMP FLAME0
 
+FLAME4
+       ; FIXME this should be right when the flame stops moving
+       MOV @FLAGS,R0
+       ANDI R0,DARKRM
+       JEQ !!      ; in a darkened room?
+
+       ; save sprite data because dan2 decompress will overwrite it
+       MOV @OBJPTR,R1       ; Get sprite index
+       MOV R4,@OBJECT(R1)   ; Save data
+       A R1,R1
+       MOV R5,@SPRLST(R1)   ; Save sprite pos
+       MOV R6,@SPRLST+2(R1) ; Save sprite id & color
+
+       ; save R12
+       LI R0,MAPSAV+1
+       MOV R12,R1
+       BL @VDPWB
+       MOVB @R12LB,*R15
+
+       LI R0,BANK2
+       LI R1,MAIN
+       LI R2,2         ; Light up via candle
+       BL @BANKSW
+
+       ; restore R12
+       LI R0,MAPSAV+1
+       BL @VDPRB
+       MOVB R1,R12
+       MOVB @VDPRD,@R12LB
+
+       MOV @OBJPTR,R1       ; Get sprite index
+       B @OBLOOP
 
 FLAME  CI R4,>FF00
-       JHE !!!
+       JHE FLAME3
        LI R0,>0100
        S  R0,R4
        C  R4,R0      ; Decrement counter
        JHE !
 FLAME2
+       ; FIXME don't do this in dungeon
        MOV @DOOR,R3    ; Check for door collision
        LI R2,FLMDOR
        BL @COLIDE
+
 FLAME0
        B @SPROFF
-!      CI R4,FLAMID
+!
+       CI R4,FLAMID
        JEQ FLAME2    ; Book of Magic flame?
        JH !
        CI R4,>3900   ; Stop moving after 36 frames
-       JLE !
+       JLE FLAME4
        LI R0,>0100   ; Move every other frame
        CZC R0,R4
        JNE !
@@ -795,7 +814,7 @@ FLAME0
        JEQ !
        A @EMOVED(R1),R5 ; Move
 !      BL @LNKHIT
-!      JMP BOMNXT
+FLAME3 JMP BOMNXT
 
 
 
@@ -2721,8 +2740,6 @@ CAVNP2 B @OBNEXT
        LI R4,CAVEID   ; Restore object id
        MOV R7,R5      ; Restore position
        MOV R8,R6      ; Restore sprite
-
-       ;B @DONE2       ; return to bank0
 
        JMP CAVNP2
 

@@ -29,6 +29,7 @@ R7LB   EQU  WRKSP+15          ; Register 7 low byte address
 R8LB   EQU  WRKSP+17          ; Register 8 low byte address
 R9LB   EQU  WRKSP+19          ; Register 9 low byte address
 R10LB  EQU  WRKSP+21          ; Register 10 low byte address
+R12LB  EQU  WRKSP+25          ; Register 12 low byte address
 R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 
 
@@ -45,7 +46,7 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 ; 0780:079F Menu Color Table (32 bytes = 20)
 ; 07A0:07DF Enemy Hurt/Stun Counters interleaved (64 bytes = 40)
 ; 07E0:07FF Enemy HP (32 bytes = 20)
-; 0800:0FFF Overworld Pattern Descriptor Table
+; 0800:0FFF Overworld/Dungeon Pattern Descriptor Table (256*8 = 800)
 ; 1000:1B7F Sprite Pattern Table (64*32 + 28*32 bytes = B80)
 ; 1B80:137F Enemy sprite patterns (64*32 bytes = 800)
 ; 2380:263F Level Screen Table (32*22 chars = 2C0)
@@ -55,12 +56,13 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 
 ; 3000:3fff Music Sound List (would it be better in banked ROM?)
 
+; TODO  Dark dungeon pattern backup (128*8 bytes = 400)
+
 ; TODO Enemy Status Bytes (32 bytes = 20)
 ;  Drop table type
 ;  Stunnable by boomerang
 ;  Killable by boomerang
 
-; TODO 1000:17FF Dungeon Pattern Descriptor Table
 
 
 SCR1TB EQU  >0000    ; Name Table 32*24 bytes (double-buffered)
@@ -243,21 +245,23 @@ KEYS   EQU  OBJECT+6        ; Key count max 9 or (or A for magic key)
 BOMBS  EQU  OBJECT+7        ; Bomb count (max 8,12,16)
 
 DOOR   EQU  OBJECT+8        ; YYXX position of doorway or secret
+
 FLAGS  EQU  OBJECT+10       ; Various Flags
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
+DARKRM EQU  >0004            ; TODO Dungeon room darkened
+MOVEBY EQU  >0008            ; TODO Move player by 1 or 2
 
-PUSHC  EQU  >00F0            ; pushing block counter 0..14
+PUSHC  EQU  >00F0            ; pushing block/keydoor counter 0..14
 
 DIR_XX EQU  >0300            ; Facing bits DIR_XX
 DIR_RT EQU  >0000
 DIR_LT EQU  >0100
 DIR_DN EQU  >0200
 DIR_UP EQU  >0300
-SCRFLG EQU  >0400            ; NOTE must be equal to SCR2TB
+SCRFLG EQU  >0400            ; Double-buffered screen flag, NOTE: must be equal to SCR2TB
 ENEDGE EQU  >0800            ; TODO Enemies load from edge of screen
 DUNLVL EQU  >F000            ; Current dungeon level 1-9 (0=overworld)
-* TODO MOVE12 in here
 
 
 
@@ -271,9 +275,9 @@ LASTOB EQU  OBJECT+24
 
 SPRLST EQU  WRKSP+128       ; 127 bytes sprite list, copied to VDP by SPRUPD
 MPDTSP EQU  SPRLST          ; 0 Address of status bar sprites (mapdot, item, sword, half-heart)
-HARTSP EQU  SPRLST+4        ; 1
-ITEMSP EQU  SPRLST+8        ; 2
-ASWDSP EQU  SPRLST+12       ; 3
+HARTSP EQU  SPRLST+4        ; 1 Life bar half-heart sprite
+ITEMSP EQU  SPRLST+8        ; 2 Selected item
+ASWDSP EQU  SPRLST+12       ; 3 Active sword
 HEROSP EQU  SPRLST+16       ; 4,5 Address of hero sprites (color and outline)
 SWRDSP EQU  SPRLST+24       ; 6 Sword/Magic Rod
 BSWDSP EQU  SPRLST+28       ; 7 Beam sword/Magic (Magic overrides beam sword)
@@ -361,6 +365,8 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 ; armos peahat
 ; armos lynel
 ; armos leever
+; armos moblin
+; armos octorok (near lvl-2) FIXME octorok bullet overwrites 1 frame of armos
 ; rocks zora
 
 ; Sprite list layout

@@ -540,6 +540,34 @@ Candle animate 4  move by 1 every other frame
 698 57 stop moving
 755    disappear
 
+Flute (Tornado)
+  start  015  freeze everything  (151)
+  stop   166  resume moving (poof on left size)  (1)
+         167  mid poof  (6)
+         173  last poof  (6)
+         179  tornado appears (color cycling white/orange, dark cyan/red, orange/red, white/teal)
+              switches left/right every frame, moving by 2
+         298  (119) blue flame?
+         299  off
+
+Warps to previously completed dungeon (triforce collected)  (See http://zelda.wikia.com/wiki/Recorder )
+What if no triforces are collected?
+
+Flute (level 7)
+  start 003  freeze everything  (152)
+        155  resume moving, pond med blue  (8)
+        163  light blue  (8)
+        171  cyan  (8)
+        179  light cyan  (8)
+        187  light purple  (8)
+        195  med purple  (8)
+        203  light red  (8)
+        211  light pink  (8)
+        219  light orange  (8)
+        227  light tan (same as ground)  (8)
+        235  stairs appear
+TI color sequence: light blue, cyan, white, gray, light red, med red, dark yellow, light yellow
+
 
 Menu screen - 3 rows of sprites and colors
 Raft (brown) Book (red/blue) Ring (blue/red) Ladder (brown) Dungeon Key (brown) Power Bracelet (red)
@@ -669,8 +697,7 @@ Tektite AI
 Bomb counter decrement
 Drops: bombs(4), fairy(3 hearts), clock(stun all enemies)
   Drop table and forced item drops (bomb 10th drops bomb)
-Enemy collision with Arrow, Boomerang, Candle, Bomb
-Enemy stun (requires boomerang or clock)
+Enemy collision with Arrow, Candle, Bomb
 Magic Rod (damage amount)
 Cave with steps + warp zone
   1 warp 2 4 3  (southcentral)
@@ -709,7 +736,6 @@ Implement forest maze and up up mountain
 Show letter to old woman for potions
 Dungeon enemies and bosses
  Bats use peahat AI
-Dungeon palette changes for darkness (use candle)
 Push locked door in dungeon to open (uses 1 key)
 Push block to open dungeon stairs (14 frames to start moving, moves every other frame)
 Dungeon caves with item or passage
@@ -720,8 +746,6 @@ Dungeon minimap (scroll within 8x6)
 Dungeon menu map
 Rupees increment or decrement by 1
 Hearts increment or decrement by .5  (fairy or heart)
-
-
 
 Continue/save/retry screen
 Character selection / enter your name
@@ -785,3 +809,5 @@ Animate going up/down cave (animate in bank 3) (move up/down 1 pixel every 4 fra
 Add Armos (activation and AI, moves by 1&0 or 1&2)
 Push rock to open secret cave (0 frames to start moving, moves every other frame)
 Raft (ride north/south from dock)
+Enemy stun (requires boomerang or clock)
+Dungeon palette changes for darkness (use candle)

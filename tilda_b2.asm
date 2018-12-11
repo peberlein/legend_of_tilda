@@ -10,10 +10,22 @@
        
 ; Load a map into VRAM
 ; Load map screen from MAPLOC
+; R2=0  load screen
+; R2=1  Light up darkened room (only call if DARKRM flag is set)
+; R2=2  Light up darkened room by candle (only call if DARKRM flag is set), returning to bank 5
 ; Modifies R0-R12,R15
-; R2=5 (load overworld tileset)
 MAIN
        MOV R11,R12          ; Save return address for later
+
+       DEC R2
+       JNE !
+       B @LITEUP         ; Light up after moving into new room
+!
+       DEC R2
+       JNE !
+       B @LITCDL         ; Light up after using candle
+!
+
 
        LI R0,SPRTAB+(6*4)
        LI R1,>D000
@@ -40,73 +52,6 @@ MAIN
        DEC  R9
        JNE -!
 
-
-       B @SKIP
-
-
-
-
-       MOV R2,R3
-       CI R3,5              ; Load initial color table on WIPE
-       JNE !
-
-INWIPE   ;  Initial wipe
-       BL @CLRSCN
-
-!
-       MOV R3,R2
-       CI R2, 6      ; Cave in
-       JNE !
-
-       BL @CLRSCN           ; Clear the screen so palette changes won't be visible
-       BL @VSYNCM
-
-
-       MOV @FLAGS,R0
-       MOV R0,R1
-       ANDI R0,DUNLVL     ; Test for dungeon
-       JEQ CAVEX
-
-       MOV @FLAGS,R1
-       ANDI R1,DUNLVL
-       SRL R1,8
-       MOV R1,R0
-       SRL R1,2
-       A R0,R1      ; R1 = dungeon level * 5 * 4
-
-       LI   R0,CLRTAB+(3*4)       ; Color table
-       ;AI   R1,DUNSET+(3*4)
-       LI   R2,5*4
-       BL   @VDPW
-
-       LI   R0,CLRTAB       ; Color table
-       ;LI   R1,DUNSET
-       LI   R2,3*4
-       BL   @VDPW
-
-       LI   R0,>9978        ; Put hero at cave entrance
-       MOV  R0,@HEROSP      ; Update color sprite
-       MOV  R0,@HEROSP+4    ; Update outline sprite
-
-
-       MOV R12,@DOOR
-       LI R0,BANK3
-       LI R1,MAIN
-       LI R2,5             ; Load dungeon tileset
-       BL @BANKSW
-       MOV @DOOR,R12
-
-       LI  R2,5             ; Use Wipe from center
-       JMP !!
-CAVEX
-
-!
-       CI R2, 7       ; Cave out
-       JNE !
-       BL @CLRCAV     ; Clear cave background
-!
-
-SKIP
 
        CLR  R3
        MOVB @MAPLOC,R3      ; Get MAPLOC as >YX00
@@ -504,7 +449,7 @@ DOORS  BYTE >00,>19,>00,>47,>1C,>65,>00,>4A,>00,>00,>12,>47,>18,>19,>45,>48
 
        
 MT00   DATA >A0A1,>A2A3  ; Brown Brick
-       DATA >0000,>0000  ; Ground
+       DATA >6464,>6464  ; Ground
        DATA >1415,>1415  ; Ladder
        DATA >A4A5,>ABAC  ; Brown top
        DATA >A7AE,>AF07  ; Brown corner SE
@@ -520,21 +465,21 @@ MT00   DATA >A0A1,>A2A3  ; Brown Brick
        DATA >E0E0,>E1E1  ; Water
        DATA >E0E0,>E2E2  ; Water edge S
 
-MT10   DATA >00ED,>0011  ; Water inner corner NE
-       DATA >EC00,>1000  ; Water inner corner NW
+MT10   DATA >64ED,>6411  ; Water inner corner NE
+       DATA >EC64,>1064  ; Water inner corner NW
        DATA >E7E8,>E1E9  ; Water corner NE
        DATA >E0E9,>E1EA  ; Water edge E
        DATA >E0EA,>E2EB  ; Water corner SE
-       DATA >00D0,>D2C8  ; Brown Dungeon NW
+       DATA >64D0,>D2C8  ; Brown Dungeon NW
        DATA >D3C9,>CBCA  ; Brown Dungeon SW
        DATA >C0C1,>C2C3  ; Brown Dungeon two eyes
-       DATA >D100,>CCD2  ; Brown Dungeon NE
+       DATA >D164,>CCD2  ; Brown Dungeon NE
        DATA >CDD3,>CECB  ; Brown Dungeon SE
        DATA >7071,>7273  ; Red Steps
        DATA >C4C5,>C6C7  ; White Dungeon one eye
        DATA >D4B0,>D5B0  ; Brown Tree NW
-       DATA >00B2,>00B3  ; Brown Tree SW
-       DATA >B400,>B500  ; Brown Tree NE
+       DATA >64B2,>64B3  ; Brown Tree SW
+       DATA >B464,>B564  ; Brown Tree NE
        DATA >B6D6,>B7D7  ; Brown Tree SE
 
 MT20   DATA >D8D9,>DADB  ; Waterfall
@@ -542,7 +487,7 @@ MT20   DATA >D8D9,>DADB  ; Waterfall
        DATA >B8B9,>BABB  ; Tree face
        DATA >F4F6,>F5F7  ; Gravestone
        DATA >9899,>9A9B  ; Bush
-       DATA >1200,>EE00  ; Water inner corner SW
+       DATA >1264,>EE64  ; Water inner corner SW
        DATA >6061,>6263  ; Sand
        DATA >1C1C,>1D1D  ; Red Bridge
        DATA >878E,>8F08  ; Grey corner SE
@@ -551,14 +496,14 @@ MT20   DATA >D8D9,>DADB  ; Waterfall
        DATA >8485,>8B8C  ; Grey top
        DATA >7879,>7A7B  ; Grey stairs
        DATA >F0F1,>F2F3  ; Grey bush
-       DATA >0062,>D2C8  ; Green Dungeon NW
+       DATA >6462,>D2C8  ; Green Dungeon NW
        DATA >D3C9,>CBCA  ; Green Dungeon SW
 
 MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
-       DATA >6300,>CCD2  ; Green Dungeon NE
+       DATA >6364,>CCD2  ; Green Dungeon NE
        DATA >2020,>2020  ; Black square
        DATA >DCDD,>DEDF  ; Armos
-       DATA >0013,>00EF  ; Water inner corner SE
+       DATA >6413,>64EF  ; Water inner corner SE
        DATA >7475,>7677  ; Brown brick Hidden path
        DATA >E0E9,>E1EA  ; Water edge E
 
@@ -599,52 +544,165 @@ PALMTG BYTE >00,>03,>04,>05,>06,>08,>09,>1A,>24,>27  ; green conversions
 PALMTE
 
 
+* Flip the current page, the visible page is stored in VDP2 and SCRPTR
+* Modifies R0
+FLIP   LI   R0,SCRFLG      ; Screen flag mask
+       XOR  @FLAGS,R0      ; Get flags into R0 with screen flag toggled
+       MOV  R0,@FLAGS      ; Save the updated flags word
+       ANDI R0,SCRFLG      ; Mask only the screen flag
+       SRL  R0,10          ; Lower 10 bits of screen table are not used
+       ORI  R0,>8200       ; VDP Register 2: Screen Table 1
+       MOVB @R0LB,*R14      ; Send low byte of VDP register
+       MOVB R0,*R14         ; Send high byte of VDP register
+       RT
 
 
+; Dark rooms should be darkened before transition and floor should be hidden
+; Going from dark to light room should lighten after transition and floor should be shown
+; Using candle should lighten, and re-render floor
 
-; Note: must preserve R2,R12
-; R3 = MAPLOC
-GODUNG
-;       CI R2,2        ; Down?
-;       JNE !
-;       MOV R3,R0
-;       ANDI R0,>7000  ; at bottom of dungeon?
-;       JNE !
-;
-;       ; exiting dungeon
-;       LI R0,MAPSAV
-;       BL @VDPRB
-;       MOVB R1,@MAPLOC   ; Restore saved overworld map location
-;
-;       SRL R1,8
-;       MOVB @DOORS(R1),R0   ; Lookup in DOORS table
-;       MOV  R0,R1           ; Convert >YX00 to >Y0X0
-;       ANDI R0,>F000
-;       ANDI R1,>0F00
-;       SRL  R1,4
-;       SOC  R1,R0           ; (SOC is OR)
-;       AI   R0,>1800
-;       MOV  R0,@DOOR        ; Store it
-;
-;       MOV  @DOOR,R5        ; Move link to door location
-;       MOV R5,@HEROSP	    ; Update color sprite
-;       MOV R5,@HEROSP+4     ; Update outline sprite
-;       LI R0,SPRTAB+(HEROSP-SPRLST)
-;       LI R1,>D000
-;       BL @VDPWB            ; Turn off hero sprite
-;
-;       LI R0,DUNGON+DUNLVL
-;       SZC R0,@FLAGS     ; Clear dungeon flag
-;       LI R2,5           ; Wipe
-;       B @INWIPE
-;
-;!
-       CLR @DOOR          ; TODO maybe this should be somewhere else
+; if dark flag is set and map bit is dark, render the floor dark, MASK=>8080
+; if dark flag is not set or map bit not dark, render the room light MASK=>FFFF
 
-       LI R10,LEVELA+(4*32)+4+VDPWM  ; First metatile location + write mask
+LITEUP
+       MOV R11,@OBJPTR     ; Save return address
+
+       ; we already know dark flag is set
+       ; light up the room if it's not a darkened room
+       MOV @MAPLOC,R3
+       SRL R3,8             ; Map location
+       MOVB @DUNMAP(R3),R1  ; Screen type
+       ANDI R1,>8000
+       JNE !               ; stay dark
+
+       LI R4,DARKRM
+       SZC R4,@FLAGS       ; Clear DARKRM flag
+
+       ; TODO this is slow - turn off playing sounds
+       LI R0,BANK3
+       LI R1,MAIN
+       LI R2,4            ; Load light tileset and palette
+       BL @BANKSW
+!
+       LI R0,BANK0
+       MOV @OBJPTR,R1     ; Restore return address
+       B @BANKSW
+
+LITCDL
+       ; we already know dark flag is set
+       ; light up the room when candle is used
+
+       LI R4,DARKRM
+       SZC R4,@FLAGS       ; Clear DARKRM flag
+
+       ; reload floor tiles into LEVELA
+
+       MOVB @MAPLOC,R3      ; Get MAPLOC as >YX00
        SRL R3,8             ; Map location
        MOVB @DUNMAP(R3),R1  ; Screen type
        SRL R1,8
+       ANDI R1,>3F
+
+       CLR R4             ; light tile mask (inverted for SZC)
+       BL @STDUNG
+
+       ; copy from LEVELA to the active screen
+
+       LI R0,SCHSAV
+       BL @PUTSCR
+
+       MOV @FLAGS,R5
+       ANDI R5,SCRFLG
+       AI R5,(7*32)
+       LI R10,LEVELA+(4*32)  ; First metatile location
+       LI R4,14       ; number of rows to copy
+!      MOV R10,R0
+       BL @READ32
+       MOV R5,R0
+       BL @PUTSCR
+       AI R10,32
+       AI R5,32
+       DEC R4
+       JNE -!
+
+       LI R0,SCHSAV
+       BL @READ32
+
+       MOV R12,@MOVE12   ; Temporary save return address
+
+       ; TODO this is slow - turn off playing sounds
+       LI R0,BANK3
+       LI R1,MAIN
+       LI R2,4            ; Load light tileset and palette
+       BL @BANKSW
+
+       MOV @MOVE12,R1   ; Restore return address
+       CLR @MOVE12
+
+       LI R0,BANK5      ; Return to flame function in bank 5
+       B @BANKSW
+
+
+
+
+
+DRKPAL
+       BYTE >14,>14,>1C,>1A,>1C,>1A,>1C,>1E,>1E
+
+
+; Note: must preserve R12
+; R3 = MAPLOC
+GODUNG
+       CLR @DOOR          ; TODO should load stair or item location
+       CLR R4             ; light tile mask (inverted for SZC)
+
+       SRL R3,8             ; Map location
+       MOVB @DUNMAP(R3),R1  ; Screen type
+       SRL R1,8
+
+       MOV R1,R0
+       ANDI R1,>3F
+       ANDI R0,>80         ; Test dark room flag
+       JEQ NOTDRK
+
+       LI R4,DARKRM
+       CZC @FLAGS,R4
+       JNE ALLDRK         ; already dark?
+
+       SOC R4,@FLAGS      ; Set DARKRM flag
+
+       MOV R1,@OBJPTR     ; Save screen type
+       MOV R12,@SCRTCH    ; and return address
+
+       LI R0,CLRTAB+11    ; Color table offset char >96
+       MOVB @R0LB,*R14
+       MOVB R0,*R14
+       MOV @FLAGS,R1
+       SRL R1,12          ; Get dungeon number
+       LI R2,18
+!
+       MOVB @DRKPAL-1(R1),*R15
+       DEC R2
+       JNE -!
+
+       ; TODO this is slow - turn off playing sounds
+       LI R0,BANK3
+       LI R1,MAIN
+       LI R2,3            ; Load dark tileset
+       BL @BANKSW
+
+       MOV @OBJPTR,R1     ; Restore screen type
+       MOV @SCRTCH,R12    ; and return address
+ALLDRK
+
+       LI R4,>7F7F        ; dark tile mask (tile will be either >00 or >80)
+
+NOTDRK
+       BL @STDUNG
+       JMP STDOOR
+
+STDUNG
+       LI R10,LEVELA+(4*32)+4+VDPWM  ; First metatile location + write mask
 
        INC R1
        LI R5,ST0
@@ -691,9 +749,8 @@ STDUN2
        JMP STDUN3
 !
        MOV R10,R0
-       ANDI R0,>001F
-       CI R0,16   ; At middle?
-       JHE !
+       ANDI R0,>0010  ; At middle?
+       JNE !
        LI R0,>E8E9    ; right facing statue
        LI R1,>EAEB
        JMP STDUN3
@@ -701,12 +758,14 @@ STDUN2
        LI R0,>ECED    ; left facing statue
        LI R1,>EEEF
 STDUN3
+       SZC R4,R0
        MOVB @R10LB,*R14     ; Draw upper-half metatile
        MOVB R10,*R14
        AI R10,32
        MOVB R0,*R15
        MOVB @R0LB,*R15
 
+       SZC R4,R1
        MOVB @R10LB,*R14     ; Draw lower-half metatile
        MOVB R10,*R14
        AI R10,32
@@ -716,17 +775,18 @@ STDUN3
        CI R10,LEVELA+(18*32)+VDPWM   ; At bottom?
        JL STDUN2
 
-       ; draw doorways or locked doors, bombholes or walls
-
        AI R10,-(14*32)+2  ; Move up and right 2
        CI R10,LEVELA+(4*32)+28+VDPWM  ; At rightmost?
        JL STDUN1
+       RT
 
+       ; draw doorways or locked doors, bombholes or walls
+STDOOR
        MOVB @MAPLOC,R1   ; Get dungeon map location
        SRL R1,8
        MOVB @WALMAP(R1),R0   ; Lookup in DOORS table
 
-       LI R3,>0400     ; Check V door bit
+       LI R3,>4000     ; Check V door bit
        LI R10,LEVELA+(18*32)+14+VDPWM
        LI R9,LEVELA+(18*32)+15+VDPWM
        LI R1,SWALL
@@ -841,21 +901,21 @@ SLOCK  BYTE >DC,>DD,>DE,>DF
 
 ; W=wall D=door L=locked B=bomb
 WW     EQU >00
-WD     EQU >01
-WB     EQU >02
-WL     EQU >03
-DW     EQU >04
-DD     EQU >05
-DB     EQU >06
-DL     EQU >07
-BW     EQU >08
-BD     EQU >09
-BB     EQU >0A
-BL     EQU >0B
-LW     EQU >0C
-LD     EQU >0D
-LB     EQU >0E
-LL     EQU >0F
+WD     EQU >10
+WB     EQU >20
+WL     EQU >30
+DW     EQU >40
+DD     EQU >50
+DB     EQU >60
+DL     EQU >70
+BW     EQU >80
+BD     EQU >90
+BB     EQU >A0
+BL     EQU >B0
+LW     EQU >C0
+LD     EQU >D0
+LB     EQU >E0
+LL     EQU >F0
 
 ; Each byte is the south and east wall/doors for that room (north,west are taken from byte above and left)
 WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
@@ -892,6 +952,7 @@ WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        ;   3 shutters - push block to open
        ;     key - follows one enemy until killed
 
+
        ; possible cave items (descend stairs)
        ;   bow
        ;   raft
@@ -904,7 +965,8 @@ WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        ;   passageway starting right
 
 
-       ; 8 bits stairs/item location
+       ; 7 bits stairs/item location X=0..11 Y:0..6
+       ; 1 bit - light or dark
 LOCMAP
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
@@ -924,6 +986,28 @@ LOCMAP
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
 
+       ; levels layout
+       ; 6 6 6 6   5 5     4 4 4 4 2 2
+       ; 6 6 6_6 5 5 5 5 4 4 4 4 4 4 2 2
+       ; 6 6 1 1 5 5 5 5 4 4 3 3 4 4 2 2
+       ; 6 6 6 1 5 1 1 5 4 4 4 3 4 3 2 2
+       ; 6 1 1 1 1 1 5 5 4 3 3 3 3 3 2 2
+       ; 6 6 1 1 1 5 5 5 4 3 3 3 3 3 2 2
+       ;   6 6 1 5 5 5 5 4 3 4 3 2 2 2 2
+       ; 6 6 1 1 1   5 5 4 4 4 3 3 2 2
+       
+       ; 7 7 7 7 7 7 8     9 9 9 9 9 9 9
+       ; 7 7 7 7 7 8 8 8 9 9 9 9 9 9 9 9
+       ; 7 7 7 7 8 8 8   9 9 9 9 9 9 9 9
+       ; 7 7 7 8 8 8 8 8 9 9 9 9 9 9 9 9
+       ; 7 7   8 8 8 8   9 9 9 9 9 9 9 9
+       ; 7 7 7 7 8 8 8 8 9 9 9 9 9 9 9 9
+       ; 7 7 7 7 7 7 8     9 9 9 9 9 9
+       ; 7 7 7   8 8 8 8   9   9 9   9
+
+LVLMAP ; dungeon  map bitmaps
+       BYTE >00,>00,>30,>16,>7C,>38,>10,>38  ; level-1
+       BYTE >00,>00,>30,>16,>7C,>38,>10,>38  ; level-2
 
 
        ; 6 bits map
@@ -933,9 +1017,9 @@ DUNMAP BYTE >28,>26,>10,>0C,>00,>09,>0A,>00,>00,>0F,>0F,>28,>0C,>0C,>02,>00
        BYTE >21,>23,>0A,>21,>12,>13,>24,>21,>08,>24,>07,>28,>00,>25,>07,>00
        BYTE >22,>20,>0F,>20,>04,>0B,>0C,>20,>0F,>25,>09,>0F,>20,>0C,>29,>00
        BYTE >21,>28,>09,>06,>04,>08,>23,>21,>10,>00,>15,>16,>00,>29,>04,>12
-       BYTE >0D,>05,>03,>04,>05,>25,>00,>20,>12,>07,>00,>00,>06,>03,>06,>05
-       BYTE >00,>04,>1C,>03,>0A,>04,>22,>28,>07,>14,>28,>0D,>00,>05,>08,>03
-       BYTE >00,>01,>00,>01,>07,>00,>01,>07,>06,>01,>05,>05,>01,>01,>00,>00
+       BYTE >0D,>05,>03,>84,>05,>25,>00,>20,>12,>07,>00,>00,>06,>03,>06,>05
+       BYTE >00,>04,>1C,>83,>0A,>04,>22,>28,>07,>14,>28,>0D,>00,>05,>08,>03
+       BYTE >00,>01,>00,>01,>87,>00,>01,>07,>06,>01,>05,>05,>01,>01,>00,>00
 
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
@@ -996,27 +1080,8 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >00,>7F,>37,>30,>30,>30,>30,>30,>30,>3F,>3F,>00   ; 27 Water shape h
 
        BYTE >FF,>20,>20,>20,>20  ; black
-       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 28 Black Room
+       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 28 Black floor
 
        BYTE >FF,>05,>05,>05,>05  ; light sand
        BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 29 light sand
 
-       ;
-
-;DUNMAP DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;       DATA >0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000,>0000
-;

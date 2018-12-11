@@ -74,7 +74,7 @@ RESTRT
        BL @SPRUPD
 
        ;LI   R0,>7700         ; Initial map location is 7,7 (5,3 is by fairy)(3,7 is D-1)
-       LI R0,>5500
+       LI R0,>3700
        MOVB R0,@MAPLOC
 
        LI R0,>0A00           ; Initial HP
@@ -98,9 +98,11 @@ RESTRT
        LI   R1,MAIN          ; First function in bank 1
        LI   R2,1             ; load overworld tiles
        BL   @BANKSW
+       BL   @STATUS          ; Draw status bar
 
        LI   R0,BANK2         ; Overworld screen is in bank 2
        LI   R1,MAIN          ; First function in bank 1
+       CLR  R2
        BL   @BANKSW
 
        BL   @WIPE            ; Do wipe animation
@@ -227,8 +229,8 @@ MOVEDN
 
        CI R5,(192-8)*256   ; Check at bottom edge of screen
        JL !
-       BL @SCRNDN     ; Scroll down
-       LI R3,DIR_DN
+       B @SCRNDN     ; Scroll down
+       ;LI R3,DIR_DN
 !
        MOV R5,R0
        AI R0,>1004    ; 16 pixels down, 4 right
@@ -251,8 +253,8 @@ MOVEUP
        
        CI R5,25*256  ; Check at top edge of screen
        JHE !
-       BL @SCRNUP     ; Scroll up
-       LI R3,DIR_UP
+       B @SCRNUP     ; Scroll up
+       ;LI R3,DIR_UP
 !      
        MOV R5,R0
        AI R0,>0704    ; 7 pixels down, 4 right
@@ -297,7 +299,7 @@ MOVER2 MOV R5,R0     ; Check at right edge of screen
        ANDI R0,>00FF
        CI R0,256-16
        JNE !
-       BL @SCRNRT     ; Scroll right
+       B @SCRNRT     ; Scroll right
 
 !      LI R3,DIR_RT
        MOV R5,R0
@@ -320,7 +322,7 @@ MOVER3 INC R5        ; Move X coordinate right
 MOVEL2 MOV R5,R0     ; Check at left edge of screen
        ANDI R0,>00FF
        JNE !
-       BL @SCRNLT     ; Scroll left
+       B @SCRNLT     ; Scroll left
 
 !      LI R3,DIR_LT
        MOV R5,R0
@@ -544,13 +546,15 @@ GODOO3
        ;JEQ RAFTUP
 
        CI R2,>2000
-       JHE GODUNG            ; entering dungeon if starting with 2X
-
+       JL !
+       B @GODUNG            ; entering dungeon if starting with 2X
+!
        LI R4,INCAVE
        SOC R4,@FLAGS         ; Set in cave or dungeon flag
 
        LI   R0,BANK2         ; Overworld/deungon is in bank 2
        LI   R1,HDREND        ; First function in bank 1
+       CLR  R2
        BL   @BANKSW
 
        LI   R0,>B178        ; Put hero at cave entrance
@@ -632,41 +636,8 @@ RAFTGO
 
        B @INFLP
 
-GODUNG
-       LI R0,MAPSAV    ; Save overworld map location in VDP ram
-       MOVB @MAPLOC,R1
-       BL @VDPWB
-
-       SRL R2,8
-       AI R2,->20            ; R4=dungeon level 1-9
-       MOVB @DUNGSP-1(R2),R1 ; dungeon starting position
-       MOVB R1,@MAPLOC
-
-       SLA R2,12             ; Get dungeon level in >X000
-       SOC R2,@FLAGS         ; Store dungeon level
-
-       BL @CLRSCN          ; clear screen before updating tiles
-
-       LI R0,BANK3
-       LI R1,MAIN
-       LI R2,2             ; Load dungeon tileset
-       BL @BANKSW
-
-       LI   R0,BANK2         ; Overworld/deungon is in bank 2
-       LI   R1,HDREND        ; First function in bank 1
-       BL   @BANKSW
-
-       BL   @WIPE
-
-       LI   R0,>B178        ; Put hero at cave entrance
-       MOV  R0,@HEROSP      ; Update color sprite
-       MOV  R0,@HEROSP+4    ; Update outline sprite
-       CLR  R1
-       BL   @DOSPRT
-
-       B @GODOO5
-
 RAFTDN
+       MOV  @HEROSP,R5
        LI R7,>0100          ; Move down
        MOV @DOOR,R8         ; Stop here
        JMP RAFTGO
@@ -676,19 +647,19 @@ SCRNRT LI   R0,>0100         ; Add 1 to MAPLOC X
        AB   R0,@MAPLOC
        LI   R0,BANK2
        LI   R1,MAIN
+       CLR  R2
        BL   @BANKSW
        BL   @SCRLRT
-       MOV  @HEROSP,R5
-       B    @DRAW
+       B    @SCRLED
 
 SCRNLT LI   R0,>FF00         ; Add -1 to MAPLOC X
        AB   R0,@MAPLOC
        LI   R0,BANK2
        LI   R1,MAIN
+       CLR  R2
        BL   @BANKSW
        BL   @SCRLLT
-       MOV  @HEROSP,R5
-       B    @DRAW
+       B    @SCRLED
 
 SCRNDN LI  R0,INCAVE
        CZC @FLAGS,R0         ; Are we leaving a cave?
@@ -705,9 +676,9 @@ SCRNDN LI  R0,INCAVE
        AB   R0,@MAPLOC
        LI   R0,BANK2
        LI   R1,MAIN
+       CLR  R2
        BL   @BANKSW
        BL   @SCRLDN
-       MOV  @HEROSP,R5
 
        MOVB @MAPLOC,R1
        SRL R1,8
@@ -716,16 +687,16 @@ SCRNDN LI  R0,INCAVE
        CI R0,>1800    ; Raft ride?
        JEQ RAFTDN
 
-       B    @DRAW
+       B    @SCRLED
 
 SCRNUP LI   R0,>F000         ; Add -1 to MAPLOC Y
        AB   R0,@MAPLOC
        LI   R0,BANK2
        LI   R1,MAIN
+       CLR  R2
        BL   @BANKSW
        BL   @SCRLUP
-       MOV  @HEROSP,R5
-       B    @DRAW
+       B    @SCRLED
 
 
 CAVOUT
@@ -733,6 +704,7 @@ CAVOUT
 
        LI   R0,BANK2
        LI   R1,MAIN
+       CLR  R2
        BL   @BANKSW          ; Load outside screen
 
        MOV @DOOR,R5
@@ -787,13 +759,15 @@ DUNOUT
 
        BL @CLRSCN
 
-       LI   R0,BANK3         ; Overworld tiles in bank 2
+       LI   R0,BANK3         ; Overworld tiles in bank 3
        LI   R1,MAIN          ; First function in bank 1
        LI   R2,1             ; load overworld tiles
        BL   @BANKSW
+       BL   @STATUS          ; Update status
 
        LI   R0,BANK2
        LI   R1,MAIN
+       CLR  R2
        BL   @BANKSW          ; Load outside screen
 
        MOV @DOOR,R5
@@ -803,6 +777,59 @@ DUNOUT
        BL @WIPE
 
        JMP CAVOU2
+
+GODUNG
+       LI R0,MAPSAV    ; Save overworld map location in VDP ram
+       MOVB @MAPLOC,R1
+       BL @VDPWB
+
+       SRL R2,8
+       AI R2,->20            ; R4=dungeon level 1-9
+       MOVB @DUNGSP-1(R2),R1 ; dungeon starting position
+       MOVB R1,@MAPLOC
+
+       SLA R2,12             ; Get dungeon level in >X000
+       SOC R2,@FLAGS         ; Store dungeon level
+
+       BL @CLRSCN          ; clear screen before updating tiles
+
+       LI R0,BANK3
+       LI R1,MAIN
+       LI R2,2             ; Load dungeon tileset
+       BL @BANKSW
+       BL @STATUS          ; Update status
+
+
+       LI   R0,BANK2         ; Overworld/deungon is in bank 2
+       LI   R1,MAIN          ; First function in bank 1
+       CLR  R2
+       BL   @BANKSW
+
+       BL   @WIPE
+
+       LI   R0,>B178        ; Put hero at cave entrance
+       MOV  R0,@HEROSP      ; Update color sprite
+       MOV  R0,@HEROSP+4    ; Update outline sprite
+       CLR  R1
+       BL   @DOSPRT
+
+       B @GODOO5
+
+SCRLED ; after scrolling, check if darkened room and try lighting up
+       MOV @FLAGS,R0
+       ANDI R0,DARKRM
+       JEQ !
+
+       LI R0,BANK2
+       LI R1,MAIN
+       LI R2,1         ; LITEUP function
+       BL @BANKSW
+!
+       MOV @FLAGS,R3
+       ANDI R3,DIR_XX
+       MOV  @HEROSP,R5
+       B @DRAW
+
 
 * Animate going in/out the door
 * Move 4 frames, animate every 6 (R10 counts down from 3 every 2 frames)

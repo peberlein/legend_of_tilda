@@ -12,8 +12,10 @@ CLRSAV EQU WRKSP+>20
 
 ; Load title screen
 ; R2 = 0 title screen
-;      1 load overworld tiles
-;      2 load dungeon tiles and screen
+;      1 load overworld tiles and menu
+;      2 load dungeon tiles and border and menu
+;      3 load dungeon dark pattern table, return to bank2
+;      4 load dungeon light pattern table, return to bank2
 MAIN
        MOV R11,R13      ; Save return address for later
        LI R11,DONE2     ; LNKSPR needs this
@@ -21,7 +23,7 @@ MAIN
        MOV @JMPTBL(R2),R2
        B *R2
 
-JMPTBL DATA MAIN2,OWTILE,DNTILE
+JMPTBL DATA MAIN2,OWTILE,DNTILE,DRKPAT,LITPAT
 
 MAIN2
 
@@ -168,31 +170,6 @@ MLOOP2 JMP MLOOP
 DONE
        MOV  R4,@RAND16      ; Use counter for random seed
 
-       LI R5,MENUMP        ; decompress menu map
-       LI R7,MENUSC        ; put in menu screen
-       BL @DAN2DC   ; Dan2 decompress
-
-       CLR R4           ; Copy bottom of menu screen to top of main screen
-!      MOV R4,R0
-       AI R0,MENUSC+(32*21)
-       LI R1,SCRTCH
-       LI R2,32
-       BL @VDPR
-
-       MOV R4,R0
-       AI R0,SCR1TB
-       LI R1,SCRTCH
-       LI R2,32
-       BL @VDPW
-       AI R4,32
-       CI R4,32*3
-       JNE -!
-
-       LI R4,21*32  ; Clear the rest of the screen
-       LI R0,>2000  ; With spaces
-!      MOVB R0,*R15
-       DEC R4
-       JNE -!
 
 DONE2  LI   R0,BANK0         ; Load bank 0
        MOV  R13,R1           ; Jump to our return address
@@ -252,7 +229,7 @@ BCLRST BYTE >EF,>EF,>EF,>FE            ;
        BYTE >EF,>EF,>EF,>FE            ;
 
 OWTILE
-       ;TODO turn off screen for faster VDP memory access
+       ; turn off screen for faster VDP memory access
        LI R0,>01A5          ; VDP Register 1: Blank screen
        BL @VDPREG
 
@@ -261,6 +238,10 @@ OWTILE
        BL @DAN2DC   ; Dan2 decompress
        LI R5,OVERW2
        LI R7,PATTAB+(8*96)       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
+
+       LI R5,MENUMP        ; decompress menu map
+       LI R7,MENUSC        ; put in menu screen
        BL @DAN2DC   ; Dan2 decompress
 
        LI R5,CAVED2
@@ -287,79 +268,41 @@ OWTILE
        LI   R2,32
        BL   @VDPW
 
+MENUCP
 
-       ;TODO turn on screen
+       CLR R4           ; Copy bottom of menu screen to top of main screen
+!      MOV R4,R0
+       AI R0,MENUSC+(32*21)
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR
+
+       MOV R4,R0
+       AI R0,SCR1TB
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW
+       AI R4,32
+       CI R4,32*3
+       JNE -!
+
+
+       LI R4,21*32  ; Clear the rest of the screen
+       LI R0,>2000  ; With spaces
+!      MOVB R0,*R15
+       DEC R4
+       JNE -!
+
+       ; turn on screen
        LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
        BL @VDPREG
 
-       LI   R0,BANK0         ; Load bank 0
-       MOV  R13,R1           ; Jump to our return address
-       B    @BANKSW
+       B @DONE2
 
 
-****************************************
-* Dungeon Colorset Definitions
-****************************************
-DUNSET BYTE >1B,>1B,>1B,>61            ;
-       BYTE >F1,>F1,>F1,>F1            ;
-       BYTE >F1,>F1,>F1,>F1            ;
-
-       BYTE >47,>17,>17,>75            ; Level-1
-       BYTE >47,>47,>47,>47            ; Level-1
-       BYTE >47,>47,>47,>47            ; Level-1
-       BYTE >47,>17,>17,>17            ; Level-1
-       BYTE >17,>4E,>41,>41            ; Level-1
-
-       BYTE >14,>14,>15,>54            ; Level-2
-       BYTE >15,>14,>14,>14            ; Level-2
-       BYTE >14,>14,>14,>14            ; Level-2
-       BYTE >14,>14,>14,>14            ; Level-2
-       BYTE >14,>48,>41,>41            ; Level-2
-
-       BYTE >12,>12,>12,>2C            ; Level-3
-       BYTE >13,>12,>12,>12            ; Level-3
-       BYTE >12,>12,>12,>12            ; Level-3
-       BYTE >12,>12,>12,>12            ; Level-3
-       BYTE >12,>C6,>41,>41            ; Level-3
-
-       BYTE >1A,>1A,>1A,>BA            ; Level-4
-       BYTE >4B,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>A4,>41,>41            ; Level-4
-
-       BYTE >C3,>12,>12,>32            ; Level-5
-       BYTE >13,>C3,>C3,>C3            ; Level-5
-       BYTE >C3,>C3,>C3,>C3            ; Level-5
-       BYTE >C3,>13,>13,>13            ; Level-5
-       BYTE >13,>16,>41,>41            ; Level-5
-
-       BYTE >1A,>1A,>1A,>BA            ; Level-6
-       BYTE >6B,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>A6,>41,>41            ; Level-6
-
-       BYTE >C3,>12,>12,>32            ; Level-7
-       BYTE >13,>C3,>C3,>C3            ; Level-7
-       BYTE >C3,>C3,>C3,>C3            ; Level-7
-       BYTE >C3,>13,>13,>13            ; Level-7
-       BYTE >13,>15,>41,>41            ; Level-7
-
-       BYTE >1E,>1E,>1E,>FE            ; Level-8
-       BYTE >1F,>1E,>1E,>1E            ; Level-8
-       BYTE >1E,>1E,>1E,>1E            ; Level-8
-       BYTE >1E,>1E,>1E,>1E            ; Level-8
-       BYTE >1E,>E4,>41,>41            ; Level-8
-
-       BYTE >1E,>1E,>1E,>FE            ; Level-9
-       BYTE >1F,>1E,>1E,>1E            ; Level-9
-       BYTE >1E,>1E,>1E,>1E            ; Level-9
-       BYTE >1E,>1E,>1E,>1E            ; Level-9
-       BYTE >1E,>1E,>41,>41            ; Level-9
-
+* Load dungeon tiles and colorsets
 DNTILE
-       ;TODO turn off screen for faster VDP memory access
+       ; turn off screen for faster VDP memory access
        LI R0,>01A5          ; VDP Register 1: Blank screen
        BL @VDPREG
 
@@ -369,10 +312,43 @@ DNTILE
        LI R5,DUNGN2
        LI R7,PATTAB+(8*96)       ; decompress tiles
        BL @DAN2DC   ; Dan2 decompress
-       LI R5,DUNGMP
-       LI R7,LEVELA              ; decompress tiles
+
+       LI R5,DUNGMP              ; dungeon border
+       LI R7,LEVELA              ; decompress screen
        BL @DAN2DC   ; Dan2 decompress
 
+       LI R5,DMNUMP        ; decompress menu map
+       LI R7,MENUSC        ; put in menu screen
+       BL @DAN2DC   ; Dan2 decompress
+
+       MOV @FLAGS,R1
+       ANDI R1,DUNLVL
+       SRL R1,8
+       MOV R1,R0
+       SRL R1,2
+       A R0,R1      ; R1 = dungeon level * 5 * 4
+
+       LI   R0,CLRTAB+(3*4)       ; Color table
+       AI   R1,DUNSET+(3*4)-(5*4)
+       LI   R2,5*4
+       BL   @VDPW
+
+       LI   R0,CLRTAB       ; Color table
+       LI   R1,DUNSET
+       LI   R2,3*4
+       BL   @VDPW
+
+       JMP  MENUCP
+
+DRKPAT                           ; load dark dungeon patterns
+       LI R5,DNDARK
+       LI R7,PATTAB+(8*96)       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
+       JMP !
+LITPAT                           ; load light dungeon patterns
+       LI R5,DUNGN2
+       LI R7,PATTAB+(8*96)       ; decompress tiles
+       BL @DAN2DC   ; Dan2 decompress
 
        MOV @FLAGS,R1
        ANDI R1,DUNLVL
@@ -392,13 +368,72 @@ DNTILE
        BL   @VDPW
 
 
-       ;TODO turn on screen
-       LI R0,>01E2          ; VDP Register 1: 16x16 Sprites
-       BL @VDPREG
-
-       LI   R0,BANK0         ; Load bank 0
+!      LI   R0,BANK2         ; Load bank 2
        MOV  R13,R1           ; Jump to our return address
        B    @BANKSW
+
+
+****************************************
+* Dungeon Colorset Definitions
+****************************************
+DUNSET BYTE >1B,>1B,>1B,>61            ;
+       BYTE >F1,>F1,>F1,>F1            ;
+       BYTE >F1,>F1,>F1,>F1            ;
+
+       BYTE >47,>17,>17,>57            ; Level-1
+       BYTE >47,>47,>47,>47            ; Level-1
+       BYTE >47,>47,>47,>47            ; Level-1
+       BYTE >47,>17,>17,>17            ; Level-1
+       BYTE >17,>4E,>41,>41            ; Level-1
+
+       BYTE >14,>14,>15,>45            ; Level-2
+       BYTE >15,>14,>14,>14            ; Level-2
+       BYTE >14,>14,>14,>14            ; Level-2
+       BYTE >14,>14,>14,>14            ; Level-2
+       BYTE >14,>48,>41,>41            ; Level-2
+
+       BYTE >12,>12,>12,>C2            ; Level-3
+       BYTE >13,>12,>12,>12            ; Level-3
+       BYTE >12,>12,>12,>12            ; Level-3
+       BYTE >12,>12,>12,>12            ; Level-3
+       BYTE >12,>C6,>41,>41            ; Level-3
+
+       BYTE >1A,>1A,>1A,>AB            ; Level-4
+       BYTE >4B,>1A,>1A,>1A            ; Level-4
+       BYTE >1A,>1A,>1A,>1A            ; Level-4
+       BYTE >1A,>1A,>1A,>1A            ; Level-4
+       BYTE >1A,>A4,>41,>41            ; Level-4
+
+       BYTE >C3,>12,>12,>23            ; Level-5
+       BYTE >13,>C3,>C3,>C3            ; Level-5
+       BYTE >C3,>C3,>C3,>C3            ; Level-5
+       BYTE >C3,>13,>13,>13            ; Level-5
+       BYTE >13,>16,>41,>41            ; Level-5
+
+       BYTE >1A,>1A,>1A,>AB            ; Level-6
+       BYTE >6B,>1A,>1A,>1A            ; Level-6
+       BYTE >1A,>1A,>1A,>1A            ; Level-6
+       BYTE >1A,>1A,>1A,>1A            ; Level-6
+       BYTE >1A,>A6,>41,>41            ; Level-6
+
+       BYTE >C3,>12,>12,>23            ; Level-7
+       BYTE >13,>C3,>C3,>C3            ; Level-7
+       BYTE >C3,>C3,>C3,>C3            ; Level-7
+       BYTE >C3,>13,>13,>13            ; Level-7
+       BYTE >13,>15,>41,>41            ; Level-7
+
+       BYTE >1E,>1E,>1E,>EF            ; Level-8
+       BYTE >1F,>1E,>1E,>1E            ; Level-8
+       BYTE >1E,>1E,>1E,>1E            ; Level-8
+       BYTE >1E,>1E,>1E,>1E            ; Level-8
+       BYTE >1E,>E4,>41,>41            ; Level-8
+
+       BYTE >1E,>1E,>1E,>EF            ; Level-9
+       BYTE >1F,>1E,>1E,>1E            ; Level-9
+       BYTE >1E,>1E,>1E,>1E            ; Level-9
+       BYTE >1E,>1E,>1E,>1E            ; Level-9
+       BYTE >1E,>1E,>41,>41            ; Level-9
+
 
 
 
@@ -583,8 +618,10 @@ OVERW2 BCOPY "overworld2.d2"
 CAVED2 BCOPY "cavetext.d2"
 DUNGN1 BCOPY "dungeon1.d2"
 DUNGN2 BCOPY "dungeon2.d2"
-DUNGMP BCOPY "dungeonm.d2"
-MENUMP BCOPY "menu.d2"
+DUNGMP BCOPY "dungeonm.d2"  ; dungeon outline map
+MENUMP BCOPY "menu.d2"      ; overworld menu
+DMNUMP BCOPY "dmenu.d2"     ; dungeon menu
+DNDARK BCOPY "dungdark.d2"  ; dark room patterns
        EVEN
 
 

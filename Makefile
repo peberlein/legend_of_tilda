@@ -39,7 +39,7 @@ tilda_b1_6000.bin: tilda_b1.asm tilda.asm music.snd #dungeon.snd title.snd
 tilda_b2_6000.bin: tilda_b2.asm tilda.asm overworld.bin
 	$(AS) -b -R $< -L tilda_b2_6000.lst
 
-tilda_b3_6000.bin: tilda_b3.asm tilda.asm dan2.asm title.d2 overworld1.d2 overworld2.d2 dungeon1.d2 dungeon2.d2 menu.d2 cavetext.d2 dungeonm.d2
+tilda_b3_6000.bin: tilda_b3.asm tilda.asm dan2.asm title.d2 overworld1.d2 overworld2.d2 dungeon1.d2 dungeon2.d2 menu.d2 cavetext.d2 dungeonm.d2 dmenu.d2 dungdark.d2
 	$(AS) -b -R $< -L tilda_b3_6000.lst
 
 tilda_b4_6000.bin: tilda_b4.asm tilda.asm
@@ -69,6 +69,11 @@ dungeon2.d2: mag/dungeon.mag $(DAN2) $(CH)
 	$(CH) $< 96 247 | $(DAN2) > $@
 dungeonm.d2: mag/dungeon.mag $(DAN2) $(MP)
 	$(MP) $< 10 | $(DAN2) > $@
+dmenu.d2: mag/dungeon.mag $(DAN2) $(MP)
+	$(MP) $< 8 | $(DAN2) > $@
+dungdark.d2: mag/dungdark.mag $(DAN2) $(CH)
+	$(CH) $< 96 239 | $(DAN2) > $@
+
 
 $(MAG): tools/mag.c
 	$(CC) $< -o $@
