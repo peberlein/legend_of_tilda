@@ -31,16 +31,19 @@ int main(int argc, char *argv[])
 		*sp = buf + 0x1000,  // sprite patterns
 		*cc = buf + 0x340,   // color table
 		*mp = buf + 0x0,     // screen table
-		*sl = buf + 0x380;   // sprite list table
+		*sl = buf + 0x380,   // sprite list table
+		*co = buf + 0x2000;  // bitmap color table
 	enum {
 		MAG,
 		SP,
 		CH,
+		CO,
 		MP,
 		TXT,
 	} mode =
 		ends_with(argv[0],"sp") ? SP :
 		ends_with(argv[0],"ch") ? CH :
+		ends_with(argv[0],"co") ? CO :
 		ends_with(argv[0],"mp") ? MP :
 		ends_with(argv[0],"txt") ? TXT :
 		MAG;
@@ -56,16 +59,22 @@ int main(int argc, char *argv[])
 	}
 	if (mode == MP || mode == TXT)
 		mapnum = atoi(argv[2]);
-	else if (mode == CH && argc >= 3) {
+	else if ((mode == CH || mode == CO) && argc >= 3) {
 		minch = atoi(argv[2]);
 		maxch = atoi(argv[3]);
+	} else if ((mode == SP) && argc >= 3) {
+		minch = atoi(argv[2])*4;
+		maxch = atoi(argv[3])*4+3;
 	}
 
-	fprintf(stderr, "%s %d %d\n", argv[0], mode, mapnum);
+	fprintf(stderr, "%s %d %d %d..%d\n", argv[0], mode, mapnum, minch, maxch);
 	while (fgets(line, sizeof line, f)) {
 		if (strncmp(line, "CH:", 3) == 0) {
 			for (i = 0; i < 8; i++)
 				*ch++ = a2h(line+3+i*2);
+		} else if (strncmp(line, "CO:", 3) == 0) {
+			for (i = 0; i < 8; i++)
+				*co++ = a2h(line+3+i*2);
 		} else if (strncmp(line, "SP:", 3) == 0) {
 			for (i = 0; i < 32; i++)
 				*sp++ = a2h(line+3+i*2);
@@ -110,8 +119,10 @@ int main(int argc, char *argv[])
 
 	if (mode == CH)
 		fwrite(buf + 0x0800 + minch*8, (maxch-minch+1)*8, 1, stdout);
+	else if (mode == CO)
+		fwrite(buf + 0x2000 + minch*8, (maxch-minch+1)*8, 1, stdout);
 	else if (mode == SP)
-		fwrite(buf + 0x1000, 256*8, 1, stdout);
+		fwrite(buf + 0x1000 + minch*8, (maxch-minch+1)*8, 1, stdout);
 	else if (mode == MP)
 		fwrite(buf + 0x0000, mp - buf, 1, stdout);
 	else if (mode == TXT) {
