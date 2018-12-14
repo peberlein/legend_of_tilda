@@ -534,6 +534,9 @@ GODOO2 ; Solid tile means Cave/Doorway
 
        CI R9,16
        JNE -!
+       BL @VSYNCM
+       BL @VSYNCM
+       BL @VSYNCM
 
 GODOO3
        MOVB @MAPLOC,R1
@@ -745,6 +748,9 @@ CAVOU2
 
        DEC R9
        JNE -!
+       BL @VSYNCM
+       BL @VSYNCM
+
 CAVOU3
        B @INFLP
 
@@ -2484,6 +2490,10 @@ MENUDN
        JNE -!
 
        MOV @FLAGS,R4
+       MOV R4,R0
+       ANDI R0,DUNLVL
+       JNE NOFORC   ; don't draw tiforce in dungeon
+
        ANDI R4,INCAVE
        JEQ !
        BL @CLRCAV      ; Clear cave
@@ -2501,6 +2511,7 @@ MENUDN
        DEC R8
        JNE -!
 
+NOFORC
 
        LI R4,MENUSC+(32*20)    ; Menu screen VDP address
        LI R8,21        ; Scroll through 21 rows
@@ -2516,7 +2527,12 @@ MENUDN
        DEC R8
        JNE -!
 
-       LI R0,>0300+(MCLRTB/>40)  ; VDP Register 3: Color Table
+       LI R0,MCLRTB+16     ; Menu color set, partial
+       LI R1,MCLRST
+       LI R2,10
+       BL @VDPW
+
+       LI R0,>0300+(MCLRTB/>40)  ; VDP Register 3: Menu Color Table
        BL @VDPREG
 
        LI R5,ITEMS

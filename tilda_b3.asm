@@ -212,9 +212,9 @@ CLRSET BYTE >1B,>1E,>4B,>61            ;
 ****************************************
 * Menu Colorset Definitions starting at char >80
 ****************************************
-MCLRST BYTE >A1,>A1,>A1,>41            ;
-       BYTE >41,>41,>41,>61            ;
-       BYTE >61,>61
+;MCLRST BYTE >A1,>A1,>A1,>41            ;
+;       BYTE >41,>41,>41,>61            ;
+;       BYTE >61,>61
 
 ****************************************
 * Bright Colorset Definitions
@@ -248,22 +248,17 @@ OWTILE
        LI R7,CAVTXT       ; decompress tiles
        BL @DAN2DC   ; Dan2 decompress
 
-       LI   R0,CLRTAB+VDPWM         ; Color table
+       LI   R0,CLRTAB         ; Color table
        LI   R1,CLRSET
        LI   R2,32
        BL   @VDPW
 
-       LI   R0,MCLRTB+VDPWM         ; Menu Color table
+       LI   R0,MCLRTB         ; Menu Color table
        LI   R1,CLRSET
        LI   R2,32
        BL   @VDPW
 
-       LI   R0,MCLRTB+16+VDPWM      ; Menu Color table
-       LI   R1,MCLRST
-       LI   R2,10
-       BL   @VDPW
-
-       LI   R0,BCLRTB+VDPWM         ; Bright Color table
+       LI   R0,BCLRTB         ; Bright Color table
        LI   R1,BCLRST
        LI   R2,32
        BL   @VDPW
@@ -338,12 +333,23 @@ DNTILE
        LI   R2,3*4
        BL   @VDPW
 
+       LI   R0,MCLRTB       ; Menu Color table
+       LI   R1,DUNSET
+       LI   R2,3
+       BL   @VDPW
+
+       LI   R0,MCLRTB+30       ; Menu Color table
+       LI   R1,DUNSET+30
+       LI   R2,2
+       BL   @VDPW
+
        JMP  MENUCP
 
 DRKPAT                           ; load dark dungeon patterns
        LI R5,DNDARK
        LI R7,PATTAB+(8*96)       ; decompress tiles
        BL @DAN2DC   ; Dan2 decompress
+       ; NOTE dark colorset is loaded in bank2:GODUNG
        JMP !
 LITPAT                           ; load light dungeon patterns
        LI R5,DUNGN2
@@ -366,7 +372,6 @@ LITPAT                           ; load light dungeon patterns
        LI   R1,DUNSET
        LI   R2,3*4
        BL   @VDPW
-
 
 !      LI   R0,BANK2         ; Load bank 2
        MOV  R13,R1           ; Jump to our return address

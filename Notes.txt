@@ -752,7 +752,7 @@ Character selection / enter your name
 FG99 saving
 Disk save/load
 Press joystick 1 up to start
-Free up 14 bytes in CPU RAM for unrolled VDP copy (or 8 bytes without unroll)
+(unlikely)Free up 14 bytes in CPU RAM for unrolled VDP copy (or 8 bytes without unroll)
 !    MOV *R1+,*R15
      MOV *R1+,*R15
      MOV *R1+,*R15
