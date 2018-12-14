@@ -55,6 +55,8 @@ MAIN
        CLR R0
        MOV R0,@HFLAG2
 
+       CLR @KEY_FL
+
 RESTRT
        CLR @FLAGS         ; Reset flags
        CLR @HURTC         ; Reset hurt counter
@@ -73,8 +75,8 @@ RESTRT
        JNE -!
        BL @SPRUPD
 
-       ;LI   R0,>7700         ; Initial map location is 7,7 (5,3 is by fairy)(3,7 is D-1)
-       LI R0,>3700
+       ;LI   R0,>7700         ; Initial map location is 7,7 (5,3 is by fairy)(3,7 is D-1,)
+       LI R0,>3700            ; Dungeons: 37, 3C, 74, 45, 0B, 22, 42, 6D, 05
        MOVB R0,@MAPLOC
 
        LI R0,>0A00           ; Initial HP
@@ -109,7 +111,6 @@ RESTRT
 
        CLR @MOVE12
 
-       CLR @KEY_FL
 
        LI R5,>7078        ; Link Y X position in pixels
        LI R3,DIR_DN       ; Initial facing down

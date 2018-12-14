@@ -646,8 +646,7 @@ LITCDL
 
 
 
-DRKPAL
-       BYTE >14,>14,>1C,>1A,>1C,>1A,>1C,>1E,>1E
+DRKPAL BYTE >14,>14,>1C,>1A,>1C,>1A,>1C,>1E,>1E  ; Levels 1-9
 
 
 ; Note: must preserve R12
@@ -927,14 +926,14 @@ WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        BYTE WW,DL,WW,LW,WB,WB,DD,BW,DW,WW,WL,DW,WD,DD,DL,WW
        BYTE WD,DW,WD,DD,WW,WW,DD,WW,WL,DD,WW,WD,DW,DD,WW,WW
 
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
-       BYTE WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW,WW
+       BYTE BB,DD,WW,LW,DB,WW,DW,WW,WW,DL,DW,WB,WW,WB,LW,BW
+       BYTE DL,WB,WB,WL,WW,DB,LD,WW,BW,DW,LL,LW,DL,BD,DW,BW
+       BYTE LW,WB,WD,WW,DW,WB,BW,WW,WW,DB,WL,LB,DW,BL,LB,BW
+       BYTE WD,DB,WW,DB,BW,DW,LD,WW,LB,DW,DW,WB,WW,WW,WB,DW
+       BYTE LW,DW,WW,WD,WW,DL,DW,WW,LW,DW,DW,BW,DD,BD,DW,DW
+       BYTE DD,BD,BW,DW,WD,WD,BL,WW,WD,DW,WW,LW,DB,BB,DW,WW
+       BYTE DB,DD,DD,WD,WD,WW,DW,WW,WW,DD,WL,LW,WD,WD,DW,WW
+       BYTE WW,DD,WW,WW,WD,WD,DD,WW,WW,WW,WW,WL,WW,WW,DW,WW
 
        ; 4 bits item type
        ;   0 stairs - open
@@ -1010,25 +1009,26 @@ LVLMAP ; dungeon  map bitmaps
        BYTE >00,>00,>30,>16,>7C,>38,>10,>38  ; level-2
 
 
-       ; 6 bits map
-       ; 2 bits
-DUNMAP BYTE >28,>26,>10,>0C,>00,>09,>0A,>00,>00,>0F,>0F,>28,>0C,>0C,>02,>00
-       BYTE >0E,>28,>0F,>11,>0C,>28,>22,>28,>11,>25,>22,>05,>0E,>14,>08,>28
-       BYTE >21,>23,>0A,>21,>12,>13,>24,>21,>08,>24,>07,>28,>00,>25,>07,>00
-       BYTE >22,>20,>0F,>20,>04,>0B,>0C,>20,>0F,>25,>09,>0F,>20,>0C,>29,>00
-       BYTE >21,>28,>09,>06,>04,>08,>23,>21,>10,>00,>15,>16,>00,>29,>04,>12
-       BYTE >0D,>05,>03,>84,>05,>25,>00,>20,>12,>07,>00,>00,>06,>03,>06,>05
-       BYTE >00,>04,>1C,>83,>0A,>04,>22,>28,>07,>14,>28,>0D,>00,>05,>08,>03
-       BYTE >00,>01,>00,>01,>87,>00,>01,>07,>06,>01,>05,>05,>01,>01,>00,>00
+       ; bits 5:0 - room type
+       ; bit 6 - ambient boss roar sound effect?
+       ; bit 7 - dark room
+DUNMAP BYTE >29,>A6,>90,>0C,>00,>09,>0A,>00,>00,>0F,>0F,>29,>0C,>0C,>02,>00
+       BYTE >0E,>29,>0F,>11,>0C,>29,>22,>29,>11,>25,>A2,>05,>0E,>14,>08,>29
+       BYTE >21,>A3,>0A,>21,>12,>13,>24,>A1,>08,>A4,>07,>29,>00,>A5,>07,>00
+       BYTE >A2,>20,>0F,>20,>04,>0B,>0C,>A0,>0F,>A5,>09,>0F,>A0,>0C,>30,>00
+       BYTE >A1,>29,>09,>06,>04,>08,>A3,>21,>10,>00,>15,>16,>00,>30,>04,>12
+       BYTE >8D,>05,>03,>04,>05,>25,>00,>A0,>12,>07,>00,>00,>06,>03,>06,>05
+       BYTE >00,>04,>9C,>03,>0A,>04,>A2,>29,>07,>14,>29,>0D,>00,>05,>08,>03
+       BYTE >00,>01,>00,>01,>07,>00,>01,>07,>06,>01,>85,>05,>01,>01,>00,>00
 
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       BYTE >29,>0F,>12,>30,>18,>16,>00,>00,>00,>A5,>30,>0A,>0A,>0F,>30,>0A
+       BYTE >A6,>06,>0A,>00,>00,>0D,>00,>0A,>16,>02,>30,>80,>19,>A4,>0F,>06
+       BYTE >29,>0A,>0B,>0C,>0C,>29,>00,>00,>0A,>02,>07,>23,>A0,>1D,>05,>0F
+       BYTE >08,>12,>02,>29,>11,>29,>18,>14,>0F,>02,>1B,>80,>24,>30,>00,>18
+       BYTE >29,>22,>00,>98,>19,>02,>00,>00,>26,>80,>9A,>30,>00,>00,>02,>03
+       BYTE >00,>04,>A8,>29,>12,>8D,>12,>A2,>A4,>0D,>14,>18,>1C,>0A,>28,>A4
+       BYTE >00,>18,>97,>03,>12,>25,>02,>00,>00,>0A,>30,>14,>06,>A2,>29,>00
+       BYTE >18,>01,>07,>00,>0A,>18,>01,>A6,>00,>14,>00,>06,>0A,>00,>01,>00
 
        ; Screen type strips of metatiles (12 or more bytes)
        ; column of bits indicating 0=floor or 1=other (block/water/lava/sand)
@@ -1058,7 +1058,7 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >00,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>2A,>00   ; 13 Three block strips horizontal
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>63,>77,>77,>77   ; 14 Right stair room
        BYTE >14,>14,>14,>14,>14,>14,>14,>14,>14,>14,>14,>14   ; 15 Two long strips horizontal
-       BYTE >00,>22,>22,>22,>22,>22,>22,>22,>22,>22,>3E,>00   ; 16 Big backward C
+       BYTE >00,>22,>22,>22,>22,>22,>22,>22,>22,>22,>3E,>00   ; 16 Wide backward C
        BYTE >00,>00,>3E,>22,>22,>22,>22,>22,>22,>3E,>00,>00   ; 17 Block rect
        BYTE >00,>00,>00,>00,>80,>08,>00,>00,>80,>08,>00,>00,>00,>00 ; 18 Two statues near center
        BYTE >00,>3E,>22,>22,>22,>2A,>2A,>2A,>3A,>02,>7E,>00   ; 19 Spiral with stairs
@@ -1078,10 +1078,11 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>7F,>00,>00,>00   ; 25 Water strip vertical
        BYTE >77,>41,>5D,>55,>77,>22,>22,>77,>55,>5D,>41,>77   ; 26 Water shape spider
        BYTE >00,>7F,>37,>30,>30,>30,>30,>30,>30,>3F,>3F,>00   ; 27 Water shape h
+       BYTE >12,>12,>12,>12,>12,>12,>12,>12,>12,>12,>12,>12   ; 28 Water 2 horizontal strips
 
        BYTE >FF,>20,>20,>20,>20  ; black
-       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 28 Black floor
+       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 29 Black floor
 
        BYTE >FF,>05,>05,>05,>05  ; light sand
-       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 29 light sand
+       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 30 light sand
 
