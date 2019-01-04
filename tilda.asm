@@ -37,7 +37,7 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 ; 0000:031F Screen Table A (32*25 = 320)
 ; 0320:033F Save area scratchpad/sprite list
 ; 0340:035F Color Table (32 bytes = 20)
-; 0360:037F MapSav
+; 0360:037F MapSav(1),LadPos(2)
 ; 0380:03FF Sprite List Table (32*4 bytes = 80)
 ; 0400:071F Screen Table B (32*25 = 320)
 ; 0720:073F
@@ -69,6 +69,7 @@ SCR1TB EQU  >0000    ; Name Table 32*24 bytes (double-buffered)
 SCHSAV EQU  >0320    ; Save area for SCRTCH scratchpad/screen list
 CLRTAB EQU  >0340    ; Color Table address in VDP RAM - 32 bytes
 MAPSAV EQU  >0360    ; Overworld map saved location when in dungeon
+LADPOS EQU  >3601    ; Ladder Position YYXX, and backup chars
 SPRTAB EQU  >0380    ; Sprite List Table address in VDP RAM - 32*4 bytes
 SCR2TB EQU  >0400    ; Name Table 32*24 bytes (double-buffered)
 BCLRTB EQU  >0740    ; Bright Color Table address in VDP RAM - 32 bytes
@@ -85,7 +86,6 @@ SDCAVE EQU  SDATA    ; Save Data - opened secret caves, 128 bits = 16 bytes
 SDITEM EQU  SDATA+16 ; Save Data - cave items collected, 128 bits = 16 bytes
 SDOPEN EQU  SDATA+32 ; Save Data - dungeon doors unlocked or walls bombed, 256 bits = 32 bytes
 SDDUNG EQU  SDATA+64 ; Save Data - dungeon items collected, 256 bits = 32 bytes
-
 
 MUSICV EQU  >3000    ; Music Base Address in VDP RAM (4k space)
 
@@ -182,6 +182,8 @@ MAGBMR EQU  >8000            ; Magic Boomerang (blue)
 ; Boomerang(Br/Bl)  Bombs  Bow/Arrow  Candle(B/R)
 ; Flute  Meat  Letter/Potion(B/R)  MagicRod
 
+BLUCLR EQU  >0700            ; Color of sprite with blue ring
+REDCLR EQU  >0800            ; Color of sprite with red ring
 
 HFLAG2 EQU  WRKSP+52         ; More hero flags (part of save data)
 BOMBSA EQU  >0001            ; Bombs available > 0
@@ -459,7 +461,7 @@ HEADER
        DATA >0000   ; Pointer to power-up list
        DATA PRGLST  ; Pointer to program list
        DATA >0000   ; Pointer to DSR list
-       DATA >0000   ; Pointer to subprogram list
+       ;DATA >0000   ; Pointer to subprogram list  (this doubles as next program list entry)
 
 PRGLST DATA >0000   ; Next program list entry
        DATA START   ; Program address

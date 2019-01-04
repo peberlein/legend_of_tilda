@@ -727,7 +727,6 @@ Add Zora bullet (blocked by magic shield, at either angle diagonal)
 Title screen music
 Smooth scrolling text after title screen
 Bait (attracts enemies, or give to Grumble Grumble)
-Ladder (crosses one water tile)
 Flute (Tornado)
 Flute (open level 7)
 Enemy respawn (8 screen LRU)
@@ -811,3 +810,4 @@ Push rock to open secret cave (0 frames to start moving, moves every other frame
 Raft (ride north/south from dock)
 Enemy stun (requires boomerang or clock)
 Dungeon palette changes for darkness (use candle)
+Ladder (crosses one water tile)

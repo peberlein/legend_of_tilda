@@ -50,16 +50,15 @@ MAIN
        MOVB R0,@HEARTS
 
        CLR R0
-       LI R0,MAGSHD+RAFT      ; Test initial magic shield
+       LI R0,MAGSHD+RAFT+LADDER      ; Test initial magic shield
        MOV R0,@HFLAGS     ; TODO get hero flags from save data
        CLR R0
+       LI R0,BLURNG+PBRACE
        MOV R0,@HFLAG2
 
        CLR @KEY_FL
 
 RESTRT
-       CLR @FLAGS         ; Reset flags
-       CLR @HURTC         ; Reset hurt counter
 
        LI   R0,BANK1         ; Music is in bank 1
        LI   R1,HDREND        ; First function in bank 1
@@ -75,15 +74,19 @@ RESTRT
        JNE -!
        BL @SPRUPD
 
+       CLR @FLAGS         ; Reset flags
+       LI R9,!
+       B  @LNKCLR        ; Reset hero color and hurt counter (returns to R9)
+!
+
        ;LI   R0,>7700         ; Initial map location is 7,7 (5,3 is by fairy)(3,7 is D-1,)
-       LI R0,>3700            ; Dungeons: 37, 3C, 74, 45, 0B, 22, 42, 6D, 05
+       LI R0,>4500            ; Dungeons: 37, 3C, 74, 45, 0B, 22, 42, 6D, 05
        MOVB R0,@MAPLOC
 
        LI R0,>0A00           ; Initial HP
        ;LI R0,>0100
        MOVB R0,@HP
 
-       CLR @FLAGS
 
 
        LI R9,32-6
@@ -725,9 +728,11 @@ CAVOU2
 !
        CI R1,>7F00           ; doorway
        JEQ !
+       CI R1,>D800           ; waterfall
+       JEQ !
        ; TODO test for water - ride raft down
 
-       AI R5,-(17*256)-16
+       AI R5,-8*256         ; -(17*256)-16    ; appear up and to the left
        MOV R5,@HEROSP	     ; Update color sprite
        MOV R5,@HEROSP+4      ; Update outline sprite
        JMP CAVOU3
@@ -873,21 +878,44 @@ ANDOOR
 !
        B *R13         ; Return to saved address
 
+
+* R3=direction pushed  R1=char that was solid
+DNPUSH ; push something in a dungeon
+       ; TODO key door
+       ; TODO push block
+
+       CI R1,>8100   ; Water
+       JNE !
+       B @LADDE1
+
+
 * touching armos, or pushing block?
+* R3=direction pushed  R1=char that was solid
 SOLID
+       MOV @FLAGS,R0
+       ANDI R0,DUNLVL
+       JNE DNPUSH     ; in a dungeon?
+
        ANDI R1,>FC00
        CI R1,>DC00    ; armos statue DC-DF
        JEQ ARMOST
        CI R1,>F400    ; gravestone F4-F7
        ; TODO spawn ghini
 
-       ; TODO have bracelet?
        CI R1,>9400    ; green rock 94-97
        JEQ ROCKMV
        CI R1,>9C00    ; red rock 9C-9F
        JEQ ROCKMV
+
+       ANDI R1,>F000  ; Mask to water group
+       CI R1,>E000    ; water group?
+       JEQ LADDE1     ; use ladder
 !      RT
 ROCKMV ; rock move
+       MOV @HFLAG2,R0
+       ANDI R0,PBRACE  ; have power bracelet?
+       JEQ -!
+
        ; locate rock
        MOV R5,R9     ; save hero pos
        CI R3,DIR_UP
@@ -940,8 +968,8 @@ ROCKMV ; rock move
        BL @OBSLOT    ; spawn rock sprite
 
        ; erase rock tiles
-       CLR R1
-       CLR R2
+       LI R1,>6464
+       MOV R1,R2
        BL @STORCH    ; Draw R1 R2 at R5 (modifies R3)
 
        MOV R4,R3
@@ -972,13 +1000,99 @@ ARMOST ; armos touched
        ; Didn't find existing sprite
 
        MOV R11,R10  ; Save return address
-       LI R4,ARMOID
-       LI R6,ARMOSC
+       LI R4,ARMOID ; armos id
+       LI R6,ARMOSC ; armos color
        BL @OBSLOT
        MOV R10,R11  ; Restore return address
 
 !      MOV R9,R5  ; restore R5
-       RT
+!      RT
+
+
+* R3=direction pushed
+LADDE1 ; use ladder (water already checked)
+       LI R0,LADDER
+       CZC @HFLAGS,R0
+       JEQ -!
+
+       ; TODO check if space on other side
+       MOV R11,R13   ; Save return address
+       MOV R3,R4    ; Save direction
+
+       SRL R3,7
+       LI R2,LADDE4   ; Return if solid
+
+       MOV R5,R0
+       ORI R0,>0800
+       MOV R0,R8
+
+       A @LADDXY(R3),R0
+       BL @TESTCH
+       ANDI R1,>FE00
+       CI R1,>6000   ; ladder chars
+       JEQ LADDE4
+
+       MOV R5,R0
+       A @LAD2XY(R3),R0
+       BL @TESTCH
+       ANDI R1,>FE00
+       CI R1,>6000   ; ladder chars
+       JEQ LADDE4
+
+       A @LAD3XY(R3),R8  ; Hero pos + ladder offset
+
+       ; Make sure not already standing on ladder
+       LI R0,LADPOS   ; Load ladder position
+       MOVB @R0LB,*R14
+       MOVB R0,*R14
+
+       MOV R5,R9    ; Save hero pos
+
+       MOVB @VDPRD,R5
+       JEQ LADDE2        ; Ladder is not placed yet
+       MOVB @VDPRD,@R5LB
+
+       MOV R5,R0
+       S R9,R0
+       CI R0,->0700     ; Hero above ladder
+       JLT !
+
+       CI R0,>0F00     ; Hero below ladder
+       JGT !
+
+       SWPB R0
+       ABS R0
+       CI R0,>1000
+       JL LADDE3     ; Standing on ladder
+!
+       LI R0,LADPOS+2
+       LI R1,R6LB-1 ; Load regs R6-R7
+       LI R2,4
+       BL @VDPR
+
+       MOV R6,R1
+       MOV R7,R2
+       BL @STORCH   ; Erase old ladder with old chars
+
+LADDE2
+       LI R0,BANK2
+       LI R1,MAIN
+       LI R2,3       ; Function 3 is draw ladder R8=ladder pos
+       MOV R8,R5
+       BL @BANKSW     ; bank switch
+
+LADDE3
+       MOV R9,R5    ; Restore hero pos
+LADDE4 MOV R4,R3    ; Restore direction
+       B *R13        ; Return to saved address
+
+* Facing     Right Left  Down  Up
+LADDXY DATA >0420,>04EF,>2004,>EF04     ; Test char offset 1
+LAD2XY DATA >0C20,>0CEF,>200C,>EF0C     ; Test char offset 2
+LAD3XY DATA >0010,>FFF0,>1004,>F004     ; Place ladder offset
+DUNCZC DATA DUNLVL
+
+
 
 
 SWORD  CLR R0
@@ -1181,8 +1295,9 @@ ITMSPN ; Item spawn: R7=index, R4=object id, R6=sprite idx and color
 ITMNXT B @ITEMX
 
 
-*            Left Right  Down  Up
-BOMBXY DATA >FF10,>FEF0,>0F00,>EF00
+*            Right Left  Down  Up
+BOMBXY DATA >0010,>FFF0,>1000,>F000
+;BOMBXY DATA >FF10,>FEF0,>0F00,>EF00  ; was this old version to adjust for Y offset?
 
 BOMBFN ; Bomb
        MOV @BOMBOB,R0
@@ -1250,7 +1365,6 @@ BAITFN ; Bait
 POTNFN ; Letter/Potion
        JMP ITMNXT
 MAGCFN ; Magic Rod
-
        BL @THROW
 
        LI R0,>0C00       ; Magic Rod animation is 12 frames
@@ -1322,10 +1436,22 @@ LNKHR2
 
 !      CI R4,>0400
        JHE !
-       CLR R4           ; Countdown finished
+LNKCLR CLR R4           ; Countdown finished
+       MOV @HFLAG2,R0
+       ANDI R0,REDRNG+BLURNG
+       JEQ !  ; if no rings, then green
+       LI R1,BLUCLR ; Light Blue
+       MOVB R1,@HEROSP+3  ; hero sprite color
+       MOVB R1,@MPDTSP+3  ; map dot sprite color
+       ANDI R0,REDRNG
+       JEQ !
+       LI R1,REDCLR ; Medium Red
+       MOVB R1,@HEROSP+3  ; hero sprite color
+       MOVB R1,@MPDTSP+3  ; map dot sprite color
 !
        MOVB R4,@HURTC
        BL *R9           ; Return to saved address
+
 
 LNKHJT ; Hero hurt jump table
        DATA LNKHJR,LNKHJL,LNKHJD,LNKHJU
@@ -1396,6 +1522,33 @@ STORCH
        JNE -!
 
        RT
+* STORCH and returns characters in R6,R7
+SAVECH
+       MOV R5,R0
+       ; Convert pixel coordinate YYYYYYYY XXXXXXXX
+       ; to character coordinate        YY YYYXXXXX
+       ANDI R0,>F8F8
+       MOV R0,R3
+       SRL R3,3
+       MOVB R3,R0
+       SRL R0,3
+       MOV @FLAGS,R3
+       ANDI R3,SCRFLG
+       A R3,R0
+
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
+       MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       AI R0,32
+       MOVB @VDPRD,R6
+       MOVB @VDPRD,@R6LB
+
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
+       MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       AI R0,-32+VDPWM
+       MOVB @VDPRD,R7
+       MOVB @VDPRD,@R7LB
+       LI R3,2
+       JMP -!
 
 
 

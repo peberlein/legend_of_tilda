@@ -13,6 +13,7 @@
 ; R2=0  load screen
 ; R2=1  Light up darkened room (only call if DARKRM flag is set)
 ; R2=2  Light up darkened room by candle (only call if DARKRM flag is set), returning to bank 5
+; R2=3  Draw ladder and backup chars underneath  R8=ladder pos
 ; Modifies R0-R12,R15
 MAIN
        MOV R11,R12          ; Save return address for later
@@ -25,6 +26,15 @@ MAIN
        JNE !
        B @LITCDL         ; Light up after using candle
 !
+       DEC R2
+       JNE !
+       BL @DRWLAD         ; Draw ladder
+
+       LI R0,BANK0
+       MOV R12,R1         ; Restore return address
+       B @BANKSW          ; return to bank0
+!
+
 
 
        LI R0,SPRTAB+(6*4)
@@ -449,8 +459,8 @@ DOORS  BYTE >00,>19,>00,>47,>1C,>65,>00,>4A,>00,>00,>12,>47,>18,>19,>45,>48
 
        
 MT00   DATA >A0A1,>A2A3  ; Brown Brick
-       DATA >6464,>6464  ; Ground
-       DATA >1415,>1415  ; Ladder
+       DATA >1414,>1414  ; Ground
+       DATA >6263,>6263  ; Ladder
        DATA >A4A5,>ABAC  ; Brown top
        DATA >A7AE,>AF07  ; Brown corner SE
        DATA >A506,>ACAD  ; Brown corner NE
@@ -465,21 +475,21 @@ MT00   DATA >A0A1,>A2A3  ; Brown Brick
        DATA >E0E0,>E1E1  ; Water
        DATA >E0E0,>E2E2  ; Water edge S
 
-MT10   DATA >64ED,>6411  ; Water inner corner NE
-       DATA >EC64,>1064  ; Water inner corner NW
+MT10   DATA >14ED,>1465  ; Water inner corner NE
+       DATA >EC14,>6414  ; Water inner corner NW
        DATA >E7E8,>E1E9  ; Water corner NE
        DATA >E0E9,>E1EA  ; Water edge E
        DATA >E0EA,>E2EB  ; Water corner SE
-       DATA >64D0,>D2C8  ; Brown Dungeon NW
+       DATA >14D0,>D2C8  ; Brown Dungeon NW
        DATA >D3C9,>CBCA  ; Brown Dungeon SW
        DATA >C0C1,>C2C3  ; Brown Dungeon two eyes
-       DATA >D164,>CCD2  ; Brown Dungeon NE
+       DATA >D114,>CCD2  ; Brown Dungeon NE
        DATA >CDD3,>CECB  ; Brown Dungeon SE
        DATA >7071,>7273  ; Red Steps
        DATA >C4C5,>C6C7  ; White Dungeon one eye
        DATA >D4B0,>D5B0  ; Brown Tree NW
-       DATA >64B2,>64B3  ; Brown Tree SW
-       DATA >B464,>B564  ; Brown Tree NE
+       DATA >14B2,>14B3  ; Brown Tree SW
+       DATA >B414,>B514  ; Brown Tree NE
        DATA >B6D6,>B7D7  ; Brown Tree SE
 
 MT20   DATA >D8D9,>DADB  ; Waterfall
@@ -487,8 +497,8 @@ MT20   DATA >D8D9,>DADB  ; Waterfall
        DATA >B8B9,>BABB  ; Tree face
        DATA >F4F6,>F5F7  ; Gravestone
        DATA >9899,>9A9B  ; Bush
-       DATA >1264,>EE64  ; Water inner corner SW
-       DATA >6061,>6263  ; Sand
+       DATA >6614,>EE14  ; Water inner corner SW
+       DATA >1011,>1213  ; Sand
        DATA >1C1C,>1D1D  ; Red Bridge
        DATA >878E,>8F08  ; Grey corner SE
        DATA >0808,>0808  ; Grey Ground
@@ -496,14 +506,14 @@ MT20   DATA >D8D9,>DADB  ; Waterfall
        DATA >8485,>8B8C  ; Grey top
        DATA >7879,>7A7B  ; Grey stairs
        DATA >F0F1,>F2F3  ; Grey bush
-       DATA >6462,>D2C8  ; Green Dungeon NW
+       DATA >1462,>D2C8  ; Green Dungeon NW
        DATA >D3C9,>CBCA  ; Green Dungeon SW
 
 MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
-       DATA >6364,>CCD2  ; Green Dungeon NE
+       DATA >6314,>CCD2  ; Green Dungeon NE
        DATA >2020,>2020  ; Black square
        DATA >DCDD,>DEDF  ; Armos
-       DATA >6413,>64EF  ; Water inner corner SE
+       DATA >1467,>14EF  ; Water inner corner SE
        DATA >7475,>7677  ; Brown brick Hidden path
        DATA >E0E9,>E1EA  ; Water edge E
 
@@ -555,6 +565,53 @@ FLIP   LI   R0,SCRFLG      ; Screen flag mask
        MOVB @R0LB,*R14      ; Send low byte of VDP register
        MOVB R0,*R14         ; Send high byte of VDP register
        RT
+
+* Draw ladder at R5 in name table
+* Saves ladder pos and backup chars to VDP LADPOS
+* Modifies R0-R3,R6-R7
+DRWLAD
+       MOV R5,R0
+       ; Convert pixel coordinate YYYYYYYY XXXXXXXX
+       ; to character coordinate        YY YYYXXXXX
+       ANDI R0,>F8F8
+       MOV R0,R3
+       SRL R3,3
+       MOVB R3,R0
+       SRL R0,3
+       MOV @FLAGS,R3
+       ANDI R3,SCRFLG
+       A R3,R0
+
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
+       MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       AI R0,32
+       MOVB @VDPRD,R6
+       MOVB @VDPRD,@R6LB
+
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
+       MOVB R0,*R14         ; Send high byte of VDP RAM read address
+       AI R0,-32+VDPWM
+       MOVB @VDPRD,R7
+       MOVB @VDPRD,@R7LB
+
+       LI R3,2
+       LI R1,>6061      ; Ladder chars
+!
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+
+       MOVB R1,*R15
+       MOVB @R1LB,*R15
+
+       AI R0,32
+
+       DEC R3
+       JNE -!
+
+       LI R0,LADPOS     ; save ladder pos and backup chars
+       LI R1,R5LB-1     ; copy R5-R7
+       LI R2,6
+       B @VDPW     ; write and return
 
 
 ; Dark rooms should be darkened before transition and floor should be hidden
@@ -625,6 +682,15 @@ LITCDL
        DEC R4
        JNE -!
 
+       ; Redraw ladder if position is nonzero
+       LI R0,LADPOS
+       BL @VDPRB
+       JEQ !      ; ladder here?
+       MOVB @VDPRD,@R1LB
+       MOV R1,R5    ; R5 = ladder pos
+       BL @DRWLAD
+!
+
        LI R0,SCHSAV
        BL @READ32
 
@@ -655,6 +721,11 @@ GODUNG
        CLR @DOOR          ; TODO should load stair or item location
        CLR R4             ; light tile mask (inverted for SZC)
 
+       LI R0,LADPOS       ; Clear ladder position
+       CLR R1
+       BL @VDPWB
+       MOVB R1,*R15
+
        SRL R3,8             ; Map location
        MOVB @DUNMAP(R3),R1  ; Screen type
        SRL R1,8
@@ -673,12 +744,14 @@ GODUNG
        MOV R1,@OBJPTR     ; Save screen type
        MOV R12,@SCRTCH    ; and return address
 
-       LI R0,CLRTAB+11    ; Color table offset char >96
+       LI R0,CLRTAB+11    ; Color table offset char >60
        MOVB @R0LB,*R14
        MOVB R0,*R14
        MOV @FLAGS,R1
        SRL R1,12          ; Get dungeon number
-       LI R2,18
+       LI R0,>1A00        ; dark ladder
+       MOVB R0,*R15
+       LI R2,17
 !
        MOVB @DRKPAL-1(R1),*R15
        DEC R2
@@ -757,14 +830,17 @@ STDUN2
        LI R0,>ECED    ; left facing statue
        LI R1,>EEEF
 STDUN3
-       SZC R4,R0
+       CI R0,>8181    ; water?
+       JEQ !
+       SZC R4,R0      ; apply light mask
+       SZC R4,R1      ; apply light mask
+!
        MOVB @R10LB,*R14     ; Draw upper-half metatile
        MOVB R10,*R14
        AI R10,32
        MOVB R0,*R15
        MOVB @R0LB,*R15
 
-       SZC R4,R1
        MOVB @R10LB,*R14     ; Draw lower-half metatile
        MOVB R10,*R14
        AI R10,32
@@ -881,22 +957,22 @@ LOKBOM ; Draw locked door or bomb hole
 NWALL  BYTE >89,>64,>64,>89,>96,>96,>96,>96,>96,>96,>96,>96
 NBOMB  BYTE >68,>69,>20,>20
 NDOOR  BYTE >94,>60,>60,>94,>C8,>20,>20,>C9,>C0,>7B,>7A,>C1
-NLOCK  BYTE >D8,>D9,>DA,>DB
+NLOCK  BYTE >D0,>D1,>D2,>D3
 
 WWALL  BYTE >8F,>9D,>9D,>8F,>9D,>9D,>65,>9D,>9D,>8F,>9D,>9D
 WBOMB  BYTE >6C,>20,>6D,>20
 WDOOR  BYTE >A6,>CA,>C2,>A6,>F7,>7F,>62,>20,>7B,>A6,>CC,>C4
-WLOCK  BYTE >E0,>E1,>E2,>E3
+WLOCK  BYTE >D8,>D9,>DA,>DB
 
 EWALL  BYTE >9E,>9E,>8F,>9E,>9E,>8F,>9E,>9E,>65,>9E,>9E,>8F
 EBOMB  BYTE >20,>6E,>20,>6F
 EDOOR  BYTE >C3,>CB,>A7,>7E,>F7,>A7,>7A,>20,>63,>C5,>CD,>A7
-ELOCK  BYTE >E4,>E5,>E6,>E7
+ELOCK  BYTE >DC,>DD,>DE,>DF
 
 SWALL  BYTE >B1,>B1,>B1,>B1,>B1,>B1,>B1,>B1,>89,>64,>64,>89
 SBOMB  BYTE >20,>20,>6A,>6B
 SDOOR  BYTE >C6,>79,>78,>C7,>CE,>20,>20,>CF,>BC,>61,>61,>BC
-SLOCK  BYTE >DC,>DD,>DE,>DF
+SLOCK  BYTE >D4,>D5,>D6,>D7
 
 ; W=wall D=door L=locked B=bomb
 WW     EQU >00
@@ -917,6 +993,7 @@ LB     EQU >E0
 LL     EQU >F0
 
 ; Each byte is the south and east wall/doors for that room (north,west are taken from byte above and left)
+       BYTE WW ; dummy byte to prevent left-door on next room
 WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        BYTE DB,BB,WD,WW,DW,BW,WB,WW,DD,LD,WD,WW,DW,DW,DB,DW
        BYTE LD,LW,WL,LW,DL,WD,WL,DW,DB,DW,WD,DW,WW,WW,DL,BW
@@ -1069,7 +1146,7 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >00,>3E,>00,>3E,>00,>3E,>3E,>00,>3E,>00,>3E,>00    ; 1E Five strips vertical
        BYTE >77,>77,>77,>77,>77,>36,>08,>77,>77,>77,>77,>77    ; 1F Crossroads
 
-       BYTE >FF,>80,>80,>80,>80  ; water
+       BYTE >FF,>81,>81,>81,>81  ; water
        BYTE >77,>41,>5F,>41,>7D,>04,>10,>5F,>41,>7D,>41,>77   ; 20 Water maze
        BYTE >00,>3E,>22,>2A,>08,>08,>08,>08,>2A,>22,>3E,>00   ; 21 Water shape [-]
        BYTE >10,>10,>10,>10,>10,>10,>10,>10,>10,>10,>10,>10   ; 22 Water horizontal strip

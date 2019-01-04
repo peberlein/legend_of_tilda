@@ -200,10 +200,10 @@ KEYTST
 ****************************************
 * Overworld Colorset Definitions
 ****************************************
-CLRSET BYTE >1B,>1E,>4B,>61            ;
+CLRSET BYTE >1B,>1E,>6B,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
-       BYTE >6B,>1B,>16,>1C            ;
+       BYTE >4B,>1B,>16,>1C            ;
        BYTE >1C,>1C,>CB,>6B            ;
        BYTE >16,>16,>16,>16            ;
        BYTE >16,>16,>1B,>4B            ;
@@ -385,57 +385,57 @@ DUNSET BYTE >1B,>1B,>1B,>61            ;
        BYTE >F1,>F1,>F1,>F1            ;
        BYTE >F1,>F1,>F1,>F1            ;
 
-       BYTE >47,>17,>17,>57            ; Level-1 eagle
+       BYTE >4B,>17,>17,>57            ; Level-1 eagle
        BYTE >47,>47,>47,>47            ; Level-1 blue water
-       BYTE >47,>47,>47,>47            ; Level-1 cyan
+       BYTE >47,>47,>47,>47            ; Level-1 cyan on dark blue
        BYTE >47,>17,>17,>17            ; Level-1
        BYTE >17,>4E,>41,>41            ; Level-1
 
-       BYTE >14,>14,>15,>45            ; Level-2 moon
+       BYTE >1B,>14,>15,>45            ; Level-2 moon
        BYTE >4D,>14,>14,>14            ; Level-2 no water
-       BYTE >14,>14,>14,>14            ; Level-2 blue
+       BYTE >14,>14,>14,>14            ; Level-2 blue on black
        BYTE >14,>14,>14,>14            ; Level-2
        BYTE >14,>48,>41,>41            ; Level-2
 
-       BYTE >12,>12,>12,>C2            ; Level-3 manji
+       BYTE >1B,>12,>12,>C2            ; Level-3 manji
        BYTE >C3,>12,>12,>12            ; Level-3 no water
-       BYTE >12,>12,>12,>12            ; Level-3 green
+       BYTE >12,>12,>12,>12            ; Level-3 green on black
        BYTE >12,>12,>12,>12            ; Level-3
        BYTE >12,>16,>41,>41            ; Level-3
 
-       BYTE >1A,>1A,>1A,>AB            ; Level-4 snake
+       BYTE >4B,>1A,>1A,>AB            ; Level-4 snake
        BYTE >4B,>1A,>1A,>1A            ; Level-4 blue water
-       BYTE >1A,>1A,>1A,>1A            ; Level-4 yellow
-       BYTE >1A,>1A,>1A,>1A            ; Level-4
-       BYTE >1A,>A4,>41,>41            ; Level-4
+       BYTE >1A,>1A,>1A,>1A            ; Level-4 yellow on black
+       BYTE >4B,>4B,>4B,>4B            ; Level-4 yellow on blue
+       BYTE >4B,>A4,>41,>41            ; Level-4
 
-       BYTE >C3,>12,>12,>23            ; Level-5 lizard
+       BYTE >6B,>12,>12,>23            ; Level-5 lizard
        BYTE >63,>C3,>C3,>C3            ; Level-5 red water
-       BYTE >C3,>C3,>C3,>C3            ; Level-5 green
+       BYTE >C3,>C3,>C3,>C3            ; Level-5 green on dark green
        BYTE >C3,>13,>13,>13            ; Level-5
        BYTE >13,>16,>41,>41            ; Level-5
 
-       BYTE >1A,>1A,>1A,>AB            ; Level-6 dragon
+       BYTE >6B,>1A,>1A,>AB            ; Level-6 dragon
        BYTE >6B,>1A,>1A,>1A            ; Level-6 red water
-       BYTE >1A,>1A,>1A,>1A            ; Level-6 yellow
-       BYTE >1A,>1A,>1A,>1A            ; Level-6
-       BYTE >1A,>A6,>41,>41            ; Level-6
+       BYTE >1A,>1A,>1A,>1A            ; Level-6 yellow on black
+       BYTE >6A,>6A,>6A,>6A            ; Level-6
+       BYTE >6A,>A6,>41,>41            ; Level-6
 
-       BYTE >C3,>12,>12,>23            ; Level-7 demon
+       BYTE >4B,>12,>12,>23            ; Level-7 demon
        BYTE >43,>C3,>C3,>C3            ; Level-7 blue water
-       BYTE >C3,>C3,>C3,>C3            ; Level-7 green
+       BYTE >C3,>C3,>C3,>C3            ; Level-7 green on dark green
        BYTE >C3,>13,>13,>13            ; Level-7
        BYTE >13,>15,>41,>41            ; Level-7
 
-       BYTE >1E,>1E,>1E,>EF            ; Level-8 lion
+       BYTE >4B,>1E,>1E,>EF            ; Level-8 lion
        BYTE >4F,>1E,>1E,>1E            ; Level-8 blue water
-       BYTE >1E,>1E,>1E,>1E            ; Level-8 gray
+       BYTE >1E,>1E,>1E,>1E            ; Level-8 gray on black
        BYTE >1E,>1E,>1E,>1E            ; Level-8
        BYTE >1E,>E4,>41,>41            ; Level-8
 
-       BYTE >1E,>1E,>1E,>EF            ; Level-9 death mountain
+       BYTE >6B,>1E,>1E,>EF            ; Level-9 death mountain
        BYTE >6F,>1E,>1E,>1E            ; Level-9 red water
-       BYTE >1E,>1E,>1E,>1E            ; Level-9 gray
+       BYTE >1E,>1E,>1E,>1E            ; Level-9 gray on black
        BYTE >1E,>1E,>1E,>1E            ; Level-9
        BYTE >1E,>1E,>41,>41            ; Level-9
 

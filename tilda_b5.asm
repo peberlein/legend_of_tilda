@@ -2457,12 +2457,12 @@ SPAWN2 BL @RANDOM           ; Get a random screen location
        S @HEROSP,R0
        ABS R0
        CI R0,>2000
-       JLT SPAWN2
+       JHE !
        SWPB R0
        ABS R0
        CI R0,>2000
        JLT SPAWN2
-
+!
        BL @RANDOM
        ANDI R0,>1800  ; Face random direction
        XOR R0,R6
