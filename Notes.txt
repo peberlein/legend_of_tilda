@@ -671,6 +671,13 @@ Open
 Bombable
 Locked
 Shutters (one-way, kill enemies, push block, kill enemies & push block)
+Shutters show on map as closed
+Bombable walls don't show on map until bombed
+
+Shutters may open if all enemies are killed or block is pushed, or both
+Room items appear after all enemies are killed
+Always open: compass, map, tiforce, sometimes key
+Kill enemies: key, bomb, rupees, heart container
 
 Dungeon bosses do not respawn when defeated (TODO verify)
 

@@ -1062,7 +1062,7 @@ LADDE1 ; use ladder (water already checked)
 
        SWPB R0
        ABS R0
-       CI R0,>1000
+       CI R0,>0F00
        JL LADDE3     ; Standing on ladder
 !
        LI R0,LADPOS+2
@@ -1077,7 +1077,7 @@ LADDE1 ; use ladder (water already checked)
 LADDE2
        LI R0,BANK2
        LI R1,MAIN
-       LI R2,3       ; Function 3 is draw ladder R8=ladder pos
+       LI R2,3       ; Function 3 is draw ladder R5=ladder pos
        MOV R8,R5
        BL @BANKSW     ; bank switch
 

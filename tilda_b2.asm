@@ -993,7 +993,7 @@ LB     EQU >E0
 LL     EQU >F0
 
 ; Each byte is the south and east wall/doors for that room (north,west are taken from byte above and left)
-       BYTE WW ; dummy byte to prevent left-door on next room
+       BYTE WW ; dummy byte to prevent west-door on next room
 WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        BYTE DB,BB,WD,WW,DW,BW,WB,WW,DD,LD,WD,WW,DW,DW,DB,DW
        BYTE LD,LW,WL,LW,DL,WD,WL,DW,DB,DW,WD,DW,WW,WW,DL,BW
@@ -1012,37 +1012,61 @@ WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        BYTE DB,DD,DD,WD,WD,WW,DW,WW,WW,DD,WL,LW,WD,WD,DW,WW
        BYTE WW,DD,WW,WW,WD,WD,DD,WW,WW,WW,WW,WL,WW,WW,DW,WW
 
-       ; 4 bits item type
-       ;   0 stairs - open
-       ;   1 stairs - hidden, kill all enemies
-       ;   2 stairs - hidden, kill all enemies and push block
-       ;   3 stairs - hidden, push block
-       ;   3 stairs - hidden, open and push block
-       ;   4 boomerang - kill all enemies
-       ;   5 bomb - kill all enemies
-       ;   6 heart container - kill boss
-       ;   7 key - kill all enemies
-       ;   8 map - kill all enemies
-       ;   9 compass - kill all enemies
-       ;     bomb item - kill all enemies
-       ;   3 shutters - push block to open
-       ;     key - follows one enemy until killed
+       ; items  (4 bits)
+       ;  0 nothing
+       ;  1 compass
+       ;  2 map
+       ;  3 tiforce
+       ;  4 key
+       ;  5 key carried by enemy (also has location for when all enemies are killed)
+       ;  6 key (this and following items appear after killing all enemies)
+       ;  7 wood boomerang
+       ;  8 magic boomerang
+       ;  9 rupeesX5
+       ;  A bombs
+       ;  B heart container
+       ;  C push block to open shutters  (always middle leftmost)
+       ;  D push block to open stairs  (always middle leftmost)
+       ;  E one way shutter (doesn't open)
 
+       ; possible item locations  (4 bits)
+       BYTE >00 ; top left corner
+       BYTE >0B ; top right corner
+       BYTE >16 ; top center
+       BYTE >26 ; slight up from center
+       BYTE >36 ; center
+       BYTE >37 ; slight right of center
+       BYTE >3A ; middle right
+       BYTE >46 ; slight down from center
+       BYTE >68 ; bottom mid-right
+       BYTE >6B ; bottom right
 
-       ; possible cave items (descend stairs)
-       ;   bow
-       ;   raft
-       ;   flute
-       ;   ladder
-       ;   magic rod
-       ;   red magic rod
-       ;   book of magic
-       ;   passageway starting left
-       ;   passageway starting right
+       ; possible cave items (descend stairs)  (
+       ;  0 no stairs
+       ;  1 bow
+       ;  2 tunnel (use tunnel pairs lookup table)
+       ;  3 raft
+       ;  4 ladder
+       ;  5 flute
+       ;  6 magic rod
+       ;  7 red candle
+       ;  8 book of magic
+       ;  9 magical key
+       ;  A red ring
+       ;  B silver arrow
+       ;
 
+       ; stairs locations, by screen type:
+       ;  center: A
+       ;  top-right: default
+       ;  right: 14
+       ;  NE-from-center: 19
 
-       ; 7 bits stairs/item location X=0..11 Y:0..6
-       ; 1 bit - light or dark
+       ; 8 bits
+       ;  stairs destination (6 bits) doors are to same quadrant
+       ;  cave item type
+       ;  room item type + room item pos (7 bits)
+       ;  condition
 LOCMAP
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
        BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
@@ -1087,24 +1111,24 @@ LVLMAP ; dungeon  map bitmaps
 
 
        ; bits 5:0 - room type
-       ; bit 6 - ambient boss roar sound effect?
+       ; bit 6 - dungeon boss roar sound effect?
        ; bit 7 - dark room
 DUNMAP BYTE >29,>A6,>90,>0C,>00,>09,>0A,>00,>00,>0F,>0F,>29,>0C,>0C,>02,>00
        BYTE >0E,>29,>0F,>11,>0C,>29,>22,>29,>11,>25,>A2,>05,>0E,>14,>08,>29
        BYTE >21,>A3,>0A,>21,>12,>13,>24,>A1,>08,>A4,>07,>29,>00,>A5,>07,>00
-       BYTE >A2,>20,>0F,>20,>04,>0B,>0C,>A0,>0F,>A5,>09,>0F,>A0,>0C,>30,>00
-       BYTE >A1,>29,>09,>06,>04,>08,>A3,>21,>10,>00,>15,>16,>00,>30,>04,>12
+       BYTE >A2,>20,>0F,>20,>04,>0B,>0C,>A0,>0F,>A5,>09,>0F,>A0,>0C,>2A,>00
+       BYTE >A1,>29,>09,>06,>04,>08,>A3,>21,>10,>00,>15,>16,>00,>2A,>04,>12
        BYTE >8D,>05,>03,>04,>05,>25,>00,>A0,>12,>07,>00,>00,>06,>03,>06,>05
        BYTE >00,>04,>9C,>03,>0A,>04,>A2,>29,>07,>14,>29,>0D,>00,>05,>08,>03
        BYTE >00,>01,>00,>01,>07,>00,>01,>07,>06,>01,>85,>05,>01,>01,>00,>00
 
-       BYTE >29,>0F,>12,>30,>18,>16,>00,>00,>00,>A5,>30,>0A,>0A,>0F,>30,>0A
-       BYTE >A6,>06,>0A,>00,>00,>0D,>00,>0A,>16,>02,>30,>80,>19,>A4,>0F,>06
+       BYTE >29,>0F,>12,>2A,>18,>16,>00,>00,>00,>A5,>2A,>0A,>0A,>0F,>2A,>0A
+       BYTE >A6,>06,>0A,>00,>00,>0D,>00,>0A,>16,>02,>2A,>80,>19,>A4,>0F,>06
        BYTE >29,>0A,>0B,>0C,>0C,>29,>00,>00,>0A,>02,>07,>23,>A0,>1D,>05,>0F
-       BYTE >08,>12,>02,>29,>11,>29,>18,>14,>0F,>02,>1B,>80,>24,>30,>00,>18
-       BYTE >29,>22,>00,>98,>19,>02,>00,>00,>26,>80,>9A,>30,>00,>00,>02,>03
+       BYTE >08,>12,>02,>29,>11,>29,>18,>14,>0F,>02,>1B,>80,>24,>2A,>00,>18
+       BYTE >29,>22,>00,>98,>19,>02,>00,>00,>26,>80,>9A,>2A,>00,>00,>02,>03
        BYTE >00,>04,>A8,>29,>12,>8D,>12,>A2,>A4,>0D,>14,>18,>1C,>0A,>28,>A4
-       BYTE >00,>18,>97,>03,>12,>25,>02,>00,>00,>0A,>30,>14,>06,>A2,>29,>00
+       BYTE >00,>18,>97,>03,>12,>25,>02,>00,>00,>0A,>2A,>14,>06,>A2,>29,>00
        BYTE >18,>01,>07,>00,>0A,>18,>01,>A6,>00,>14,>00,>06,>0A,>00,>01,>00
 
        ; Screen type strips of metatiles (12 or more bytes)
@@ -1161,5 +1185,56 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 29 Black floor
 
        BYTE >FF,>05,>05,>05,>05  ; light sand
-       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 30 light sand
+       BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 2A light sand
 
+
+* item       condition
+* K-key      O-open
+* B-bomb     K-kill all enemies
+* C-compass  P-push block after killing enemies
+* R-rupees   C-carried by enemy
+* M-map
+* P-push block
+* S-stairs
+* D-doors
+* I-item
+* H-heart container
+* T-tiforce
+
+* LEVEL-1
+*    SP KK    TO
+*       KC    HK
+* -- DP MO IK KO
+*    DK KK CO
+*       --
+*    KK -- KC
+
+* LEVEL-2
+*    TO HK
+*      DBK --
+*       DK RK
+*       KK BO
+*      DKK IK
+*       -- MO
+* KO DK -- CO
+*    -- KK
+
+* LEVEL-3
+*
+*
+* DK/KO --
+*       DP    TO
+* KO BK KK MO HK
+* DK CO BK DK DIK
+* SO    KK
+*       KO --
+
+* LEVEL-4
+*
+*
+* -- MO
+* -- DK SP
+* KO
+* -- KO
+*    -- CO
+* KK --
