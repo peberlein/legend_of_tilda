@@ -60,15 +60,78 @@ Going down dungeon stairs, fade to black
 Fack from black, and gravity keeps link on the floor (invisible blocks?)
 Bosses drop a heart container
 Collecting triforce does a few screen flashes, then wipe to black (from left/right to center)
-  (link is still visible holding triforce, blinking yellow and light blue)
+  (link is still visible holding triforce, blinking yellow and light blue, every 8 frames)
+  (wait 50 frames)
+  (flash 4 frames, normal 4 frames, 6 flashes total)
+  (wipe-in, 5 frames per column)
+  (delay 128 frames, then all black)
+  (delay 30 frames, then draw status bar)
+  (next frame, start wipe-out from center)
+
+
+68 Link holds up 2handed blue triforce and B and A items go blank
+69 yellow triforce
+77 blue triforce
+85 yellow
+93 blue
+101 yellow
+109 blue
+117 white flash
+121 normal palette
+125 white flash
+129 normal
+133 white flash
+137 normal
+141 white flash
+145 normal
+149 white flash
+153 normal
+157 white flash
+161 normal
+293 wipe-in starts, outermost columns
+298 next column
+303 next column
+308 next column
+313 next column
+318 next column
+323 next column
+328 next column
+333 next column
+343 next column
+348 next column
+353 next column
+358 next column
+363 next column
+368 last column, screen black
+496 all black
+526 status bar appears
+527 wipe-out starts at center
+532 next column
+537 next column
+542 next column
+547 next column
+552 next column
+557 next column
+562 next column
+567 next column
+572 next column
+577 next column
+582 next column
+587 next column
+592 next column
+597 next column
+602 final column, screen done
+603 status bar sprites appear
+605 link appears
+607 status bar text and hearts, and enemies appear
+
 After dungeon, black screen, then cut to overworld, Link rises from entrance
 When link gets hurt, he blinks blue/white between green/brown
 Heart pickups blink red/blue (2 frames on/off for 24 frames, 8 frames red/blue)
 1 Rupee pickups blink yellow/lightblue (color change every 8 frames, 2 frame flicker when appearing 8 blinks)
-5 Rupee pickups solid lightblue
+5 Rupee pickups solid lightblue (collecting rupee will increment by 1 every 2 frames)
 Before moving in a new direction, Link will align to 8-pixel grid
 Walking animation changes every 6 frames (10Hz) (Fire also)
-
 
 Functions:
 wipe in from center to left/right
@@ -79,7 +142,19 @@ scroll map up/down/left/right
 sprite sink/down rise/up (while animating) (use solid higher-priority sprite over it, won't work for dithered ground though)
 update hearts (use sprite for half-heart)
 potions fill hearts to full (slowly, half-heart each time) (red potion turns to blue when used)
-
+Buying blue potion while having blue potion already turns into red potion
+47 - red potion turns blue
+58 - gain half-heart (11)
+80 - gain half-heart (22)
+102 - gain half-heart (22)
+122 - gain half-heart (20)
+144 - gain half-heart (22)
+166 - gain half-heart (22)
+188 - gain half-heart (22)
+208 - gain half-heart (20)
+230 - gain half-heart (22)
+252 - gain half-heart (22)
+273 - resume moving (21)
 
 Use black, dark blue, dark green, dark red for tile foreground color
 So that sprite->character map drawing will look OK-ish
@@ -279,7 +354,8 @@ Moves by 3, brown tip, light blue or grey shaft, red feathers
 Moblin arrows move by 2, brown tip, red shaft, white feathers
 Spark for 3 frames at edge of screen
 
-Zora bullet: red black lightblue(or grey) darkblue
+Statue bullet: red brown grey darkblue  (changes color every frame, starts moving after 16 frames)
+Zora bullet: red black lightblue(or grey) darkblue (changes color every frame, moves after 16 frames)
 Zora pulse: 2 11 11 8
 Zora appears: 19
 Bullet appears: 16, then bullet shoots
@@ -444,7 +520,7 @@ Boulder	.5
 TektiteR .5	1
 TektiteB .5	1
 Zola	.5	2/1/1
-
+ bullet .5
 
 BubbleW   none    (takes away sword temporarily, use flute to dispel)
 BubbleR   none    (takes away sword until touch blue or triforce)
@@ -623,15 +699,15 @@ Startup frames
 1030 scrolling text
 
 THE LEGEND OF TILDA
-LONG AGO, GANROM, PRINCE
-OF DORKINESS, STOLE THE
-TIFORCE OF POWER.
+LONG AGO, GA'ROM, PRINCE
+OF DARKNESS, STOLE THE
+TI-FORCE OF POWER.
 PRINCESS TILDA OF TYRULE
-BROKE THE TIFORCE OF
+BROKE THE TI-FORCE OF
 WISDOM INTO EIGHT PIECES
-AND HID THEM FROM GANROM
+AND HID THEM FROM GA'ROM
 BEFORE SHE WAS KIDNAPPED
-BY GANROM'S MINIONS.
+BY GA'ROM'S MINIONS.
 HERO, YOU MUST FIND THE
 PIECES AND SAVE  TILDA.
 
@@ -679,8 +755,12 @@ Room items appear after all enemies are killed
 Always open: compass, map, tiforce, sometimes key
 Kill enemies: key, bomb, rupees, heart container
 
-Dungeon bosses do not respawn when defeated (TODO verify)
-
+Dungeon bosses do not respawn when defeated
+ - boss defeat saved separately
+ - item collect saved
+Rupee room in dungeon
+ - rupees appear only the first time visiting the room
+ - doesn't appear on dungeon map
 
 Fairy pond: Fills hearts - 1/2 heart every 22 frames
 46 first heart appears (at 12o'clock, moving counterclockwise)
@@ -698,12 +778,26 @@ Fairy pond: Fills hearts - 1/2 heart every 22 frames
 diameter appears to be 106 pixels
 full rotation 84 frames
 
+Classic99.ini usercart description
+[UserCart0]
+name=Legend of Tilda
+rom0=G|6000|0000|/home/pete/Dropbox/ti994a/legend/tilda_g.bin
+rom1=8|0000|0000|/home/pete/Dropbox/ti994a/legend/tilda_c.bin
+;rom2=U|6000|0000|/home/pete/Dropbox/ti994a/legend/tilda_g.bin
+
+
+
 
 TODO: High priority
+Save enemy count per screen
+Enemy respawn (8 screen LRU)
+Drops: bombs(4),
+       fairy(3 hearts), (moves like peahat?)
+       clock(stun all enemies)
+  Drop table and forced item drops (bomb 10th drops bomb)
+Flute (Tornado)
 Tektite AI
 Bomb counter decrement
-Drops: bombs(4), fairy(3 hearts), clock(stun all enemies)
-  Drop table and forced item drops (bomb 10th drops bomb)
 Enemy collision with Arrow, Candle, Bomb
 Magic Rod (damage amount)
 Cave with steps + warp zone
@@ -711,53 +805,44 @@ Cave with steps + warp zone
   2 warp 4 3 1  (northeast)
   3 warp 1 2 4  (central)
   4 warp 3 2 1  (northwest)
-Fix flickering when item is collected
-Rewrite sound player
-  Sound effect playback
-  Pattern music 4 channel compression
+Fix crash, flickering when item is collected
 Heart container item
 Hold up item when bought in store / acquired in cave
  TODO which items are one or two-handed
  2handed: bigheart, triforce, raft, ladder
- 1handed: all else
- 0handed: rupees
+ 1handed: all else (swords, key, etc)
+ 0handed: rupees, bombs
 
 
 TODO:
 Finish caves and stores
 Bracelet under armos
-Push gravestone to open secret cave
-Touch gravestone to spawn invincible ghini
-Ghini AI (normal and invincible)
 Edge spawning for octorok/moblin/lynel
-Add Zora bullet (blocked by magic shield, at either angle diagonal)
 Title screen music
 Smooth scrolling text after title screen
 Bait (attracts enemies, or give to Grumble Grumble)
-Flute (Tornado)
-Flute (open level 7)
-Enemy respawn (8 screen LRU)
-Save enemy count per screen
-Implement forest maze and up up mountain
 Show letter to old woman for potions
 Dungeon enemies and bosses
  Bats use peahat AI
-Push locked door in dungeon to open (uses 1 key)
-Push block to open dungeon stairs (14 frames to start moving, moves every other frame)
 Dungeon caves with item or passage
-Bomb dungeon walls to open hole
 Dungeon compass item (shows tiforce location, blinking)
 Dungeon map item (minimap in upper left)
 Dungeon minimap (scroll within 8x6)
 Dungeon menu map
-Rupees increment or decrement by 1
-Hearts increment or decrement by .5  (fairy or heart)
+Short attack animation with boomerang/bomb/arrow/candle/bait
 
 Continue/save/retry screen
 Character selection / enter your name
-FG99 saving
+FG99 saving (GRAM?)
+UberGROM saving?
 Disk save/load
 Press joystick 1 up to start
+Peahat should not hurt link while flashing and not on ground
+Link sword retract
+Low-health beeping
+Red Leevers should be more aggressive
+
+
 (unlikely)Free up 14 bytes in CPU RAM for unrolled VDP copy (or 8 bytes without unroll)
 !    MOV *R1+,*R15
      MOV *R1+,*R15
@@ -766,10 +851,6 @@ Press joystick 1 up to start
      DEC R2
      JNE -!
      RT
-Peahat should not hurt link while flashing and not on ground
-Link sword retract
-Red Leevers should be more aggressive
-Zora shouldn't spawn on water corner near dock
 
 
 DONE:
@@ -818,3 +899,21 @@ Raft (ride north/south from dock)
 Enemy stun (requires boomerang or clock)
 Dungeon palette changes for darkness (use candle)
 Ladder (crosses one water tile)
+Bomb dungeon walls to open hole
+Push locked door in dungeon to open (uses 1 key)
+Push block to open dungeon stairs (14 frames to start moving, moves every other frame)
+Implement forest maze and up up mountain
+Go to start of dungeon when continue
+Flute (open level 7)
+Rewrite sound player
+  Sound effect playback
+  Pattern music 4 channel compression
+Push gravestone to open secret cave
+Touch gravestone to spawn invincible ghini
+Ghini AI (normal and invincible)
+Hearts increment by 3 or 1 (fairy or heart)
+Zora shouldn't spawn on water corner near dock
+Rupees increment or decrement by 1
+Add Zora bullet (blocked by magic shield, at either angle diagonal)
+
+

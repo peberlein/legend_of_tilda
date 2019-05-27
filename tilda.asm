@@ -4,7 +4,18 @@
 
 ; Cartridge header and common functions
 
+; GENEVE EQU 1 ; Uncomment for GENEVE version
 
+       .IFDEF GENEVE
+VDPWD  EQU  >F100             ; VDP write data
+VDPWA  EQU  >F102             ; VDP set read/write address
+VDPRD  EQU  >F100             ; VDP read data (don't forget NOP after address)
+VDPSTA EQU  >F102             ; VDP status
+VDPWM  EQU  >4000             ; VDP address write mask
+VDPRM  EQU  >8000             ; VDP address register mask
+
+SNDREG EQU  >F120             ; Sound register address
+       .ELSE
 VDPWD  EQU  >8C00             ; VDP write data
 VDPWA  EQU  >8C02             ; VDP set read/write address
 VDPRD  EQU  >8800             ; VDP read data (don't forget NOP after address)
@@ -13,6 +24,7 @@ VDPWM  EQU  >4000             ; VDP address write mask
 VDPRM  EQU  >8000             ; VDP address register mask
 
 SNDREG EQU  >8400             ; Sound register address
+       .ENDIF
 
 ISRCTL EQU  >83C2             ; Four flags: disable all, skip sprite, skip sound, skip QUIT
 USRISR EQU  >83C4             ; Interrupt service routine hook address
@@ -34,60 +46,82 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 
 
 ; VDP Map
-; 0000:031F Screen Table A (32*25 = 320)
-; 0320:033F Save area scratchpad/sprite list
-; 0340:035F Color Table (32 bytes = 20)
-; 0360:037F MapSav(1),LadPos(2)
-; 0380:03FF Sprite List Table (32*4 bytes = 80)
-; 0400:071F Screen Table B (32*25 = 320)
+; 0000:031F Screen Table A (32*25 = >320)
+; 0320:033F Save area scratchpad/sprite list (>20)
+; 0340:035F Color Table (32 bytes = >20)
+; 0360:037F Music Save pointers (8 bytes) MapSav(1),Ecount(1),R12SAV(2),LadPos(6)
+;           Recent map location (8 bytes)
+; 0380:03FF Sprite List Table (32*4 bytes = >80)
+; 0400:071F Screen Table B (32*25 = >320)
 ; 0720:073F
-; 0740:075F Bright Color Table (32 bytes = 20)
-; 0760:077F
-; 0780:079F Menu Color Table (32 bytes = 20)
-; 07A0:07DF Enemy Hurt/Stun Counters interleaved (64 bytes = 40)
-; 07E0:07FF Enemy HP (32 bytes = 20)
-; 0800:0FFF Overworld/Dungeon Pattern Descriptor Table (256*8 = 800)
-; 1000:1B7F Sprite Pattern Table (64*32 + 28*32 bytes = B80)
-; 1B80:137F Enemy sprite patterns (64*32 bytes = 800)
-; 2380:263F Level Screen Table (32*22 chars = 2C0)
-; 2640:28DF Menu Screen Table (32*21 chars = 2A0)
-; 28E0:2B5F Menu pattern table backup (20*32 bytes = 280)
+; 0740:075F Bright Color Table (32 bytes = >20)
+; 0760:077F Enemy Drop table index and status flags (32 bytes = >20)
+; 0780:079F Menu Color Table (32 bytes = >20)
+; 07A0:07DF Enemy Hurt/Stun Counters interleaved (64 bytes = >40)
+; 07E0:07FF Enemy HP (32 bytes = >20)
+; 0800:0FFF Overworld/Dungeon Pattern Descriptor Table (256*8 = >800)
+; 1000:1B7F Sprite Pattern Table (64*32 + 28*32 bytes = >B80)
+; 1B80:137F Enemy sprite patterns (64*32 bytes = >800)
+; 2380:263F Level Screen Table (32*22 chars = >2C0)
+; 2640:28DF Menu Screen Table (32*21 chars = >2A0)
+; 28E0:2B5F Menu pattern table backup (20*32 bytes = >280)
 ; 2B60:     Cave texts
 
-; 3000:3fff Music Sound List (would it be better in banked ROM?)
-
-; TODO  Dark dungeon pattern backup (128*8 bytes = 400)
-
-; TODO Enemy Status Bytes (32 bytes = 20)
-;  Drop table type
-;  Stunnable by boomerang
-;  Killable by boomerang
+; TODO  Dark dungeon pattern table (256*8 bytes = 800)
 
 
 
-SCR1TB EQU  >0000    ; Name Table 32*24 bytes (double-buffered)
+SCR1TB EQU  >0000    ; Name Table 32*25 bytes (double-buffered)
 SCHSAV EQU  >0320    ; Save area for SCRTCH scratchpad/screen list
 CLRTAB EQU  >0340    ; Color Table address in VDP RAM - 32 bytes
-MAPSAV EQU  >0360    ; Overworld map saved location when in dungeon
-LADPOS EQU  >3601    ; Ladder Position YYXX, and backup chars
+
+MUS1RT EQU  >0360    ; Music 1 subpattern return address 
+MAPSAV EQU  >0362    ; Overworld map saved location when in dungeon
+ECOUNT EQU  >0363    ; Count of enemies on screen
+MUS2RT EQU  >0364    ; Music 2 subpattern return address 
+R12SAV EQU  >0366    ; Saving R12 in bank 5
+MUS3RT EQU  >0368    ; Music 3 subpattern return address
+KCOUNT EQU  >036A    ; Enemy kill counter (reset to zero if link hurt)
+MAZEST EQU  >036B    ; Maze state (0 to 3)
+MUS4RT EQU  >036C    ; Music 4 subpattern return address
+LADPOS EQU  >036E    ; Ladder Position YYXX, and backup chars - 6 bytes
+RECLOC EQU  >0374    ; Recent map locations - 8 bytes
+
 SPRTAB EQU  >0380    ; Sprite List Table address in VDP RAM - 32*4 bytes
-SCR2TB EQU  >0400    ; Name Table 32*24 bytes (double-buffered)
+SCR2TB EQU  >0400    ; Name Table 32*25 bytes (double-buffered)
 BCLRTB EQU  >0740    ; Bright Color Table address in VDP RAM - 32 bytes
 MCLRTB EQU  >0780    ; Menu Color Table address in VDP RAM - 32 bytes
 PATTAB EQU  >0800    ; Pattern Table address in VDP RAM - 256*8 bytes
 SPRPAT EQU  >1000    ; Sprite Pattern Table address in VDP RAM - 256*8 bytes
-ENESPR EQU  >1B80    ; Enemy sprite patterns (up to 64)
-LEVELA EQU  >2380    ; Name table for level A (copied to SCR1TB or SCR2TB)
-MENUSC EQU  >2640    ; Name table for menu screen
-PATSAV EQU  >28E0    ; Pattern table backup for menu screen 32*20 bytes
-CAVTXT EQU  >2B60    ; Cave text
-SDATA  EQU  >2E00    ; Save Data
-SDCAVE EQU  SDATA    ; Save Data - opened secret caves, 128 bits = 16 bytes
-SDITEM EQU  SDATA+16 ; Save Data - cave items collected, 128 bits = 16 bytes
-SDOPEN EQU  SDATA+32 ; Save Data - dungeon doors unlocked or walls bombed, 256 bits = 32 bytes
-SDDUNG EQU  SDATA+64 ; Save Data - dungeon items collected, 256 bits = 32 bytes
+ENESPR EQU  >1B80    ; Enemy sprite patterns (up to 64) TODO remove
+DARKPT EQU  >1800    ; TODO Dark Pattern Table for dark dungeons
 
-MUSICV EQU  >3000    ; Music Base Address in VDP RAM (4k space)
+LEVELA EQU  >2380    ; Name table for level A 32*25 (copied to SCR1TB or SCR2TB) TODO move to >2000
+MENUSC EQU  >2640    ; Name table for menu screen
+PATSAV EQU  >28E0    ; Pattern table backup for menu screen 32*22 bytes
+CAVTXT EQU  >2B90    ; Cave text
+
+SDATA  EQU  >2E00    ; Save Data
+SDNAME EQU  SDATA    ; Save Data - save file name, 8 bytes
+SDSLOT EQU  SDATA+8  ; Save Data - slot index 0..2
+SDHART EQU  SDATA+9  ; Save Data - max hearts 1 byte
+SDRUPE EQU  SDATA+10 ; Save Data - rupees 1 byte
+SDKEYS EQU  SDATA+11 ; Save Data - keys   1 byte
+SDBOMB EQU  SDATA+12 ; Save Data - bombs 5 bits / max bombs 3 bits = 1 byte
+SDFLAG EQU  SDATA+13 ; Save Data - item flags (HFLAGS,HFLAG2), 32 bits = 4 bytes
+SDCOMP EQU  SDATA+17 ; Save Data - compasses collected, 9 bits = 2 bytes
+SDMAPS EQU  SDATA+19 ; Save Data - maps collected, 9 bits = 2 bytes
+SDTIFO EQU  SDATA+21 ; Save Data - TiForces collected, 8 bits = 1 byte
+
+SDCAVE EQU  SDATA+24 ; Save Data - opened secret caves, 128 bits = 16 bytes
+SDITEM EQU  SDATA+40 ; Save Data - cave items collected, 128 bits = 16 bytes
+SDROOM EQU  SDATA+56 ; Save Data - dungeon rooms visited, 256 bits = 32 bytes
+SDDUNG EQU  SDATA+88 ; Save Data - dungeon items collected, 256 bits = 32 bytes
+SDOPEN EQU  SDATA+120 ; Save Data - dungeon doors unlocked or walls bombed, 512 bits = 64 bytes
+SDENEM EQU  SDATA+184 ; Save Data - overworld enemy counts, 4 bits * 128 = 64 bytes
+SDEND  EQU  SDATA+248
+
+DNENEM EQU  >2F00    ; Dungeon enemy counts, 4 bits * 256 = 128 bytes (cleared when entering dungeon)
 
 ENEMDT EQU  >0760    ; Enemy drop table, status flags
 ENEMHS EQU  >07A0    ; Enemy hurt/stun counters interleaved:
@@ -96,7 +130,6 @@ ENEMHS EQU  >07A0    ; Enemy hurt/stun counters interleaved:
 ENEMHP EQU  >07E0    ; Enemy HP
 
 CNDLUS EQU  >0008    ; TODO Candle used, once per screen (blue candle only, locate at Flame HP)
-MAZEST EQU  >0000    ; TODO Maze state (Forest Maze, Mountain)
 
 
 ; CPU RAM layout
@@ -127,39 +160,39 @@ MUSICP EQU  WRKSP+32        ; Music Pointer
 MUSICC EQU  WRKSP+34        ; Music Counter
 
 
-TRACK1 EQU WRKSP+32
-SOUND1 EQU WRKSP+34
+MUSIC1 EQU WRKSP+32         ; Music Track 1 duration and pointer
+SOUND1 EQU WRKSP+34         ; Sound Track 1 duration and pointer
 
-TRACK2 EQU WRKSP+36
-SOUND2 EQU WRKSP+38
+MUSIC2 EQU WRKSP+36         ; Music Track 2 duration and pointer
+SOUND2 EQU WRKSP+38         ; Sound Track 2 duration and pointer
 
-TRACK3 EQU WRKSP+40
-SOUND3 EQU WRKSP+42
+MUSIC3 EQU WRKSP+40         ; Music Track 3 duration and pointer
+SOUND3 EQU WRKSP+42         ; Sound Track 3 duration and pointer
 
-TRACK4 EQU WRKSP+44
-SOUND4 EQU WRKSP+46
+MUSIC4 EQU WRKSP+44         ; Music Track 4 duration and pointer
+SOUND4 EQU WRKSP+46         ; Sound Track 4 duration and pointer
 
 
 MOVE12 EQU  WRKSP+48        ; Movement by 1 or 2
 
 
 HFLAGS EQU  WRKSP+50        ; Hero Flags (part of save data)
-SELITM EQU  >0007            ; Selected item 0-7
+SELITM EQU  >0007            ; Selected item mask 0-7
 
 MAGSHD EQU  >0008            ; Magic Shield
-SWORDA EQU  >0010            ; Wood  Sword 1x damage (brown)
+ASWORD EQU  >0010            ; Wood  Sword 1x damage (brown)
 WSWORD EQU  >0020            ; White Sword 2x damage (white)
-MSWORD EQU  >0040            ; Magic Sword 4x damage (white slanted)
-BOW    EQU  >0080            ; Bow (brown)
+MSWORD EQU  >0040            ; Master Sword 4x damage (white slanted)
 
-LADDER EQU  >0100            ; Ladder (brown)
-RAFT   EQU  >0200            ; Raft (brown)
-MAGKEY EQU  >0400            ; Magic Key (opens all doors, appears as A in key count)
-BMRANG EQU  >0800            ; Boomerang (brown)
-ARROWS EQU  >1000            ; Arrows (brown)
+BOW    EQU  >0080            ; Bow (brown)
+ARROWS EQU  >0100            ; Arrows (brown)
+LADDER EQU  >0200            ; Ladder (brown)
+RAFT   EQU  >0400            ; Raft (brown)
+MAGKEY EQU  >0800            ; Magic Key (opens all doors, appears as A in key count)
+BMRANG EQU  >1000            ; Boomerang (brown)
 FLUTE  EQU  >2000            ; Flute (brown)
-SARROW EQU  >4000            ; Silver arrows (appear blue, double damage)
-MAGBMR EQU  >8000            ; Magic Boomerang (blue)
+BOWARR EQU  >4000            ; Combined bow and arrows
+SARROW EQU  >8000            ; Silver arrows (appear blue, double damage)
 
 ; order of items that get copied to pattern table
 ; 80  ladder  raft   brown
@@ -182,25 +215,27 @@ MAGBMR EQU  >8000            ; Magic Boomerang (blue)
 ; Boomerang(Br/Bl)  Bombs  Bow/Arrow  Candle(B/R)
 ; Flute  Meat  Letter/Potion(B/R)  MagicRod
 
-BLUCLR EQU  >0700            ; Color of sprite with blue ring
-REDCLR EQU  >0800            ; Color of sprite with red ring
+GRNCLR EQU  >0300            ; Color of hero sprite with no rings
+BLUCLR EQU  >0700            ; Color of hero sprite with blue ring
+REDCLR EQU  >0800            ; Color of hero sprite with red ring
 
 HFLAG2 EQU  WRKSP+52         ; More hero flags (part of save data)
 BOMBSA EQU  >0001            ; Bombs available > 0
-BCANDL EQU  >0002            ; Blue candle (once per screen)
-LETTER EQU  >0003            ; Letter from old man (give to woman allows buying potions)
-BLUPOT EQU  >0004            ; Blue potion (refills hearts, turns into letter when used)
-MAGROD EQU  >0010            ; Magic Rod (blue)
-BLURNG EQU  >0020            ; Blue Ring (take 1/2 damage)
-REDRNG EQU  >0040            ; Red Ring (take 1/4 damage)
-REDPOT EQU  >0080            ; Red potion (refills hearts, turns into blue potion when used)
-BAIT   EQU  >0100            ; Bait (lures monsters or give to grumble grumble)
-RCANDL EQU  >0200            ; Red candle (unlimited)
-PBRACE EQU  >0400            ; Power Bracelet (red)
-BOOKMG EQU  >0800            ; Book of Magic (adds flames to magic rod)
-LETPOT EQU  >1000            ; Gave the letter to old woman, potions available
-COMPAS EQU  >2000            ; Compass (for current dungeon)
-MINMAP EQU  >4000            ; Dungeon map (current dungeon)
+MAGBMR EQU  >0002            ; Magic Boomerang (blue)
+BCANDL EQU  >0004            ; Blue candle (once per screen)
+LETTER EQU  >0008            ; Letter from old man (give to woman allows buying potions)
+BLUPOT EQU  >0010            ; Blue potion (refills hearts, turns into letter when used)
+MAGROD EQU  >0020            ; Magic Rod (blue)
+BLURNG EQU  >0040            ; Blue Ring (take 1/2 damage)
+REDRNG EQU  >0080            ; Red Ring (take 1/4 damage)
+BOOKMG EQU  >0100            ; Book of Magic (adds flames to magic rod)
+PBRACE EQU  >0200            ; Power Bracelet (red)
+RCANDL EQU  >0400            ; Red candle (unlimited)
+BAIT   EQU  >0800            ; Bait (lures monsters or give to grumble grumble)
+REDPOT EQU  >1000            ; Red potion (refills hearts, turns into blue potion when used)
+LETPOT EQU  >2000            ; Gave the letter to old woman, potions available
+COMPAS EQU  >4000            ; Compass (for current dungeon)
+MINMAP EQU  >8000            ; Dungeon map (current dungeon)
 
 KEY_FL EQU WRKSP+54         ; key press flags
 KEY_UP EQU  >0002           ; J1 Up / W
@@ -222,14 +257,14 @@ EDG_C  EQU  KEY_C*256
 OBJPTR EQU  WRKSP+56        ; Object pointer for processing sprites
 COUNTR EQU  WRKSP+58        ; Counters in bits 6:[15..12] 11:[11..8] 5:[7..5] 16:[4..0]
 RAND16 EQU  WRKSP+60        ; Random state
-CAVTYP EQU  WRKSP+62        ; Cave type (NPC / dungeon)
+RUPEES EQU  WRKSP+62        ; Rupees to add, can be negative (every other frame) (saved?)
 
 * RAM   00     01     02     03     04     05     06     07
 * 8320  TRACK1        SOUND1        TRACK2        SOUND2
 * 8328  TRACK3        SOUND3        TRACK4        SOUND4
 * 8330  MOVE12        HFLAGS        HFLAG2        KEY_FL
-* 8338  OBJPTR        COUNTR        RAND16        CAVTYP ______
-* 8340  HURTC  ______ MAPLOC RUPEES KEYS   BOMBS  HP     HEARTS
+* 8338  OBJPTR        COUNTR        RAND16        RUPEES
+* 8340  HURTC         HP     MAPLOC CAVTYP ______ ______ ______
 * 8348  DOOR          FLAGS         SWRDOB        BSWDOB
 * 8350  ARRWOB        BMRGOB        FLAMOB        BOMBOB
 * 8358  enemies
@@ -239,19 +274,16 @@ CAVTYP EQU  WRKSP+62        ; Cave type (NPC / dungeon)
 OBJECT EQU  WRKSP+64        ; 64 bytes: sprite function index (6 bits) hurt/stun (1 bit) and data (9 bits)
 HURTC  EQU  OBJECT+0        ; Link hurt animation counter (8 frames knockback, 40 more frames invincible)
 
-MAPLOC EQU  OBJECT+2        ; Map location YX 16x8
-HEARTS EQU  OBJECT+3        ; Max hearts - 1 (min 2, max 15)
-HP     EQU  OBJECT+4        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
-RUPEES EQU  OBJECT+5        ; Rupee count (max 255)
-KEYS   EQU  OBJECT+6        ; Key count max 9 or (or A for magic key)
-BOMBS  EQU  OBJECT+7        ; Bomb count (max 8,12,16)
+HP     EQU  OBJECT+2        ; Hit points (max 2x hearts, 4x hearts, 8x hearts, depending on ring)
+MAPLOC EQU  OBJECT+3        ; Map location YX 16x8
+CAVTYP EQU  OBJECT+4        ; Cave type (NPC / dungeon)
 
 DOOR   EQU  OBJECT+8        ; YYXX position of doorway or secret
 
 FLAGS  EQU  OBJECT+10       ; Various Flags
 INCAVE EQU  >0001            ; Inside cave
 FULLHP EQU  >0002            ; Full hearts, able to use beam sword
-DARKRM EQU  >0004            ; TODO Dungeon room darkened
+DARKRM EQU  >0004            ; Dungeon room darkened
 MOVEBY EQU  >0008            ; TODO Move player by 1 or 2
 
 PUSHC  EQU  >00F0            ; pushing block/keydoor counter 0..14
@@ -295,17 +327,6 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 
 
 
-;SOUNDP EQU  WRKSP+192       ; Sound effect list pointer (zero when not playing)
-;SOUNDC EQU  WRKSP+194       ; Sound effect counter
-;SOUND0 EQU  WRKSP+196       ; Backup register for music sound generator 0 vzxy
-;SOUND1 EQU  WRKSP+196       ; Backup register for music sound generator 1 vzxy
-;SOUND2 EQU  WRKSP+196       ; Backup register for music sound generator 2 vzxy
-;SOUND3 EQU  WRKSP+196       ; Backup register for music sound generator 3 vn
-
-
-
-
-
 ; Sprite function array (64 bytes), for each sprite:
 ;   index byte of sprite function to call: 6 bits, flags hurt and stun: 1 bits
 ;   other byte of data (counter, direction, etc)
@@ -321,7 +342,7 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 ; TODO attack animation & Magic Rod could be shared in 0x with walking animation
 ; Sprite patterns (16x16 pixels, total of 64) (four per line, 4*8 bytes per sprite)
 ; 0x Link (fg and outline, 2 frame animation)  (replaced when changing direction)
-; 1x Link Attack (fg and outline)   Wand (same direction), Ladder/Raft(as needed)
+; 1x Link Attack (fg and outline)   Wand (same direction), Raft/Pushed block
 ; 2x reserved for enemies (moblin 1-4, pulsing ground 1-2, peahat 1-2, ghini 1-4
 ; 3x reserved for enemies (moblin 5-8, leever 1-3, tektite 1-2, rock 1-2
 ; 4x reserved for enemies (octorok 1-4, lynel 1-4,
@@ -335,14 +356,14 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 ; Cx Rupee, Bomb, Heart, Clock,
 ; Dx Cloud puff (3 frames), Spark (arrow or boomerang hitting edge of screen)
 ; Ex Map dot, Half-heart (status bar), Disappearing enemy (2 frames)
-; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), empty, empty
+; Fx Flame (1 frame pattern-animated) Fairy (1 frame pattern-animated), B-item, magicsword
 ;    Flame2, Fairy2, tornado 1, tornado 2,
 ;    Raft, Book, Magic Rod, Ladder
 ;    Magic Key, Power Bracelet, Arrow&Bow, Flute
 ;    Heart, Key, Letter, Potion
 ;    Ring, Bait, Candle, Magic Shield
 ;    Old Woman 1&2, Merchant 1&2
-;    Old Man 1&2, Magic Sword, Item Selector
+;    Old Man 1&2, Master Sword, Item Selector
 ; NOTE: Extra sprites get copied to enemy area for cave, or patterns for menu screen
 
 
@@ -416,24 +437,46 @@ HRT2SC EQU >C806    ; Heart
 SPARK  EQU >DC0F    ; Spark, white
 BOOMSC EQU >900A    ; normal boomerang, brown
 MBOMSC EQU >9004    ; magic boomerang, blue
-MRODC  EQU >1804    ; Magic Rod sprite, blue
+MRODSC EQU >1804    ; Magic Rod sprite, blue
 ARMOSC EQU >6000    ; Armos, transparent
-PULSE  EQU >280A    ; Pulsing sprite, dark yellow
+PULSEC EQU >2809    ; Pulsing sprite, light red
 RAFTSC EQU >1C0A    ; Raft sprite index, dark yellow
+GHINIC EQU >200F    ; Ghini, white
+RUPEEY EQU >C00A    ; Yellow Rupee
+RUPEEB EQU >C005    ; Blue Rupee
+ZBULSC EQU >6406    ; Zora Bullet Red
+SHLDSC EQU >3C09    ; Shield
+BAITSC EQU >3409    ; Bait
+KEY_SC EQU >240B    ; Key
+BLURSC EQU >3004    ; Blue ring
+BOMBSC EQU >C404    ; Bomb is C4
+ARRWSC EQU >AC0B    ; Arrow
+BCDLSC EQU >3804    ; Blue Candle
+LTTRSC EQU >2804    ; Letter
+BPTNSC EQU >2C04    ; Blue Potion
+RPTNSC EQU >2C06    ; Red Potion
+HRTCSC EQU >2006    ; Heart container
 
+
+NSWORC EQU >7C00    ; No sword A-box sprite
+ASWORC EQU >7C09    ; wood sword A-box sprite
+WSWORC EQU >7C0F    ; white sword A-box sprite
+MSWORC EQU >FC0F    ; master sword A-box sprite
 
 BSWDID EQU >0014 ; Beam Sword ID
 MAGCID EQU >0015 ; Magic ID
 BPOPID EQU >0040 ; Beam Sword/Magic Pop ID (SOC on BSWDID or MAGCID)
 BSPLID EQU >0816 ; Beam Sword Splash ID with initial counter
 DEADID EQU >1218 ; Dead Enemy Pop ID w/ counter=18
+SOFFID EQU >0118 ; turn off sprite immediately
 RUPYID EQU >5020 ; Rupee ID with initial counter
 BRPYID EQU >5021 ; Blue Rupee ID with initial counter
 HARTID EQU >5022 ; Heart ID with initial counter
 FARYID EQU >5023 ; Fairy ID with initial counter
 ZORAID EQU >0010 ; Zora ID
+ZBULID EQU >8011 ; Zora bullet ID with initial counter
 BOMBID EQU >4C19 ; Bomb ID with initial counter
-FLAMID EQU >5D11 ; Flame ID with initial counter
+FLAMID EQU >5D12 ; Flame ID with initial counter
 BMFMID EQU >BF11 ; Book of Magic Flame ID with initial counter
 BMRGID EQU >001A ; Boomerang ID
 ARRWID EQU >001D ; Arrow ID
@@ -442,153 +485,57 @@ CAVEID EQU >001F ; Cave NPC ID
 ITEMID EQU >001B ; Cave item ID
 TEXTID EQU >0024 ; Cave Message Texter ID
 BULLID EQU >001C ; Octorok bullet ID
-FRY2ID EQU >0012 ; Fairy at pond ID
+FRY2ID EQU >0029 ; Fairy at pond ID
 HRT2ID EQU >0013 ; Heart that spins around fairy ID
 SPOFID EQU >001E ; Sprite off (Spark ID with initial counter=0)
 IDLEID EQU >0040 ; Idle object, jumps to OBNEXT but nonzero so it can't be reused
 ARMOID EQU >FC17 ; Armos ID and initial counter
 ROCKID EQU >8025 ; Rock ID and initial counter
+LAKEID EQU >0026 ; Lake ID and initial counter
+TORNID EQU >0027 ; Tornado ID
+GHINID EQU >000C ; Ghini ID
+FLICID EQU >0028 ; Flicker ID
 
-
-
-
-       AORG >6000         ; Cartridge header in all banks
+CARTAD EQU >6000 ; Cartridge address in memory (TODO use >A000 for geneve)
+       AORG CARTAD   ; Cartridge header in all banks
 HEADER
        BYTE >AA     ; Standard header
-       BYTE >01     ; Version number 1
-       BYTE >01     ; Number of programs (optional)
-       BYTE >00     ; Reserved (for FG99 this can be G,R,or X)
+       BYTE >00     ; Version number 1
+       BYTE 0;>01     ; Number of programs (optional)
+       BYTE 'G'     ; Reserved (for FG99 this can be G,R,or X)
        DATA >0000   ; Pointer to power-up list
-       DATA PRGLST  ; Pointer to program list
+       DATA 0;PRGLST  ; Pointer to program list
        DATA >0000   ; Pointer to DSR list
-       ;DATA >0000   ; Pointer to subprogram list  (this doubles as next program list entry)
+       DATA >0000   ; Pointer to subprogram list  (this doubles as next program list entry)
 
-PRGLST DATA >0000   ; Next program list entry
-       DATA START   ; Program address
-       BYTE CRTNME-CRTNM       ; Length of name
-CRTNM  TEXT 'LEGEND OF TILDA'
-CRTNME
+;PRGLST DATA >0000   ; Next program list entry
+;       DATA START   ; Program address
+;       BYTE CRTNME-CRTNM       ; Length of name
+;CRTNM  TEXT 'LEGEND OF TILDA'
+;CRTNME
        EVEN
 
-BANK0  EQU  >6000
-BANK1  EQU  >6002
-BANK2  EQU  >6004
-BANK3  EQU  >6006
-BANK4  EQU  >6008
-BANK5  EQU  >600A
-BANK6  EQU  >600C
-BANK7  EQU  >600E
+BANK0  EQU  CARTAD
+BANK1  EQU  CARTAD+2
+BANK2  EQU  CARTAD+4
+BANK3  EQU  CARTAD+6
+BANK4  EQU  CARTAD+8
+BANK5  EQU  CARTAD+>A
+BANK6  EQU  CARTAD+>C
+BANK7  EQU  CARTAD+>E
 
 START
        LWPI WRKSP             ; Load the workspace pointer to fast RAM
-       LI R0,BANK0            ; Switch to bank 0
+       LI R0,BANK3            ; Switch to bank 3 (title screen)
        LI R1,MAIN             ; and go to MAIN
+       CLR R2                 ; do title screen
 
 ; Select bank in R0 (not inverted) and jump to R1
 BANKSW CLR *R0
        B *R1
 
-; Copy R2 bytes from R1 to VDP address R0
-VDPW   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       ORI  R0,VDPWM        ; Set read/write bits 14 and 15 to write (01)
-       MOVB R0,*R14         ; Send high byte of VDP RAM write address
-!      MOVB *R1+,*R15       ; Write byte to VDP RAM
-       DEC  R2              ; Byte counter
-       JNE  -!              ; Check if done
-       RT
+       DATA START     ; This is referenced by XML instruction in tilda_g.gpl
 
-; Write one byte from R1 to VDP address R0
-VDPWB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       ORI  R0,VDPWM        ; Set read/write bits 14 and 15 to write (01)
-       MOVB R0,*R14         ; Send high byte of VDP RAM write address
-       MOVB R1,*R15
-       RT
-
-; Read one byte to R1 from VDP address R0 (R0 is preserved)
-VDPRB  MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       MOVB R0,*R14         ; Send high byte of VDP RAM write address
-       CLR R1               ; Very important delay for 9918A prefetch, otherwise glitches can occur
-       MOVB @VDPRD,R1
-       RT
-
-; Read R2 bytes to R1 from VDP address R0 (R0 is preserved)
-VDPR   MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       MOVB R0,*R14         ; Send high byte of VDP RAM write address
-       NOP                  ; Very important for 9918A prefetch, otherwise glitches can occur
-!      MOVB @VDPRD,*R1+
-       DEC R2
-       JNE -!
-       RT
-
-
-; Write VDP register R0HB data R0LB
-VDPREG MOVB @R0LB,*R14      ; Send low byte of VDP Register Data
-       ORI  R0,VDPRM          ; Set register access bit
-       MOVB R0,*R14         ; Send high byte of VDP Register Number
-       RT
-
-; Note: The interrupt is disabled in VDP Reg 1 so we can poll it here
-; There could be a race condition where the interrupt flag could be cleared before we read it,
-; resulting it a missed vsync interrupt, and polling the status register increases that chance.
-; VSYNC  MOVB @VDPSTA,R0     ; Note: VDP Interrupt flag is now cleared after reading it
-;        ANDI R0, >8000
-;        JEQ VSYNC
-;        RT
-
-; Reading the VDP INT bit from the CRU doesn't clear the status register, so it should be safe to poll.
-; The CRU bit appears to get updated even with interrupts disabled (LIMI 0)
-; Modifies R0
-VSYNCM
-       MOV R12,R0            ; Save R12 since we use it
-       MOVB @VDPSTA,R12      ; Clear interrupt first so we catch the edge
-       CLR R12
-!      TB 2                  ; CRU Address bit 0002 - VDP INT
-       JEQ -!                ; Loop until set
-       MOVB @VDPSTA,R12      ; Clear interrupt flag manually since we polled CRU
-       MOV R0,R12            ;
-       ; fall thru
-
-; Play some music!
-;
-; Modifies R0,R1
-MUSIC
-       DEC @MUSICC         ; Decrement music counter (once per frame)
-       JNE MUSIC3
-MUSIC0
-       MOV @MUSICP,R0      ; Program the Music Pointer in VRAM
-       MOVB @R0LB,*R14     ; Send low byte of VDP RAM write address
-       MOVB R0,*R14        ; Send high byte of VDP RAM write address
-       CLR R1
-MUSIC1
-       MOVB @VDPRD,R1      ; Read sound list byte from VRAM
-       INC @MUSICP         ; Increment music pointer
-
-       CI R1,>8000         ; Is it a music counter byte?
-       JL MUSIC2
-       CI R1,>E000         ; Is it a noise channel byte?
-       JHE !
-       MOV R1,R0
-       ANDI R0,>1000       ; Is it the upper nibble even? (freq byte, otherwise vol byte)
-       JNE !
-; Bytes with upper nibble >8_, >A_, >C_ are two bytes
-       MOVB R1,@SNDREG     ; Write the byte the sound chip
-       MOVB @VDPRD,R1      ; Read the next byte from VRAM
-       INC @MUSICP         ; Increment music pointer
-
-!      MOVB R1,@SNDREG     ; Write the byte the sound chip
-       JMP MUSIC1
-MUSIC2 SWPB R1
-       MOV R1, @MUSICC     ; Store the music counter
-       JNE MUSIC3
-       INC @MUSICC         ; Set Music counter = 1
-       MOVB @VDPRD,R0      ; Get loop offset low byte
-       SWPB R0
-       MOVB @VDPRD,R0      ; Get loop offset high byte
-       AI R0, MUSICV       ; Add music base pointer
-       MOV R0,@MUSICP
-       JMP MUSIC0
-MUSIC3
-       RT
 
 
 HDREND

@@ -184,28 +184,31 @@ enum {
 
 int main(int argc, char *argv[])
 {
-	FILE *f = fopen(argv[1] ,"r");
-	unsigned char sp[64][32];
-	unsigned index = 0;
+	FILE *f;
+	unsigned char sp[1024][32];
+	unsigned int index = 0;
 	int i, j;
-	char mode[64] = {};
+	char mode[1024] = {};
+	int offsets[1024] = {};
 	unsigned int csize = 0, osize = 0;
-	
-	
+
+	f = strcmp(argv[1],"-")==0 ? stdin : fopen(argv[1] ,"r");
 	if (!f) return 0;
-	
+
 	while (!feof(f)) {
 		char line[100];
-		
-		fgets(line, sizeof line, f);
-		
+
+		if (fgets(line, sizeof line, f) == NULL)
+			break;
+
 		if (line[0] != 'S' || line[1] != 'P' || line[2] != ':') continue;
+		//fprintf(stderr, "%d %s\n", index, line);
 		for (i = 0; i < 32; i++)
 			sp[index][i] = a2h(line+3+i*2);
 		osize += 32;
 		index++;
 	}
-	
+
 	char* modes[] = {
 		"",
 		"",
@@ -225,7 +228,8 @@ int main(int argc, char *argv[])
 		"Vsymmetry",
 		};
 	int csizes[] = { 0, 32, 0,0,0,0,0,0,0, 8,8,16,16,16,16 };
-	
+
+	printf("SPRITE\n");
 	for (i = 0; i < index; i++) {
 		int hs = horizontal_symmetry(&sp[i][0]);
 		int vs = vertical_symmetry(&sp[i][0]);
@@ -241,7 +245,7 @@ int main(int argc, char *argv[])
 		int cw2 = i >= 2 ? clockwise(&sp[i][0], &sp[i-2][0]) : 0;
 		int cw4 = i >= 4 ? clockwise(&sp[i][0], &sp[i-4][0]) : 0;
 		int ccw2 = i >= 2 ? cclockwise(&sp[i][0], &sp[i-2][0]) : 0;
-		
+
 		mode[i] =
 			hf ? Hflip1 :
 			vf ? Vflip1 :
@@ -258,9 +262,9 @@ int main(int argc, char *argv[])
 			hs ? Hsymmetry :
 			vs ? Vsymmetry :
 			Full;
-			
-			
-		//printf("; %d %d %d %d %d %d %d %d %d %d %d %d %s\n", 
+		offsets[i] = i ? offsets[i-1]+csizes[mode[i-1]] : 0;
+
+		//printf("; %d %d %d %d %d %d %d %d %d %d %d %d %s\n",
 		//	hs, vs, hf, vf, hf2, vf2, hc, vc, cw, ccw, cw2, ccw2, modes[mode[i]]);
 		switch (mode[i]) {
 		case Full:
@@ -273,8 +277,8 @@ int main(int argc, char *argv[])
 		case HVcenter: // HVcenter
 			printf("       DATA ");
 			for (j = 4; j < 12; j+=2)
-				printf(">%02x%02x%s", 
-					(sp[i][j] << 4) | (sp[i][j+16]>>4), 
+				printf(">%02x%02x%s",
+					(sp[i][j] << 4) | (sp[i][j+16]>>4),
 					(sp[i][j+1]<<4) | (sp[i][j+17]>>4),
 					j<10 ? ",":"");
 			break;
@@ -283,12 +287,12 @@ int main(int argc, char *argv[])
 			for (j = 0; j < 8; j+=2)
 				printf(">%02x%02x%s", sp[i][j], sp[i][j+1], j<6 ? ",":"");
 			break;
-			
+
 		case Hcenter: // Hcenter
 			printf("       DATA ");
 			for (j = 0; j < 16; j+=2)
-				printf(">%02x%02x%s", 
-					(sp[i][j] << 4) | (sp[i][j+16]>>4), 
+				printf(">%02x%02x%s",
+					(sp[i][j] << 4) | (sp[i][j+16]>>4),
 					(sp[i][j+1]<<4) | (sp[i][j+17]>>4),
 					j<14 ? ",":"");
 			break;
@@ -316,14 +320,20 @@ int main(int argc, char *argv[])
 		printf("  ; %d: %s\n", i, modes[mode[i]]);
 		csize += csizes[mode[i]];
 	}
-	printf("MODES  DATA ");
+	printf("MODES\n");
 	for (i = 0; i < index; i+=4) {
+		if ((i & 63) == 0)
+			printf("       DATA ");
 		printf(">%x%x%x%x%s",
 			mode[i],
 			mode[i+1],
 			mode[i+2],
 			mode[i+3],
-			i < index-4 ? ",":"\n");
+			(i < index-4) && ((i & 63) != 60)? ",":"\n");
+	}
+	printf("MODEND DATA >0000 ; terminator\n");
+	for (i = 0; i < index; i++) {
+		printf("SPR%-3d EQU SPRITE+%d\n", i, offsets[i]);
 	}
 	fprintf(stderr, "compressed %d -> %d bytes\n", osize, csize);
 

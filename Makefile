@@ -1,59 +1,79 @@
 AS:=../xdt99-master/xas99.py
+GA:=../xdt99-master/xga99.py
+#GA:=/home/pete/Downloads/xdt99-1.7.0/xga99.py
+
 ARCH:=$(shell uname -m)-$(shell uname -s)
 
 MAG:=tools/$(ARCH)/mag
 DAN2:=tools/$(ARCH)/dan2
 FT2ASM:=tools/$(ARCH)/ft2asm
+SL2TSF:=tools/$(ARCH)/sl2tsf
+LASERSWORD:=tools/$(ARCH)/lasersword
 BIN2ASM:=tools/$(ARCH)/bin2asm
 CH:=tools/$(ARCH)/ch
 SP:=tools/$(ARCH)/sp
 MP:=tools/$(ARCH)/mp
 TXT:=tools/$(ARCH)/txt
 OVERMAP:=tools/$(ARCH)/overmap
+SPRITEC:=tools/$(ARCH)/spritec
 
 ifneq ($(shell uname -s),Darwin)
   QUIET := status=none
 endif
 
-tilda.rpk: layout.xml tilda_8.bin
+tilda.rpk: layout.xml tilda_c.bin tilda_g.bin
 	zip -q $@ $^
 
-tilda_8.bin: tilda_b0_6000.bin tilda_b1_6000.bin tilda_b2_6000.bin tilda_b3_6000.bin tilda_b4_6000.bin tilda_b5_6000.bin tilda_b6_6000.bin 
-	@dd $(QUIET) if=tilda_b0_6000.bin of=$@ bs=8192
-	@dd $(QUIET) if=tilda_b1_6000.bin of=$@ bs=8192 seek=1
-	@dd $(QUIET) if=tilda_b2_6000.bin of=$@ bs=8192 seek=2
-	@dd $(QUIET) if=tilda_b3_6000.bin of=$@ bs=8192 seek=3
-	@dd $(QUIET) if=tilda_b4_6000.bin of=$@ bs=8192 seek=4
-	@dd $(QUIET) if=tilda_b5_6000.bin of=$@ bs=8192 seek=5
-	@dd $(QUIET) if=tilda_b6_6000.bin of=$@ bs=8192 seek=6
-	@dd $(QUIET) if=tilda_b6_6000.bin of=$@ bs=8192 seek=7
+tilda_c.bin: tilda_b0.bin tilda_b1.bin tilda_b2.bin tilda_b3.bin tilda_b4.bin tilda_b5.bin tilda_b6.bin tilda_b7.bin
+	@dd $(QUIET) if=tilda_b0.bin of=$@ bs=8192
+	@dd $(QUIET) if=tilda_b1.bin of=$@ bs=8192 seek=1
+	@dd $(QUIET) if=tilda_b2.bin of=$@ bs=8192 seek=2
+	@dd $(QUIET) if=tilda_b3.bin of=$@ bs=8192 seek=3
+	@dd $(QUIET) if=tilda_b4.bin of=$@ bs=8192 seek=4
+	@dd $(QUIET) if=tilda_b5.bin of=$@ bs=8192 seek=5
+	@dd $(QUIET) if=tilda_b6.bin of=$@ bs=8192 seek=6
+	@dd $(QUIET) if=tilda_b7.bin of=$@ bs=8192 seek=7
 	@dd $(QUIET) if=/dev/null         of=$@ bs=8192 seek=8
 	@ls -l $^
 
-tilda_b0_6000.bin: tilda_b0.asm tilda.asm
-	$(AS) -b -R $< -L tilda_b0_6000.lst
+tilda_g.bin: tilda_g.gpl
+	$(GA) $< -o $@
 
-tilda_b1_6000.bin: tilda_b1.asm tilda.asm music.snd #dungeon.snd title.snd
-	$(AS) -b -R $< -L tilda_b1_6000.lst
+tilda_b0.bin: tilda_b0.asm tilda.asm tilda_common.asm tilda_b6_equ.asm
+	$(AS) -b -R $< -L tilda_b0.lst
 
-tilda_b2_6000.bin: tilda_b2.asm tilda.asm overworld.bin
-	$(AS) -b -R $< -L tilda_b2_6000.lst
+tilda_b1.bin: tilda_b1.asm tilda.asm tilda_common.asm sprites.asm
+	$(AS) -b -R $< -L tilda_b1.lst
 
-tilda_b3_6000.bin: tilda_b3.asm tilda.asm dan2.asm title.d2 overworld1.d2 overworld2.d2 dungeon1.d2 dungeon2.d2 menu.d2 cavetext.d2 dungeonm.d2 dmenu.d2 dungdark.d2
-	$(AS) -b -R $< -L tilda_b3_6000.lst
+tilda_b2.bin: tilda_b2.asm tilda.asm tilda_common.asm overworld.bin
+	$(AS) -b -R $< -L tilda_b2.lst
 
-tilda_b4_6000.bin: tilda_b4.asm tilda.asm
-	$(AS) -b -R $< -L tilda_b4_6000.lst
+tilda_b3.bin: tilda_b3.asm tilda.asm tilda_common.asm dan2.asm title.d2 overworld1.d2 overworld2.d2 dungeon1.d2 dungeon2.d2 menu.d2 cavetext.d2 dungeonm.d2 dmenu.d2 dungdark.d2 register.d2
+	$(AS) -b -R $< -L tilda_b3.lst
 
-tilda_b5_6000.bin: tilda_b5.asm tilda.asm
-	$(AS) -b -R $< -L tilda_b5_6000.lst
+tilda_b4.bin: tilda_b4.asm tilda.asm tilda_common.asm tilda_b7_equ.asm
+	$(AS) -b -R $< -L tilda_b4.lst
 
-tilda_b6_6000.bin: tilda_b6.asm tilda.asm music.asm
-	$(AS) -b -R $< -L tilda_b6_6000.lst
+tilda_b5.bin: tilda_b5.asm tilda.asm tilda_common.asm tilda_b6_equ.asm
+	$(AS) -b -R $< -L tilda_b5.lst
+
+tilda_b6.bin: tilda_b6.asm tilda.asm tilda_player.asm tilda_music2.asm
+	$(AS) -b -R $< -L tilda_b6.lst
+
+tilda_b7.bin: tilda_b7.asm tilda.asm tilda_player.asm tilda_music1.asm
+	$(AS) -b -R $< -L tilda_b7.lst
+
+
+tilda_b6_equ.asm: tilda_b6.bin
+	awk '/tilda_equ/ {print $$3,$$4,">"$$2}' tilda_b6.lst > $@
+tilda_b7_equ.asm: tilda_b7.bin
+	awk '/tilda_equ/ {print $$3,$$4,">"$$2}' tilda_b7.lst > $@
 
 
 title.d2: mag/title.mag $(MAG) $(DAN2)
 	$(MAG) $< | $(DAN2) > $@
+register.d2: mag/title.mag $(MP) $(DAN2)
+	($(MP) $< 4; $(MP) $< 5; $(MP) $< 6) | $(DAN2) > $@
 overworld1.d2: mag/sprites.mag $(DAN2) $(CH)
 	$(CH) $< 4 23 | $(DAN2) > $@
 overworld2.d2: mag/sprites.mag $(DAN2) $(CH)
@@ -73,6 +93,8 @@ dmenu.d2: mag/dungeon.mag $(DAN2) $(MP)
 	$(MP) $< 8 | $(DAN2) > $@
 dungdark.d2: mag/dungdark.mag $(DAN2) $(CH)
 	$(CH) $< 96 239 | $(DAN2) > $@
+sprites.asm: mag/linkspr.mag mag/sprites.mag mag/enemies.mag mag/dungeon.mag mag/bosses.mag $(SP) $(SPRITEC)
+	grep -h "^SP:" mag/sprites.mag mag/enemies.mag mag/dungeon.mag mag/bosses.mag | $(SPRITEC) - > $@
 
 
 $(MAG): tools/mag.c
@@ -91,91 +113,63 @@ $(BIN2ASM): tools/bin2asm.c
 	$(CC) $< -o $@
 $(FT2ASM): music/ft2asm.c
 	$(CC) $< -o $@ -lm
+$(SL2TSF): music/sl2tsf.c
+	$(CC) -g $< -o $@ -lm
+$(LASERSWORD): music/lasersword.c
+	$(CC) $< -o $@ -lm
 $(OVERMAP): tools/overmap.c
 	$(CC) $< -o $@ -lpng -g
+$(SPRITEC): tools/spritec.c
+	$(CC) $< -o $@
 
-
-music.asm: Makefile $(FT2ASM) $(BIN2ASM) sound.asm
-	echo "OVERW0" > $@
-	$(FT2ASM) -c 0 music/Zelda3.txt | $(BIN2ASM) -b >> $@
-	echo "OVERW1" >> $@
-	$(FT2ASM) -c 1 music/Zelda3.txt | $(BIN2ASM) -b >> $@
-	echo "OVERW2" >> $@
-	$(FT2ASM) -c 2 music/Zelda3.txt | $(BIN2ASM) -b >> $@
-	echo "OVERW3" >> $@
-	$(FT2ASM) -c 3 music/Zelda3.txt | $(BIN2ASM) -b >> $@
-	echo "       EVEN" >> $@
-	echo "NOTETB" >> $@
-	$(BIN2ASM) < noteuse.dat >> $@
-
-sound.asm: Makefile $(FT2ASM) $(BIN2ASM)
-	echo "BEEP" > $@
-	$(FT2ASM) -c 0 music/ZeldaBeep.txt | $(BIN2ASM) -b >> $@
-	echo "BLIP1" >> $@
-	$(FT2ASM) -c 2 music/ZeldaBlip.txt | $(BIN2ASM) -b >> $@
-	echo "BLIP2" >> $@
-	$(FT2ASM) -c 3 music/ZeldaBlip.txt | $(BIN2ASM) -b >> $@
-	echo "BOMB1" >> $@
-	$(FT2ASM) -c 2 music/ZeldaBomb.txt | $(BIN2ASM) -b >> $@
-	echo "BOMB2" >> $@
-	$(FT2ASM) -c 3 music/ZeldaBomb.txt | $(BIN2ASM) -b >> $@
-	echo "BUMP  ; hitting enemy with sword" >> $@
-	$(FT2ASM) -c 0 music/ZeldaBump.txt | $(BIN2ASM) -b >> $@
-	echo "CAST" >> $@
-	$(FT2ASM) -c 0 music/ZeldaCasting.txt | $(BIN2ASM) -b >> $@
-	echo "CLUNK" >> $@
-	$(FT2ASM) -c 0 music/ZeldaClunk.txt | $(BIN2ASM) -b >> $@
-	echo "CURSOR" >> $@
-	$(FT2ASM) -c 0 music/ZeldaCursor.txt | $(BIN2ASM) -b >> $@
-	echo "ENEMKO" >> $@
-	$(FT2ASM) -c 1 music/ZeldaEnemyKill.txt | $(BIN2ASM) -b >> $@
-	echo "FAIRY ; get item: fairy, bomb, or clock" >> $@
-	$(FT2ASM) -c 0 music/ZeldaFairy.txt | $(BIN2ASM) -b >> $@
-	echo "FLAME1" >> $@
-	$(FT2ASM) -c 2 music/ZeldaFlame.txt | $(BIN2ASM) -b >> $@
-	echo "FLAME2" >> $@
-	$(FT2ASM) -c 3 music/ZeldaFlame.txt | $(BIN2ASM) -b >> $@
-	echo "FLUTES" >> $@
-	$(FT2ASM) -c 1 music/ZeldaFlute.txt | $(BIN2ASM) -b >> $@
-	echo "LNKDIE" >> $@
-	$(FT2ASM) -c 1 music/ZeldaGameOver.txt | $(BIN2ASM) -b >> $@
-	echo "HEART" >> $@
-	$(FT2ASM) -c 0 music/ZeldaHeart.txt | $(BIN2ASM) -b >> $@
-	echo "ITEM1" >> $@
-	$(FT2ASM) -c 0 music/ZeldaItem.txt | $(BIN2ASM) -b >> $@
-	echo "ITEM2" >> $@
-	$(FT2ASM) -c 1 music/ZeldaItem.txt | $(BIN2ASM) -b >> $@
-	echo "ITEM3" >> $@
-	$(FT2ASM) -c 2 music/ZeldaItem.txt | $(BIN2ASM) -b >> $@
-	echo "RUPEE" >> $@
-	$(FT2ASM) -c 1 music/ZeldaRupee.txt | $(BIN2ASM) -b >> $@
-	echo "SECRET" >> $@
-	$(FT2ASM) -c 1 music/ZeldaSecret.txt | $(BIN2ASM) -b >> $@
-	echo "STAIR1" >> $@
-	$(FT2ASM) -c 2 music/ZeldaStairs.txt | $(BIN2ASM) -b >> $@
-	echo "STAIR2" >> $@
-	$(FT2ASM) -c 3 music/ZeldaStairs.txt | $(BIN2ASM) -b >> $@
-	echo "SWORD1" >> $@
-	$(FT2ASM) -c 2 music/ZeldaSword.txt | $(BIN2ASM) -b >> $@
-	echo "SWORD2" >> $@
-	$(FT2ASM) -c 3 music/ZeldaSword.txt | $(BIN2ASM) -b >> $@
-	echo "TINK" >> $@
-	$(FT2ASM) -c 0 music/ZeldaTink.txt | $(BIN2ASM) -b >> $@
-	echo "UNLOCK" >> $@
-	$(FT2ASM) -c 1 music/ZeldaUnlock.txt | $(BIN2ASM) -b >> $@
-	#echo "LASERS" >> $@
-	#$(CC) music/lasersword.c -o music/lasersword -lm
-	#music/lasersword > /dev/null
-
-
-	
-
-music.snd: $(FT2ASM) music/zelda.txt
+tilda_music1.asm: $(SL2TSF) tilda_soundlist1.bin
 	$^ > $@
-dungeon.snd: $(FT2ASM) music/dungeon.txt
+
+tilda_music2.asm: $(SL2TSF) tilda_soundlist2.bin
 	$^ > $@
-title.snd: $(FT2ASM) music/title.txt
-	$^ > $@
+
+tilda_soundlist1.bin: $(FT2ASM) $(LASERSWORD)
+	( $< -l music/ZeldaTitle.txt ;\
+	$< -l music/ZeldaRegister.txt ;\
+	$< -l music/ZeldaRupee.txt ;\
+	$< -l music/ZeldaClunk.txt ;\
+	$(LASERSWORD) 3 "hero hurt" ;\
+	) > $@
+
+tilda_soundlist2.bin: $(FT2ASM) $(LASERSWORD)
+	( $< -l music/ZeldaOverworld.txt ;\
+	$< -l music/ZeldaDungeon.txt ;\
+	$< -l music/ZeldaBoss.txt ;\
+	$< -l music/ZeldaGameOver.txt ;\
+	$< -l music/ZeldaBeep.txt ;\
+	$< -l music/ZeldaBlip.txt ;\
+	$< -l music/ZeldaBomb.txt ;\
+	$< -l music/ZeldaBump.txt ;\
+	$< -l music/ZeldaCasting.txt ;\
+	$< -l music/ZeldaClunk.txt ;\
+	$< -l music/ZeldaCursor.txt ;\
+	$< -l music/ZeldaEnemyKill.txt ;\
+	$< -l music/ZeldaFairy.txt ;\
+	$< -l music/ZeldaFlame.txt ;\
+	$< -l music/ZeldaFlute.txt ;\
+	$< -l music/ZeldaDead.txt ;\
+	$< -l music/ZeldaHeart.txt ;\
+	$< -l music/ZeldaItem.txt ;\
+	$< -l music/ZeldaRupee.txt ;\
+	$< -l music/ZeldaSecret.txt ;\
+	$< -l music/ZeldaSound7.txt ;\
+	$< -l music/ZeldaStairs.txt ;\
+	$< -l music/ZeldaSword.txt ;\
+	$(LASERSWORD) 0 "laser sword" ;\
+	$< -l music/ZeldaTink.txt ;\
+	$< -l music/ZeldaUnlock.txt ;\
+	$< -l music/ZeldaTriforce.txt ;\
+	$< -l music/ZeldaFanfare.txt ;\
+	$(LASERSWORD) 1 "door open/close";\
+	$(LASERSWORD) 2 "boss roar" ;\
+	$(LASERSWORD) 3 "hero hurt";\
+	) > $@
+
 
 
 # This is disabled since we made changes to overworld.txt

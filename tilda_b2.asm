@@ -13,30 +13,30 @@
 ; R2=0  load screen
 ; R2=1  Light up darkened room (only call if DARKRM flag is set)
 ; R2=2  Light up darkened room by candle (only call if DARKRM flag is set), returning to bank 5
-; R2=3  Draw ladder and backup chars underneath  R8=ladder pos
+; R2=3  Draw ladder and save chars underneath  R8=ladder pos
+; R2=4  Close shutter doors (after moving into dungeon room)
+; R2=5  TODO when all enemies are killed, spawn an item or open shutters, return to bank 5
+; R2=6  Bomb detonated at R5 (check bombable walls), return to bank 5
+; R2=7  Unlock door at facing R3
 ; Modifies R0-R12,R15
 MAIN
        MOV R11,R12          ; Save return address for later
+       A R2,R2
+       MOV @JMPTBL(R2),R2
+       B *R2
+JMPTBL DATA LOADSC,LITEUP,LITCDL,DRWLA0,SHUTER,DNITEM,DNBOMB,UNLOKD
 
-       DEC R2
-       JNE !
-       B @LITEUP         ; Light up after moving into new room
-!
-       DEC R2
-       JNE !
-       B @LITCDL         ; Light up after using candle
-!
-       DEC R2
-       JNE !
+       COPY 'tilda_common.asm'
+
+
+DRWLA0
        BL @DRWLAD         ; Draw ladder
-
+RT_B0
        LI R0,BANK0
        MOV R12,R1         ; Restore return address
        B @BANKSW          ; return to bank0
-!
 
-
-
+LOADSC
        LI R0,SPRTAB+(6*4)
        LI R1,>D000
        BL @VDPWB       ; Turn off most sprites
@@ -67,25 +67,46 @@ MAIN
        MOVB @MAPLOC,R3      ; Get MAPLOC as >YX00
 
        MOV @FLAGS,R0
-       ANDI R0,INCAVE
-       JEQ !
+       ANDI R0,DUNLVL+INCAVE
+       JEQ OVERW     ; not dungeon or cave
+
+       ; in a cave or dungeon
 
        CLR  @DOOR            ; Clear door location inside cave
+
+       ANDI R0,INCAVE
+       JNE !
+       B @GODUNG          ; Dungeon
+!
 
        LI   R0,CLRTAB+15
        LI   R1,>1E00        ; Use gray on black palette for warp stairs
        BL   @VDPWB
 
-       LI   R0,LEVELA+VDPWM  ; R0 is screen table address in VRAM (with write bits)
        LI   R3,CAVE          ; Use cave layout
-       JMP  STINIT
-
-!
        MOV @FLAGS,R0
        ANDI R0,DUNLVL     ; Test for dungeon
        JEQ !
-       B @GODUNG          ; Dungeon strips
+
+       ;LI R0,BANK3
+       ;LI R1,MAIN
+       ;LI R2,3            ; TODO Load dark tileset
+       ;BL @BANKSW
+
+       LI   R3,DCAVE      ; TODO (or DTUNNL)
+
+       LI   R0,CLRTAB+12
+       LI   R1,>EF00        ; Use gray on white palette for dungeon steps
+       BL   @VDPWB
+       LI   R0,CLRTAB+16
+       LI   R1,>1E00        ; Use gray on black palette for dungeon brick
+       BL   @VDPWB
+
 !
+       LI   R0,LEVELA+VDPWM  ; R0 is screen table address in VRAM (with write bits)
+       JMP  STINIT
+
+OVERW  ; overworld (not a dungeon or a cave)
 
 
        MOV R3,R1            ; Get door/secret location from MAPLOC
@@ -258,7 +279,7 @@ DONE
        A    R1,R0         ; Set XX
        MOV  R0,@MPDTSP    ; Set Map Dot YYXX  (YY=16,20...76 XX=-13,-10,-7,-4,-1,2,5,8)
 
-       LI R0,BANK4
+       LI R0,BANK1
        LI R1,MAIN
        LI R2,10               ; Load enemies
        MOV R12,R11            ; Restore our return address
@@ -274,7 +295,8 @@ VMUSIC
        JEQ !
        MOVB @VDPSTA,R12     ; Clear interrupt flag manually since we polled CRU
        MOV R0,R12           ; Restore R12
-       B @MUSIC       
+       ;B @MUSIC
+
 !      MOV R0,R12           ; Restore R12
        RT
 
@@ -425,7 +447,9 @@ TESTS2 RT
 
 WORLD  BCOPY "overworld.bin" ; World strip indexes 16*8*16 bytes
 WORLDE
-CAVE   EQU WORLD+>800       ; Cave strips 48 bytes
+CAVE   EQU WORLD+>800       ; Cave strips 16 bytes
+DCAVE  EQU WORLD+>810       ; Dungeon cave strips 16 bytes
+DTUNNL EQU WORLD+>820       ; Dungeon tunnel strips 16 bytes
 STRIPO EQU WORLD+>830       ; Strip offsets 16 words
 STRIPB EQU WORLD+>850       ; Strip base (variable size)
  
@@ -493,7 +517,7 @@ MT10   DATA >14ED,>1465  ; Water inner corner NE
        DATA >B6D6,>B7D7  ; Brown Tree SE
 
 MT20   DATA >D8D9,>DADB  ; Waterfall
-       DATA >D8D9,>1717  ; Waterfall bottom
+       DATA >D8D9,>DADB  ; Waterfall bottom
        DATA >B8B9,>BABB  ; Tree face
        DATA >F4F6,>F5F7  ; Gravestone
        DATA >9899,>9A9B  ; Bush
@@ -519,7 +543,7 @@ MT30   DATA >C4C5,>C6C7  ; White Dungeon one eye
 
        ; These are for dungeon underground (item room or passage)
        DATA >F7F7,>F7F7  ; Solid black square
-       DATA >7272,>7272  ; Gray Brick
+       DATA >8383,>8383  ; Gray Brick
        DATA >6767,>6767  ; Ladder
        DATA >F7F7,>2020  ; Passable black square
 
@@ -560,10 +584,10 @@ FLIP   LI   R0,SCRFLG      ; Screen flag mask
        XOR  @FLAGS,R0      ; Get flags into R0 with screen flag toggled
        MOV  R0,@FLAGS      ; Save the updated flags word
        ANDI R0,SCRFLG      ; Mask only the screen flag
-       SRL  R0,10          ; Lower 10 bits of screen table are not used
-       ORI  R0,>8200       ; VDP Register 2: Screen Table 1
-       MOVB @R0LB,*R14      ; Send low byte of VDP register
-       MOVB R0,*R14         ; Send high byte of VDP register
+       SRL  R0,2           ; Lower 10 bits of screen table are not used
+       MOVB R0,*R14        ; Send low byte of VDP register
+       LI   R0,>8200       ; VDP Register 2: Screen Table 1
+       MOVB R0,*R14        ; Send high byte of VDP register
        RT
 
 * Draw ladder at R5 in name table
@@ -626,7 +650,7 @@ LITEUP
 
        ; we already know dark flag is set
        ; light up the room if it's not a darkened room
-       MOV @MAPLOC,R3
+       MOVB @MAPLOC,R3
        SRL R3,8             ; Map location
        MOVB @DUNMAP(R3),R1  ; Screen type
        ANDI R1,>8000
@@ -717,8 +741,7 @@ DRKPAL BYTE >14,>14,>1C,>1A,>1C,>1A,>1C,>1E,>1E  ; Levels 1-9
 
 ; Note: must preserve R12
 ; R3 = MAPLOC
-GODUNG
-       CLR @DOOR          ; TODO should load stair or item location
+GODUNG EVEN
        CLR R4             ; light tile mask (inverted for SZC)
 
        LI R0,LADPOS       ; Clear ladder position
@@ -742,7 +765,7 @@ GODUNG
        SOC R4,@FLAGS      ; Set DARKRM flag
 
        MOV R1,@OBJPTR     ; Save screen type
-       MOV R12,@SCRTCH    ; and return address
+       MOV R12,@MOVE12    ; and return address
 
        LI R0,CLRTAB+11    ; Color table offset char >60
        MOVB @R0LB,*R14
@@ -764,7 +787,8 @@ GODUNG
        BL @BANKSW
 
        MOV @OBJPTR,R1     ; Restore screen type
-       MOV @SCRTCH,R12    ; and return address
+       MOV @MOVE12,R12    ; and return address
+       CLR @MOVE12
 ALLDRK
 
        LI R4,>7F7F        ; dark tile mask (tile will be either >00 or >80)
@@ -859,56 +883,67 @@ STDUN3
 STDOOR
        MOVB @MAPLOC,R1   ; Get dungeon map location
        SRL R1,8
-       MOVB @WALMAP(R1),R0   ; Lookup in DOORS table
+       MOVB @WALMAP(R1),R7   ; Lookup in DOORS table
 
+
+       MOVB @DUNMAP(R1),R3
+       ANDI R3,>4000     ; Test stair bit
+       JEQ !
+       BL @DSTAIR      ; Draw stairs if stair bit is set
+!
        LI R3,>4000     ; Check V door bit
+       LI R5,4
        LI R10,LEVELA+(18*32)+14+VDPWM
        LI R9,LEVELA+(18*32)+15+VDPWM
-       LI R1,SWALL
+       LI R8,SWALL
        BL @DVDOOR      ; Draw south door or wall
 
        SRL R3,2        ; Check H door bit
+       CLR R5
        LI R10,LEVELA+(9*32)+28+VDPWM
        LI R9,LEVELA+(10*32)+28+VDPWM
-       LI R1,EWALL
+       LI R8,EWALL
        BL @DHDOOR      ; Draw east door or wall
 
        MOVB @MAPLOC,R1   ; Get dungeon map location
        SRL R1,8
-       MOVB @WALMAP-1(R1),R0   ; Lookup in DOORS table
+       MOVB @WALMAP-1(R1),R7   ; Lookup in DOORS table
 
+       LI R5,2
        LI R10,LEVELA+(9*32)+1+VDPWM
        LI R9,LEVELA+(10*32)+2+VDPWM
-       LI R1,WWALL
+       LI R8,WWALL
        BL @DHDOOR      ; Draw west door or wall
 
        MOVB @MAPLOC,R1   ; Get dungeon map location
        SRL R1,8
-       MOV R1,R0
-       ANDI R0,>0070    ; R0=0 when Y=0 or 8
+       MOV R1,R7
+       ANDI R7,>0070    ; R7=0 when Y=0 or 8
        JEQ !
-       MOVB @WALMAP-16(R1),R0   ; Lookup in DOORS table
+       MOVB @WALMAP-16(R1),R7   ; Lookup in DOORS table
 !
        SLA R3,2        ; Check V door bit
+       LI R5,6
        LI R10,LEVELA+(1*32)+14+VDPWM
        LI R9,LEVELA+(2*32)+15+VDPWM
-       LI R1,NWALL
+       LI R8,NWALL
        BL @DVDOOR      ; Draw north door or wall
+
 
        B @DONE   ; Jump to mode
 
 DVDOOR  ; Draw vertical door
        LI R4,3
-       CZC R3,R0
-       JEQ !
-       AI R1,16    ; draw door instead
+       CZC R3,R7
+       JEQ !       ; draw wall
+       AI R8,16    ; draw door instead
 
 !      MOVB @R10LB,*R14
        MOVB R10,*R14
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
        AI R10,32
        DEC R4
        JNE -!
@@ -916,132 +951,442 @@ DVDOOR  ; Draw vertical door
 
 DHDOOR  ; Draw horizontal door
        LI R4,4
-       CZC R3,R0
-       JEQ !
-       AI R1,16    ; draw door instead
+       CZC R3,R7
+       JEQ !       ; draw wall
+       AI R8,16    ; draw door instead
 
 !      MOVB @R10LB,*R14
        MOVB R10,*R14
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
        AI R10,32
        DEC R4
        JNE -!
 
 LOKBOM ; Draw locked door or bomb hole
        SLA R3,1
-       CZC R3,R0
-       ;JNE !      ; Locked or bombable bit set?   FIXME dungeons unlocked for demo
+       CZC R3,R7
+       JNE !      ; Locked or bombable bit set?
        SRL R3,1
        RT
-!      SRL R3,1
-       CZC R3,R0
-       JNE !      ; Draw locked door
-       RT
 !
+       SRL R3,1
 
+       ; get opened bit
+       MOV R11,R10     ; Save return address
+       MOV @LOKOFS(R5),R0
+       AB @MAPLOC,R0
+       SRL R0,7
+       LI R1,SDOPEN
+       BL @GETBIT
+       JOC !!           ; opened
+       ; not open
+       MOV R10,R11     ; Restore return address
+
+       CZC R3,R7
+       JNE DRAWCH      ; Draw locked door
+!      RT
+
+!      ; opened
+       MOV R10,R11     ; Restore return address
+
+       CZC R3,R7
+       JNE -!!      ; don't draw locked door
+
+DRAWCH ; draw 2x2 block characters pointed by R1 to VDP at R9 (with VDPWM)
        MOVB @R9LB,*R14
        MOVB R9,*R14
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
        AI R9,32
        MOVB @R9LB,*R14
        MOVB R9,*R14
-       MOVB *R1+,*R15
-       MOVB *R1+,*R15
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
        RT
 
 
+SHUTER ; Draw shuttered doors
+       BL @SHTMSK ; get shutter mask
+       ; R2 = NSWE bits
+       ; R3 = door offsets pointer
+       ; R0 = screen offset
+       LI R1,SHUTCH
+       JMP !!!
+!
+       ; draw shutters
+       MOV R0,R9
+       A *R3,R9   ; doorway offset
+       MOV R1,R8  ; block pointer
+       BL @DRAWCH
 
-NWALL  BYTE >89,>64,>64,>89,>96,>96,>96,>96,>96,>96,>96,>96
-NBOMB  BYTE >68,>69,>20,>20
-NDOOR  BYTE >94,>60,>60,>94,>C8,>20,>20,>C9,>C0,>7B,>7A,>C1
-NLOCK  BYTE >D0,>D1,>D2,>D3
+!      INCT R3
+       AI R1,4
 
-WWALL  BYTE >8F,>9D,>9D,>8F,>9D,>9D,>65,>9D,>9D,>8F,>9D,>9D
-WBOMB  BYTE >6C,>20,>6D,>20
-WDOOR  BYTE >A6,>CA,>C2,>A6,>F7,>7F,>62,>20,>7B,>A6,>CC,>C4
-WLOCK  BYTE >D8,>D9,>DA,>DB
+!      SLA R2,1
+       JOC -!!!
+       JNE -!!
+       B @RT_B0    ; return to bank0
 
-EWALL  BYTE >9E,>9E,>8F,>9E,>9E,>8F,>9E,>9E,>65,>9E,>9E,>8F
-EBOMB  BYTE >20,>6E,>20,>6F
-EDOOR  BYTE >C3,>CB,>A7,>7E,>F7,>A7,>7A,>20,>63,>C5,>CD,>A7
+OPENER ; Open shuttered doors
+       BL @SHTMSK ; get shutter mask
+       ; R2 = NSWE bits
+       ; R3 = door offsets pointer
+       ; R0 = screen offset
+       LI R1,NDORWY
+       JMP !!!
+!
+       ; draw doorways
+       MOV R0,R9
+       A *R3,R9   ; doorway offset
+       MOV R1,R8  ; block pointer
+       BL @DRAWCH
+
+!      INCT R3
+       AI R1,4
+
+!      SLA R2,1
+       JOC -!!!
+       JNE -!!
+RT_B5
+       LI R0,BANK5
+       MOV R12,R1         ; Restore return address
+       B @BANKSW          ; return to bank5
+
+
+
+
+       ; stairs locations, by screen type:
+       ;  center: A
+       ;  top-right: default
+       ;  right: 14
+       ;  NE-from-center: 19
+
+DSTAIR ; Draw stairs (need to preserve R0)
+       MOVB @MAPLOC,R1   ; Get dungeon map location
+       SRL R1,8
+       MOVB @DUNMAP(R1),R1   ; Lookup in dungeon map table
+       ANDI R1,>3F00
+       LI R9,(7*32)+4+(11*2)   ; Top right corner
+       CI R1,>0A00
+       JNE !
+       LI R9,(13*32)+4+(6*2)   ; Center
+!      CI R1,>1400
+       JNE !
+       LI R9,(13*32)+4+(11*2)   ; Right
+!      CI R1,>1900
+       JNE !
+       LI R9,(11*32)+4+(7*2)   ; NE-from-center
+!
+       ; convert character coordinate to pixel coordinate YYY YYYXXXXX -> YYYYY000 XXXXX000
+       MOV R9,R1
+       SLA R1,3
+       MOVB @R9LB,@R1LB
+       SLA R1,3
+       ANDI R1,>F8F8
+       MOV R1,@DOOR
+
+       LI R8,DSTACH
+       AI R9,LEVELA-(3*32)+VDPWM
+       JMP DRAWCH
+
+DNITEM
+       MOVB @MAPLOC,R1
+       SRL R1,8
+
+
+       ; TODO open shutters
+       ; TODO spawn dungeon item
+       JMP RT_B5
+
+DNBOMB
+       ; TODO check for bombable walls
+       MOVB @MAPLOC,R3
+       SRL R3,8
+       MOVB @WALMAP(R3),R2
+       LI R1,4  ; south door
+       BL @DORBOM
+
+       MOVB @WALMAP(R3),R2
+       SLA R2,2 ; east door
+       CLR R1  ; east door
+       BL @DORBOM
+
+       MOV R3,R0
+       ANDI R0,>0070
+       JEQ !      ; skip top rows
+       MOVB @WALMAP-16(R3),R2
+       LI R1,6  ; north door
+       BL @DORBOM
+!
+       MOVB @WALMAP-1(R3),R2
+       SLA R2,2
+       LI R1,2  ; west door
+       BL @DORBOM
+
+       JMP RT_B5
+
+DORBOM ; check door in facing R1 against R5
+       ANDI R2,>C000  ; mask room type bit
+       CI R2,>8000   ; bomb bit pattern is 10
+       JEQ !!    ; door is not bombable
+!      RT
+!
+       MOV @BOMPOS(R1),R0
+       S R5,R0
+       ABS R0
+       CI R0,>1800
+       JH -!!
+       SWPB R0
+       ABS R0
+       CI R0,>1800
+       JH -!!
+
+       MOV R1,R8
+       SLA R8,4  ; multiply by 16
+       AI R8,EBOMB
+
+       MOV @DORPOS(R1),R9
+       MOVB @R9LB,*R14
+       MOVB R9,*R14
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
+       AI R9,32
+       MOVB @R9LB,*R14
+       MOVB R9,*R14
+       MOVB *R8+,*R15
+       MOVB *R8+,*R15
+
+       ; set unlocked/bombed bit
+       MOV @LOKOFS(R1),R0
+       AB @MAPLOC,R0
+       SRL R0,7
+       LI R1,SDOPEN
+       B @SETBIT ; return thru SETBIT
+
+
+UNLOKD
+       ; unlock door at facing R3
+       MOV R3,R8
+       SRL R8,7
+       MOV @DORPOS(R8),R9
+       SLA R8,1
+       AI R8,EDORWY
+       BL @DRAWCH
+
+       ; set unlocked/bombed bit
+       MOV R3,R1
+       SRL R1,7
+       MOV @LOKOFS(R1),R0
+       AB @MAPLOC,R0
+       SRL R0,7
+       LI R1,SDOPEN
+       BL @SETBIT
+
+       B @RT_B0
+
+LOKOFS ; Locked door / bombable wall bit offsets, same order as DIR_XX, 2 bits per room
+       DATA >0080,>FF80,>0000,>F000   ; E, W, S, N
+
+BOMPOS ; sprite positions of bombable walls
+       DATA >68E0,>6810,>A878,>2878  ; E, W, S, N
+
+
+* Get bit R0 in VDP at address R1, returns bit in C
+* modifies R0-R2
+GETBIT
+       MOV R0,R2
+       ANDI R0,7  ; R0 = lower 3 bits
+       SRL R2,3
+       A R2,R1    ; R1 = adjusted VDP address
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       INC R0       ; delaying instruction before read
+       MOVB @VDPRD,R1
+       SLA R1,R0   ; shift the bit into carry
+       RT
+
+* Set bit R0 in VDP at address R1
+* modifies R0-R2
+SETBIT
+       MOV R0,R2
+       SRL R2,3
+       A R2,R1    ; R1 = adjusted VDP address
+       LI R2,>8000
+       ANDI R0,7  ; R0 = lower 3 bits
+       JEQ !       ; can't shift by zero
+       SRL R2,R0   ; shift the bit
+!      MOVB @R1LB,*R14
+       MOVB R1,*R14
+       ORI R1,VDPWM    ; delaying instruction before read
+       SOCB @VDPRD,R2  ; R2 = OR'd bits
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       MOVB R2,*R15   ; write it back
+       RT
+
+* Get shutter bit mask
+* Returns R2=EWSN flags   R3=DORPOS R0=screen offset
+SHTMSK
+       MOVB @MAPLOC,R1   ; Get dungeon map location
+       SRL R1,8
+       MOVB @WALMAP(R1),R0   ; Lookup in DOORS table
+       MOV R0,R2
+       ANDI R0,>0F00  ; R0 = xxxx EWSN
+       SLA R2,2       ; C = S wall
+       JNC !
+       ORI R0,>2000   ; R0 = xxSx EWSN
+!      SLA R2,2       ; C = E wall
+       JNC !
+       ORI R0,>8000   ; R0 = ExSx EWSN
+!
+
+       MOVB @WALMAP-1(R1),R2   ; get west wall
+       ANDI R2,>1000
+       SLA R2,2
+       SOC R2,R0      ; R0 = EWSx EWSN
+
+       MOVB @WALMAP-16(R1),R2   ; get north wall
+       ANDI R2,>4000
+       SRL R2,2
+       SOC R0,R2     ; R2 = EWSN EWSN (doors, shutters)
+       SLA R0,4      ; R0 = EWSN (shutters)
+
+       SZC R0,R2     ; R2 = EWSN EWSN (door AND shutters, shutters)
+       ANDI R2,>F000
+
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG  ; get screen offset
+       LI R3,DORPOS
+       RT
+
+
+DSTACH DATA >7475,>7677 ; dungeon stair chars
+SHUTCH DATA >E4E5,>E6E7 ; horizontal shutters
+       DATA >E4E5,>E6E7 ; horizontal shutters
+       DATA >E0E1,>E2E3 ; vertical shutters
+       DATA >E0E1,>E2E3 ; vertical shutters
+
+       ; same order as DIR_XX
+EDORWY DATA >7E20,>7A20 ; east doorway
+WDORWY DATA >207F,>207B ; west doorway
+SDORWY DATA >7978,>2020 ; south doorway
+NDORWY DATA >2020,>7B7A ; north doorway
+
+       ; same order as DIR_XX
+DORPOS DATA (13*32)+28+VDPWM ; east doorway location (on visible screen)
+       DATA (13*32)+2+VDPWM  ; west
+       DATA (21*32)+15+VDPWM ; south
+       DATA (5*32)+15+VDPWM  ; north
+
+
+EWALL  BYTE >9E,>9E,>8F,>9E,>9E,>8F,>9E,>9E,>8F,>9E,>9E,>8F
+EBOMB  BYTE >F7,>6E,>20,>6F
+EDOOR  BYTE >C3,>CB,>A7,>7E,>20,>A7,>7A,>20,>A7,>C5,>CD,>A7
 ELOCK  BYTE >DC,>DD,>DE,>DF
 
-SWALL  BYTE >B1,>B1,>B1,>B1,>B1,>B1,>B1,>B1,>89,>64,>64,>89
+WWALL  BYTE >8F,>9D,>9D,>8F,>9D,>9D,>8F,>9D,>9D,>8F,>9D,>9D
+WBOMB  BYTE >6C,>F7,>6D,>20
+WDOOR  BYTE >A6,>CA,>C2,>A6,>20,>7F,>A6,>20,>7B,>A6,>CC,>C4
+WLOCK  BYTE >D8,>D9,>DA,>DB
+
+SWALL  BYTE >B1,>B1,>B1,>B1,>B1,>B1,>B1,>B1,>89,>89,>89,>89
 SBOMB  BYTE >20,>20,>6A,>6B
-SDOOR  BYTE >C6,>79,>78,>C7,>CE,>20,>20,>CF,>BC,>61,>61,>BC
+SDOOR  BYTE >C6,>79,>78,>C7,>CE,>20,>20,>CF,>BC,>BC,>BC,>BC
 SLOCK  BYTE >D4,>D5,>D6,>D7
 
-; W=wall D=door L=locked B=bomb
-WW     EQU >00
-WD     EQU >10
-WB     EQU >20
-WL     EQU >30
-DW     EQU >40
-DD     EQU >50
-DB     EQU >60
-DL     EQU >70
-BW     EQU >80
-BD     EQU >90
-BB     EQU >A0
-BL     EQU >B0
-LW     EQU >C0
-LD     EQU >D0
-LB     EQU >E0
-LL     EQU >F0
+NWALL  BYTE >89,>89,>89,>89,>96,>96,>96,>96,>96,>96,>96,>96
+NBOMB  BYTE >68,>69,>20,>20
+NDOOR  BYTE >94,>94,>94,>94,>C8,>20,>20,>C9,>C0,>7B,>7A,>C1
+NLOCK  BYTE >D0,>D1,>D2,>D3
+
+
+
+
+
+       ; W=wall D=door L=locked B=bomb  pair:(south,east) or (north,west)
+WW     EQU >0F
+WD     EQU >1F
+WB     EQU >2F
+WL     EQU >3F
+DW     EQU >4F
+DD     EQU >5F
+DB     EQU >6F
+DL     EQU >7F
+BW     EQU >8F
+BD     EQU >9F
+BB     EQU >AF
+BL     EQU >BF
+LW     EQU >CF
+LD     EQU >DF
+LB     EQU >EF
+LL     EQU >FF
+
+N_BIT  EQU >01
+S_BIT  EQU >02
+W_BIT  EQU >04
+E_BIT  EQU >08
+
+WW5    EQU WW-N_BIT-W_BIT  ; NW shutters
+WW7    EQU WW-N_BIT  ; N shutter
+WWD    EQU WW-W_BIT  ; W shutter
+WD6    EQU WD-N_BIT-E_BIT  ; NE shutters
+WD7    EQU WD-N_BIT  ; N shutter
+WDE    EQU WD-E_BIT  ; E shutter
+WDD    EQU WD-W_BIT  ; W shutter
+WB7    EQU WB-N_BIT
+
+DW3    EQU DW-N_BIT-S_BIT  ; NS shutters
+DW5    EQU DW-N_BIT-W_BIT  ; NW shutters
+DW7    EQU DW-N_BIT  ; N shutter
+DWB    EQU DW-S_BIT  ; S shutter
+DWD    EQU DW-W_BIT  ; W shutter
+DD7    EQU DD-N_BIT
+DDA    EQU DD-S_BIT-E_BIT
+DDB    EQU DD-S_BIT
+DDD    EQU DD-W_BIT  ; S shutter
+DDE    EQU DD-E_BIT  ; E shutter
+DB3    EQU DB-N_BIT-S_BIT  ; NS shutters
+DBB    EQU DB-S_BIT  ; S shutter
+DL7    EQU DL-N_BIT
+DLB    EQU DL-S_BIT
+
+BW7    EQU BW-N_BIT
+BDE    EQU BD-E_BIT
+BL5    EQU BL-N_BIT-W_BIT
+LW7    EQU LW-N_BIT
+LD6    EQU LD-N_BIT-E_BIT  ; NE shutter
+LDD    EQU LD-W_BIT  ; W shutter
+LDE    EQU LD-E_BIT  ; E shutter
+LL7    EQU LL-N_BIT
+
+
 
 ; Each byte is the south and east wall/doors for that room (north,west are taken from byte above and left)
+; and lower nibble is shutter indicators: N S W E
        BYTE WW ; dummy byte to prevent west-door on next room
-WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
-       BYTE DB,BB,WD,WW,DW,BW,WB,WW,DD,LD,WD,WW,DW,DW,DB,DW
-       BYTE LD,LW,WL,LW,DL,WD,WL,DW,DB,DW,WD,DW,WW,WW,DL,BW
-       BYTE DL,WD,WW,DW,WW,LD,WW,DW,DW,WD,WW,LW,DW,DW,DD,BW
-       BYTE DW,WD,LD,BL,BD,WW,LD,DW,DW,DD,DL,DL,DB,DW,DD,BW
-       BYTE WD,DW,WD,DD,WW,DD,DD,WW,DW,DL,WD,DB,WD,WW,DL,BW
-       BYTE WW,DL,WW,LW,WB,WB,DD,BW,DW,WW,WL,DW,WD,DD,DL,WW
-       BYTE WD,DW,WD,DD,WW,WW,DD,WW,WL,DD,WW,WD,DW,DD,WW,WW
+WALMAP BYTE DL, BD, DW, DW, WW, WL, LW, WW, WW, LB, DBB,DW, DW, WD, DWD,WW
+       BYTE DB3,BB, WDE,WW5,DW, BW, WB, WW, DDA,LD, WD, WW7,DW7,DW, DB3,DW
+       BYTE LD, LW, WL, LW, DL7,WD, WL, DW, DBB,DW, WDE,DW, DD, WW, DL7,BW
+       BYTE DL, WDE,WW, DW, WW7,LDE,WW, DW, DW3,WD6,WW, LW7,WW7,DW, DD, BW
+       BYTE DW, WD, LDD,BL, BD, WW, LD, DW, DW, DD, DL, DL, DB, DW3,DDB,BW
+       BYTE WD, DW, WDE,DD, WW, DDE,DDD,WW, DW7,DLB,WD, DB, WDE,WW5,DL, BW
+       BYTE WW, DL, WW, LW, WB, WB7,DD7,BW, DW, WW, WL, DW, WD, DDD,DL, WW
+       BYTE WD, DW, WD, DD, WW, WW, DD, WW, WL, DD, WW, WD, DW, DD, WW, WW
 
-       BYTE BB,DD,WW,LW,DB,WW,DW,WW,WW,DL,DW,WB,WW,WB,LW,BW
-       BYTE DL,WB,WB,WL,WW,DB,LD,WW,BW,DW,LL,LW,DL,BD,DW,BW
-       BYTE LW,WB,WD,WW,DW,WB,BW,WW,WW,DB,WL,LB,DW,BL,LB,BW
-       BYTE WD,DB,WW,DB,BW,DW,LD,WW,LB,DW,DW,WB,WW,WW,WB,DW
-       BYTE LW,DW,WW,WD,WW,DL,DW,WW,LW,DW,DW,BW,DD,BD,DW,DW
-       BYTE DD,BD,BW,DW,WD,WD,BL,WW,WD,DW,WW,LW,DB,BB,DW,WW
-       BYTE DB,DD,DD,WD,WD,WW,DW,WW,WW,DD,WL,LW,WD,WD,DW,WW
-       BYTE WW,DD,WW,WW,WD,WD,DD,WW,WW,WW,WW,WL,WW,WW,DW,WW
+       BYTE BB, DDA,WWD,LW, DB, WW, DWB,WW, WW, DLB,DW, WB, WW, WB, LW, BW
+       BYTE DL, WB7,WB, WL, WW, DB, LD6,WW, BW, DWB,LL7,LW, DL, BD, DW, BW
+       BYTE LW, WB, WDE,WW, DW, WB, BW, WW, WW, DBB,WL, LB, DW, BL, LB, BW
+       BYTE WDE,DB, WW, DB, BW7,DW, LDE,WWD,LB, DWB,DWB,WB, WW, WW, WB, DW
+       BYTE LW, DW7,WW, WDE,WWD,DL7,DW, WW, LW, DWB,DW3,BW, DD, BD, DW, DW
+       BYTE DD, BDE,BW, DW, WD, WD, BL5,WW, WDE,DWD,WW7,LW, DB, BB, DW, WW
+       BYTE DB, DD, DD, WD7,WD, WW, DW, WW, WW, DD, WL, LW, WD, WD, DW5,WW
+       BYTE WW, DD, WW, WW, WD, WDD,DD, WW, WW, WW, WW, WL, WW, WW, DW, WW
 
-       ; items  (4 bits)
-       ;  0 nothing
-       ;  1 compass
-       ;  2 map
-       ;  3 tiforce
-       ;  4 key
-       ;  5 key carried by enemy (also has location for when all enemies are killed)
-       ;  6 key (this and following items appear after killing all enemies)
-       ;  7 wood boomerang
-       ;  8 magic boomerang
-       ;  9 rupeesX5
-       ;  A bombs
-       ;  B heart container
-       ;  C push block to open shutters  (always middle leftmost)
-       ;  D push block to open stairs  (always middle leftmost)
-       ;  E one way shutter (doesn't open)
 
-       ; possible item locations  (4 bits)
-       BYTE >00 ; top left corner
-       BYTE >0B ; top right corner
-       BYTE >16 ; top center
-       BYTE >26 ; slight up from center
-       BYTE >36 ; center
-       BYTE >37 ; slight right of center
-       BYTE >3A ; middle right
-       BYTE >46 ; slight down from center
-       BYTE >68 ; bottom mid-right
-       BYTE >6B ; bottom right
 
-       ; possible cave items (descend stairs)  (
+       ; possible stairs/cave items  (4 bits)
        ;  0 no stairs
        ;  1 bow
        ;  2 tunnel (use tunnel pairs lookup table)
@@ -1054,41 +1399,66 @@ WALMAP BYTE DL,BD,DW,DW,WW,WL,LW,WW,WW,LB,DB,DW,DW,WD,DW,WW
        ;  9 magical key
        ;  A red ring
        ;  B silver arrow
-       ;
 
-       ; stairs locations, by screen type:
-       ;  center: A
-       ;  top-right: default
-       ;  right: 14
-       ;  NE-from-center: 19
 
-       ; 8 bits
-       ;  stairs destination (6 bits) doors are to same quadrant
-       ;  cave item type
-       ;  room item type + room item pos (7 bits)
-       ;  condition
-LOCMAP
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
 
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       ; item types  (4 bits)
+       ;  0 nothing
+       ;  1 compass
+       ;  2 map
+       ;  3 tiforce
+       ;  4 key
+       ;  5 key carried by enemy (also has location for when all enemies are killed)
+       ;  6 bomb carried by enemy (also has location for when all enemies are killed)
+       ;  7 key (this and following items appear after killing all enemies)
+       ;  8 wood boomerang
+       ;  9 magic boomerang
+       ;  A rupeesX5
+       ;  B bombs
+       ;  C heart container
+       ;  D push block to open shutters
+       ;  E push block to open stairs  (always middle leftmost)
+       ;  F one way shutter (doesn't open)
+       ; TODO old man / grumble grumble / princess Tilda
+       ; TODO 10 rupees diamond shape
+
+
+ITEMXY  ; possible item locations  (4 bits)
+       BYTE >00 ; 0 top left corner
+       BYTE >0B ; 1 top right corner
+       BYTE >16 ; 2 top center
+       BYTE >26 ; 3 slight up from center
+       BYTE >36 ; 4 center
+       BYTE >37 ; 5 slight right of center
+       BYTE >3A ; 6 middle right
+       BYTE >46 ; 7 slight down from center
+       BYTE >60 ; 8 bottom left
+       BYTE >68 ; 9 bottom mid-right
+       BYTE >6B ; A bottom right
+
+ITEMAP  ; bits 7-4: item type  3-0: item location
+       BYTE >00,>73,>00,>30,>00,>E0,>E0,>00,>00,>E0,>00,>00,>30,>30,>C4,>00
+       BYTE >00,>00,>00,>CA,>30,>00,>77,>00,>00,>24,>74,>00,>C4,>00,>B1,>00
+       BYTE >00,>2A,>D0,>72,>C2,>00,>77,>77,>00,>74,>74,>00,>00,>74,>00,>A4
+       BYTE >00,>00,>E0,>54,>00,>C6,>30,>17,>D0,>00,>E0,>D0,>00,>30,>74,>B4
+       BYTE >73,>00,>D0,>26,>82,>49,>27,>77,>00,>74,>B4,>74,>24,>C4,>74,>94
+       BYTE >00,>75,>00,>72,>16,>77,>B2,>A7,>74,>00,>14,>B4,>00,>00,>00,>24
+       BYTE >00,>00,>13,>00,>E0,>64,>74,>00,>14,>00,>00,>74,>74,>00,>00,>11
+       BYTE >75,>00,>79,>00,>56,>00,>00,>77,>00,>00,>74,>74,>00,>00,>74,>00
+
+       BYTE >00,>A4,>74,>B4,>B4,>E0,>B4,>00,>00,>00,>00,>E0,>E0,>E0,>00,>E0
+       BYTE >24,>00,>00,>B4,>00,>B4,>00,>E0,>E0,>B4,>A4,>00,>00,>A4,>B4,>00
+       BYTE >00,>E0,>C6,>30,>30,>00,>24,>00,>E0,>00,>00,>00,>00,>B4,>A4,>24
+       BYTE >A1,>00,>74,>00,>C8,>00,>00,>B4,>E0,>00,>00,>00,>A4,>14,>00,>B4
+       BYTE >00,>00,>00,>74,>71,>00,>A4,>00,>A4,>00,>00,>00,>A4,>00,>00,>71
+       BYTE >A4,>00,>16,>00,>74,>74,>74,>14,>00,>00,>00,>00,>00,>E0,>74,>74
+       BYTE >B4,>B4,>00,>00,>B4,>56,>A4,>00,>00,>E0,>A4,>00,>00,>00,>00,>00
+       BYTE >74,>00,>B4,>00,>E0,>A4,>00,>44,>00,>00,>00,>00,>E0,>00,>00,>00
+
 
        ; levels layout
        ; 6 6 6 6   5 5     4 4 4 4 2 2
-       ; 6 6 6_6 5 5 5 5 4 4 4 4 4 4 2 2
+       ; 6 6 6 6 5 5 5 5 4 4 4 4 4 4 2 2
        ; 6 6 1 1 5 5 5 5 4 4 3 3 4 4 2 2
        ; 6 6 6 1 5 1 1 5 4 4 4 3 4 3 2 2
        ; 6 1 1 1 1 1 5 5 4 3 3 3 3 3 2 2
@@ -1096,7 +1466,7 @@ LOCMAP
        ;   6 6 1 5 5 5 5 4 3 4 3 2 2 2 2
        ; 6 6 1 1 1   5 5 4 4 4 3 3 2 2
        
-       ; 7 7 7 7 7 7 8     9 9 9 9 9 9 9
+       ; 7 7 7 7 7 7 8     9 9 9 9 9 9
        ; 7 7 7 7 7 8 8 8 9 9 9 9 9 9 9 9
        ; 7 7 7 7 8 8 8   9 9 9 9 9 9 9 9
        ; 7 7 7 8 8 8 8 8 9 9 9 9 9 9 9 9
@@ -1107,16 +1477,23 @@ LOCMAP
 
 LVLMAP ; dungeon  map bitmaps
        BYTE >00,>00,>30,>16,>7C,>38,>10,>38  ; level-1
-       BYTE >00,>00,>30,>16,>7C,>38,>10,>38  ; level-2
+       BYTE >18,>0C,>0C,>0C,>0C,>0C,>3C,>18  ; level-2
+       BYTE >00,>00,>30,>14,>7C,>7C,>50,>18  ; level-3
+       BYTE >3C,>2C,>30,>30,>20,>30,>18,>30  ; level-4
+       BYTE >18,>28,>3C,>24,>0C,>1C,>3C,>0C  ; level-5
+       BYTE >3C,>7E,>66,>74,>40,>40,>50,>70  ; level-6
+       BYTE >3E,>6C,>78,>70,>60,>78,>7E,>70  ; level-7
+       BYTE >08,>1C,>08,>7C,>78,>3C,>08,>3C  ; level-8
+       BYTE >7E,>FF,>FF,>DB,>FF,>FF,>7E,>5A  ; level-9
 
 
        ; bits 5:0 - room type
-       ; bit 6 - dungeon boss roar sound effect?
+       ; bit 6 - stairs  (dungeon boss roar sound effect?)
        ; bit 7 - dark room
 DUNMAP BYTE >29,>A6,>90,>0C,>00,>09,>0A,>00,>00,>0F,>0F,>29,>0C,>0C,>02,>00
        BYTE >0E,>29,>0F,>11,>0C,>29,>22,>29,>11,>25,>A2,>05,>0E,>14,>08,>29
        BYTE >21,>A3,>0A,>21,>12,>13,>24,>A1,>08,>A4,>07,>29,>00,>A5,>07,>00
-       BYTE >A2,>20,>0F,>20,>04,>0B,>0C,>A0,>0F,>A5,>09,>0F,>A0,>0C,>2A,>00
+       BYTE >A2,>20,>4F,>20,>04,>0B,>0C,>A0,>0F,>A5,>09,>0F,>A0,>0C,>2A,>00
        BYTE >A1,>29,>09,>06,>04,>08,>A3,>21,>10,>00,>15,>16,>00,>2A,>04,>12
        BYTE >8D,>05,>03,>04,>05,>25,>00,>A0,>12,>07,>00,>00,>06,>03,>06,>05
        BYTE >00,>04,>9C,>03,>0A,>04,>A2,>29,>07,>14,>29,>0D,>00,>05,>08,>03
@@ -1139,7 +1516,7 @@ ST0    BYTE >FF,>7C,>7C,>7C,>7C  ; dark sand
        BYTE >00,>80,>2A,>00,>03,>81,>2A,>07,>07,>81,>2A,>03,>00,>80,>2A,>00  ; 1 Starting room (sand)
        BYTE >7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F,>7F   ; 2 Room full of dark sand
 
-       BYTE >FF,>84,>85,>86,>87  ; block
+       BYTE >FF,>84,>86,>85,>87  ; block
        BYTE >00,>00,>00,>00,>00,>1C,>1C,>00,>00,>00,>00,>00   ; 3 Six blocks in center
        BYTE >00,>00,>14,>00,>00,>00,>00,>00,>00,>14,>00,>00   ; 4 Four blocks squat rect
        BYTE >00,>00,>22,>00,>00,>00,>00,>00,>00,>22,>00,>00   ; 5 Four blocks rect

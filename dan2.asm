@@ -2,11 +2,16 @@
 * R5 = Source data address
 * R7 = VDP output address
 * Register usage
+* R0-R1 = used by VDPWB and VDPRB
+* R2 = alternate return address at D2RBIT
 * R3 = length (elias_gamma)
+* R4 = temporary usage / buffer chunk size
+* R6 = unused
 * R8 = status bits
 * R9 = offset
 * R10 = saved return address
 * R12 = max offset bits
+* R13..R15 = preserved
 DAN2DC
        MOV R11,R10  ; Save return address
        CLR R8
@@ -70,21 +75,91 @@ D2_IEG ; increment elias_gamma
        CLR R9
 D2_OFF
        ; offset = R9
-       NEG R9
-       DEC R9
+       INV R9    ; same effect as NEG R9 then DEC R9
        A R7,R9   ; R9 index = out_addr - offset - 1
+
+       ; Copy R3 bytes VDP from R9 to R7 (possible overlap)
+;!
+;       MOV R9,R0    ; Read byte from R9 (index)
+;       BL @VDPRB
+;       INC R9
+;
+;       MOV R7,R0    ; Write byte to R7 (out_addr)
+;       BL @VDPWB
+;       INC R7
+;
+;       DEC R3
+;       JNE -!
+;       JMP D2LZLP
+
+; ^ 3918442  1.30s
+; v 2877160  0.96s
+
+BUFFER EQU SCRTCH
+BUFSIZ EQU 32
+       ; calculate overlap R4 = dest - source  (assumes source < dest)
+       MOV R7,R4
+       S   R9,R4   ; R4 = overlap
+       CI  R4,BUFSIZ
+       JH  D2_CP2
+       
+       ; R4 (overlap) <= BUFSIZ
+       C R3,R4
+       JHE !
+       MOV R3,R4    ; R4 = min(R3,R4)
 !
-       MOV R9,R0    ; Read byte from R9 (index)
-       BL @VDPRB
-       INC R9
+       ; read R4 bytes from R9 (source)
+       MOV R9,R0  ; VDP source address
+       LI R1,BUFFER
+       MOV R4,R2  ; count of bytes to read
+       BL @VDPR
 
-       MOV R7,R0    ; Write byte to R7 (out_addr)
-       BL @VDPWB
-       INC R7
-
-       DEC R3
+       ; write R4 bytes to R7 (dest)
+       MOV R7,R0  ; VDP destination address
+       ORI R0,VDPWM
+       MOVB @R0LB,*R14
+       MOVB R0,*R14
+       A R3,R7
+!
+       LI R1,BUFFER
+       MOV R4,R2 ; count of bytes to write
+!      MOVB *R1+,*R15
+       DEC R2
        JNE -!
-       JMP D2LZLP
+       
+       S R4,R3
+       JEQ D2LZLP    ; done when count=0
+       C R3,R4
+       JHE -!!
+       MOV R3,R4
+       JMP -!!
+
+D2_CP2
+       LI R4,BUFSIZ
+       C R3,R4
+       JHE !!
+!      MOV R3,R4    ; R4 = min(R3,R4)
+!
+       ; read R4 bytes from R9 (source)
+       MOV R9,R0  ; VDP source address
+       LI R1,BUFFER
+       MOV R4,R2  ; count of bytes to read
+       BL @VDPR
+       A R4,R9
+
+       ; write R4 bytes to R7 (dest)
+       MOV R7,R0  ; VDP destination address
+       A R4,R7
+       LI R1,BUFFER
+       MOV R4,R2 ; count of bytes to write
+       BL @VDPW
+
+       S R4,R3
+       JEQ D2LZLP   ; done when count=0
+       C R3,R4
+       JL -!!
+       JMP -!
+
 
 MAXOF1 EQU 2             ; 1<<1
 MAXOF2 EQU MAXOF1+16     ; 1<<4
@@ -135,3 +210,18 @@ D2RFIL
        LI R8,>0080
        MOVB *R5+,R8
        JMP D2RBI2
+
+
+* vdp to vdp copy
+* aguments: dest, source, len bytes to copy
+* overlap = dest - source    (assumes source < dest)
+* if overlap < BUFSIZ then
+*    N = min(len, overlap)
+*    read N bytes from VDP address source to BUFFER
+*    set dest VDP write address
+*    do
+*       N = min(len, overlap)
+*       write N bytes from BUFFER to VDP
+*       len -= N
+*    until len is 0
+*  else

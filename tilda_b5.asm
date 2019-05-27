@@ -6,7 +6,7 @@
 ;
 
        COPY 'tilda.asm'
-
+       COPY 'tilda_b6_equ.asm'
        
 ; Use function in R2
 ;      0=do moving objects
@@ -20,6 +20,7 @@ MAIN
 
 JMPTBL DATA OBSTRT,STATS
 
+       COPY 'tilda_common.asm'
 
 
 * Object function pointer table, functions called with data in R4,
@@ -28,13 +29,13 @@ OBJTAB DATA OBNEXT,PEAHAT,TKTITE,TKTITE  ; 0-3 - - Red Blue
        DATA OCTORK,OCTORK,OCTRKF,OCTRKF  ; 4-7 Red Blue Red Blue
        DATA MOBLIN,MOBLIN,LYNEL, LYNEL   ; 8-B Red Blue Red Blue
        DATA GHINI, BOULDR,LEEVER,LEEVER  ; C-F - - Red Blue
-       DATA ZORA, FLAME, FAIRY, HEART2   ; 10-13
+       DATA ZORA, ZORABL, FLAME, HEART2  ; 10-13
        DATA BSWORD,MAGIC,BSPLSH,ARMOS    ; 14-17
        DATA DEAD, BOMB, BMRNG, CAVITM    ; 18-1B
        DATA BULLET,ARROW,ASPARK,CAVNPC   ; 1C-1F
        DATA RUPEE, BRUPEE,HEART,AFAIRY   ; 20-23
-       DATA TEXTER,ROCK                  ; 24-27
-       ; 28-2B
+       DATA TEXTER,ROCK,LAKE,TORNAD      ; 24-27
+       DATA FLICKR,FAIRY ; 28-2B
        ; 2C-2F
        ; 30-33
        ; 34-37
@@ -55,8 +56,8 @@ EDAMAG BYTE >00,>01  ; None, Peahat
        BYTE >02,>04  ; Lynel
        BYTE >02,>01  ; Ghini, Rock
        BYTE >01,>02  ; Red/Blue Leevers
-       BYTE >01,>01  ; Zora, Flame
-       BYTE >00,>00  ;
+       BYTE >01,>01  ; Zora, Zora bullet
+       BYTE >01,>00  ; Flame, heart2
        BYTE >04,>04  ; Beam Sword, Magic
        BYTE >00,>02  ; Beam splash, Armos
        BYTE >00,>00  ; Dead
@@ -73,8 +74,8 @@ ECOLOR DATA >0000,>2009  ; None, Peahat
        DATA >4006,>4004  ; Lynel Sprites
        DATA >200F,>2009  ; Ghini, Rock
        DATA >3006,>3004  ; Leever Sprites
-       DATA >680D,>0000  ; Zora, Fire
-       DATA >0000,>0000  ;
+       DATA >680D,>0000  ; Zora, Zorabullet
+       DATA >0000,>0000  ; Flame
        DATA >0000,>0000  ; Beam Sword, Magic
        DATA >0000,>6005  ; Beam splash, Armos
        DATA >0000,>0000  ; Dead
@@ -112,8 +113,8 @@ OBLOOP INCT R1
        JEQ OBLOOP
 
        A R3,R3
-       MOV @OBJTAB(R3),R1
-       B *R1       ; Jump to sprite function
+       MOV @OBJTAB(R3),R9
+       B *R9       ; Jump to sprite function
 
 
 
@@ -197,25 +198,45 @@ STATS  ; status called from another bank
 * Draw number of rupees, keys, bombs and hearts
 * Modifies R0-R3,R7-R11,R13
 STATUS MOV R11,R10         ; save return address
-       CLR R1
-       MOVB @RUPEES,R1
+
        MOV @FLAGS,R3
-       ANDI R3,SCRFLG
+       ANDI R3,SCRFLG      ; R3 = current screen offset
+
+       LI R0,SDRUPE
+       BL @VDPRB           ; R1 = rupees from save data
        MOV R3,R0
        AI R0,VDPWM+SCR1TB+(32*0)+12  ; Write mask + screen offset + row 0 col 12
        BL @NUMBER             ; Write rupee count
 
-       MOVB @KEYS,R1
+       LI R0,SDKEYS
+       BL @VDPRB           ; R1 = keys from save data
        MOV R3,R0
        AI R0,VDPWM+SCR1TB+(32*1)+12  ; Write mask + screen offset + row 1 col 12
        BL @NUMBER             ; Write keys count
 
-       MOVB @BOMBS,R1
+       LI R0,SDBOMB
+       BL @VDPRB              ; R1 = bombs from save data
+       ANDI R1,>1F00          ; Mask 5 bits of bomb count
        MOV R3,R0
        AI R0,VDPWM+SCR1TB+(32*2)+12  ; Write mask + screen offset + row 2 col 12
        BL @NUMBER             ; Write bombs count
 
-       MOV R10,R11        ; restore return address
+       MOV @HFLAGS,R0         ; Get hero flags for sword bits
+       LI R1,NSWORC           ; no sword sprite and color
+       ANDI R0,ASWORD+WSWORD+MSWORD
+       JEQ !
+       LI R1,ASWORC           ; wooden sword sprite and color
+       ANDI R0,WSWORD+MSWORD
+       JEQ !
+       LI R1,WSWORC           ; white sword sprite and color
+       ANDI R0,MSWORD
+       JEQ !
+       LI R1,MSWORC           ; master sword sprite and color
+!      MOV R1,@ASWDSP+2    ; Set active sword sprite and color
+
+       LI R0,SDHART
+       BL @VDPRB           ; R1 = max hearts from save data
+       MOV  R1,R9          ; R9 = max hearts
 
        AI R3,VDPWM+SCR1TB+(32*2)+22  ; Write mask + screen offset + row 2 col 22
        ; R3 = lower left heart position
@@ -223,10 +244,9 @@ STATUS MOV R11,R10         ; save return address
        MOVB R3,*R14           ; Send high byte of VDP RAM write address
        AI R3,-32              ; R3 = upper left heart position
 
-       CLR R9
-       MOVB @HEARTS,R9        ; R9 = max hearts - 1
-       AI   R9,>100
-       MOV  @HFLAGS,R0
+       MOV R10,R11        ; restore return address
+
+       MOV  @HFLAG2,R0
        LI   R10,1             ; R10 = 1 hp per half-heart
        ANDI R0,BLURNG+REDRNG  ; test either ring
        JEQ  !
@@ -342,6 +362,30 @@ OBSLOT
        MOV R6,*R1
        RT
 
+* Look at character at pixel coordinate in R0, and jump to R2 if solid (character is in R1)
+* Modifies R0,R1
+TESTCH
+       ; Convert pixel coordinate YYYYYYYY XXXXXXXX
+       ; to character coordinate        YY YYYXXXXX
+       ANDI R0,>F8F8
+       MOV R0,R1
+       SRL R1,3
+       MOVB R1,R0
+       SRL R0,3
+       MOV @FLAGS,R1
+       ANDI R1,SCRFLG
+       A R1,R0
+
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       CLR R1
+       MOVB @VDPRD,R1
+
+       CI R1,>7E00  ; Characters >7E and higher are solid
+       JHE !
+       RT
+!      B *R2        ; Jump alternate return address
+
 
 
 
@@ -401,36 +445,40 @@ NPCSPR ;    SPR1  SPR2  BGCH1 BGCH2
 *FIRECH DATA >2020,>5E5F  ; Fire background chars
 *       DATA >7879,>7A7B  ; Warp Stairs background chars
 
+
+G      EQU >0200    ; group bit for cave table
+
 CAVTBL ; SSSSSSGx PPPPCCCC  S=sprite index G=group bit P=price index C=color
-       DATA >7E08      ; 1 Wood sword "IT'S DANGEROUS TO GO\ALONE! TAKE THIS."
-       DATA >7E0F      ; 2 White sword "MASTER USING IT AND\YOU CAN HAVE THIS." (5h)
-       DATA >5609      ; 3 Magic sword "MASTER USING IT AND\YOU CAN HAVE THIS." (12h)
-       DATA >2A04      ; 4 Letter "SHOW THIS TO THE\OLD WOMAN."
-       DATA >C20A      ; 5 -20 rupees TODO door repair charge
+       ; DATA middle, left, right <--- pay attention to order
+       DATA G+ASWORC ; 1 Wood sword "IT'S DANGEROUS TO GO\ALONE! TAKE THIS."
+       DATA G+WSWORC ; 2 White sword "MASTER USING IT AND\YOU CAN HAVE THIS." (5h)
+       DATA G+MSWORC ; 3 Master sword sword "MASTER USING IT AND\YOU CAN HAVE THIS." (12h)
+       DATA G+LTTRSC ; 4 Letter "SHOW THIS TO THE\OLD WOMAN."
+       DATA G+RUPEEY      ; 5 -20 rupees TODO door repair charge
 
-       DATA >C20A,>C00A,>C00A  ; 6 Rupees "LET'S PLAY MONEY\MAKING GAME."
-       DATA >0200      ; 7 "SECRET IS IN THE TREE\AT THE DEAD-END." TODO
-       DATA >0200,>2C06,>2006 ; 8 red potion, heart container "TAKE ANY ONE YOU WANT."
-       DATA >0200,>0000,>0000 ; 9 warp stairs 1 "TAKE ANY ROAD YOU WANT."
-       DATA >0200,>0000,>0000 ; A warp stairs 2 "TAKE ANY ROAD YOU WANT."
-       DATA >0200,>0000,>0000 ; B warp stairs 3 "TAKE ANY ROAD YOU WANT."
-       DATA >0200,>0000,>0000 ; C warp stairs 4 "TAKE ANY ROAD YOU WANT."
+       DATA G+RUPEEY,RUPEEY,RUPEEY  ; 6 Rupees "LET'S PLAY MONEY\MAKING GAME."
+       DATA G        ; 7 "SECRET IS IN THE TREE\AT THE DEAD-END." TODO
+       DATA G,RPTNSC,HRTCSC ; 8 red potion, heart container "TAKE ANY ONE YOU WANT."
+       DATA G,>0000,>0000 ; 9 warp stairs 1 "TAKE ANY ROAD YOU WANT."
+       DATA G,>0000,>0000 ; A warp stairs 2 "TAKE ANY ROAD YOU WANT."
+       DATA G,>0000,>0000 ; B warp stairs 3 "TAKE ANY ROAD YOU WANT."
+       DATA G,>0000,>0000 ; C warp stairs 4 "TAKE ANY ROAD YOU WANT."
 
-       DATA >C20A    ; D: 10 rupees
-       DATA >C20A    ; E: 30 rupees
-       DATA >C20A    ; F: 100 rupees
+       DATA G+RUPEEY    ; D: 10 rupees
+       DATA G+RUPEEY    ; E: 30 rupees
+       DATA G+RUPEEY    ; F: 100 rupees
 
-       DATA >0200,>2C54,>2C86  ; 10: Blue potion(40), red potion(68) "BUY MEDICINE BEFORE\YOU GO." (2nd line left aligned)
-       DATA >C24A,>C02A,>C06A  ; 11: 10 30 50 "THIS AIN'T ENOUGH TO TALK" "GO NORTH WEST SOUTH WEST" "BOY,YOU'RE RICH"
-       DATA >C22A,>C01A,>C03A  ; 12: 5 10 20 "THIS AIN'T ENOUGH TO TALK" "THIS AIN'T ENOUGH TO TALK" "GO UP,UP THE MOUNTAIN AHEAD"
-       DATA >0200      ; 13: "MEET THE OLD MAN\AT THE GRAVE" TODO
+       DATA G,BPTNSC+>50,RPTNSC+>80  ; 10: Blue potion(40), red potion(68) "BUY MEDICINE BEFORE\YOU GO." (2nd line left aligned)
+       DATA G+RUPEEY+>40,RUPEEY+>20,RUPEEY+>60  ; 11: 10 30 50 "THIS AIN'T ENOUGH TO TALK" "GO NORTH WEST SOUTH WEST" "BOY,YOU'RE RICH"
+       DATA G+RUPEEY+>20,RUPEEY+>10,RUPEEY+>30  ; 12: 5 10 20 "THIS AIN'T ENOUGH TO TALK" "THIS AIN'T ENOUGH TO TALK" "GO UP,UP THE MOUNTAIN AHEAD"
+       DATA G      ; 13: "MEET THE OLD MAN\AT THE GRAVE" TODO
 
-       DATA >36B9,>3CA9,>C826  ; 14: Shield(90) bait(100) heart(10) "BOY, THIS IS\REALLY EXPENSIVE!"
-       DATA >32E4,>249B,>3476  ; 15: Key(80) bluering(250) bait(60) "BOY, THIS IS\REALLY EXPENSIVE!"
-       DATA >C634,>3CC9,>AC9B  ; 16: Shield(130) bomb(20) arrow(80) "BUY SOMETHIN' WILL YA!"
-       DATA >26BB,>3CD9,>3874  ; 17: Shield(160) key(100) candle(60) "BUY SOMETHIN' WILL YA!"
+       DATA G+BAITSC+>B0,SHLDSC+>A0,HRT2SC+>20  ; 14: Shield(90) bait(100) heart(10) "BOY, THIS IS\REALLY EXPENSIVE!"
+       DATA G+BLURSC+>E0,KEY_SC+>90,BAITSC+>70  ; 15: Key(80) bluering(250) bait(60) "BOY, THIS IS\REALLY EXPENSIVE!"
+       DATA G+BOMBSC+>30,SHLDSC+>C0,ARRWSC+>90  ; 16: Shield(130) bomb(20) arrow(80) "BUY SOMETHIN' WILL YA!"
+       DATA G+KEY_SC+>B0,SHLDSC+>D0,BCDLSC+>70  ; 17: Shield(160) key(100) candle(60) "BUY SOMETHIN' WILL YA!"
 
-       DATA >0200 ; Terminating group bit
+       DATA G ; Terminating group bit
 
 * cave item prices (stored in object hp)
 *           0 1 2  3  4  5  6  7  8  9  A  B   C   D   E
@@ -440,32 +488,451 @@ IPRICE BYTE 0,5,10,20,30,40,50,60,68,80,90,100,130,160,250
 
 
 
+* Cave NPC/fire
+* bits[15..12] counter
+* bits[11..6] item number, 6 bits
+* bits[5..0] object id
+* item number:
+*   0 fire
+*   1 npc
+*
+* counter:
+*   16..13 poof
+*   12..7 dissolve 1
+*   6..1 dissolve 2
+*   0 item appearing
+CAVNPC
+       MOV R4,R0
+       SRL R0,12
+       JNE !
+       BL @RUPEBL  ; Rupee blink
+       JMP CAVNP2
+
+!      AI R4,->1000
+
+       CI R0,13
+       JNE !
+       LI R6,CLOUD1   ; poof, white
+!
+       CI R0,12
+       JNE !
+       AI R6,>0400   ; dissolve 1
+!
+       CI R0,6
+       JNE !
+       AI R6,>0400   ; dissolve 2
+!
+       DEC R0
+       JNE CAVNP2
+
+       CI R5,>5878    ; NPC position? otherwise flame
+       JEQ !
+
+       LI R4,>0080    ; Dummy sprite
+       LI R6,>F008    ; Fire sprite
+       LI R1,>2020    ; Fire background chars
+       LI R2,>5E5F    ; Fire background chars
+       BL @STORCH     ; Store characters R1,R2 at R5 in name table
+CAVNP2 B @OBNEXT
+
+!      ; Load NPC, text and items
+
+       MOVB @CAVTYP,R3
+       SRL R3,8          ; R3 = cave type
+       MOV R3,R10        ; R10 = item index
+
+       DEC R3            ; change to zero-based index
+       A R3,R3           ; word offset
+
+       MOV R5,R7      ; Save NPC pos
+       MOV @CAVDAT(R3),R9 ; Get NPC type and text offset
+
+       MOV R9,R2
+       SRL R2,11
+       AI R2,NPCSPR
+       LI R4,ITEMID      ; Set item id so NPC will flicker
+       MOV *R2+,R8       ; Get primary sprite
+       MOV *R2+,R6       ; Get secondary sprite
+       BL @OBSLOT        ; Spawn secondary sprite
+       MOV *R2+,R1       ; Get background chars
+       MOV *R2+,R2       ; Get background chars
+       BL @STORCH        ; Draw background characters
+
+       ; TODO case >10, letter must be shown to old woman
 
 
+       LI R4,TEXTID   ; Cave message texter
+       LI R5,>D200    ; Counter
+       MOV R9,R6
+       ANDI R6,>03FF
+       AI R6,CAVTXT   ; Cave text in VDP RAM
+       BL @OBSLOT
 
-* Look at character at pixel coordinate in R0, and jump to R2 if solid (character is in R1)
-* Modifies R0,R1
-TESTCH
-       ; Convert pixel coordinate YYYYYYYY XXXXXXXX
-       ; to character coordinate        YY YYYXXXXX
-       ANDI R0,>F8F8
-       MOV R0,R1
-       SRL R1,3
-       MOVB R1,R0
+       ; load items
+       LI R3,CAVTBL   ; Table of item groups
+!      MOV *R3+,R6
+       MOV R6,R9
+       SLA R9,7      ; Get group bit in carry
+       JNC -!
+       DEC R10        ; Decrement item index until zero
+       JNE -!
+
+       LI R2,CAVLOC   ; Spawn cave items
+!      CLR R4
+       MOV *R2+,R5    ; Sprite location
+       JEQ !
+       ANDI R6,>FC0F  ; Get sprite
+       LI R4,ITEMID   ; Object ID
+       BL @OBSLOT     ; Note: returns object offset in R1
+
+       MOV R1,R0
+       SRL R0,2       ; Convert double-word offset to byte offset
+       AI R0,ENEMHP   ; R0 = Object HP address
+
+       SRL R9,11      ; Get item price index
+       MOVB @IPRICE(R9),R1 ; R1 = item price
+       BL @VDPWB      ; Store item price in object HP
+
+       MOVB R1,R4
+       JEQ !          ; Don't draw if zero
+
+       ; Convert pixel coordinate YYYYYYYY XXXXXXXX R5
+       ; to character coordinate        YY YYYXXXXX R0
+       ANDI R5,>F8F8
+       MOV R5,R0
        SRL R0,3
-       MOV @FLAGS,R1
-       ANDI R1,SCRFLG
-       A R1,R0
+       MOVB R0,R5
+       SRL R5,3
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG
+       A R5,R0
 
-       MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
-       MOVB R0,*R14         ; Send high byte of VDP RAM write address
-       CLR R1
-       MOVB @VDPRD,R1
+       AI R0,VDPWM+(3*32)-1  ; Adjust position to 3 lines down and 1 left
+       BL @NUMBRJ     ; Display item price R1 right-justified at R0
 
-       CI R1,>7E00  ; Characters >7E and higher are solid
+!      MOV *R3+,R6
+       MOV R6,R9
+       SLA R9,7      ; Get group bit in carry
+       JNC -!!
+
+       MOVB R4,R4
+       JEQ !         ; Draw rupee and X
+       LI R4,CAVEID
+       LI R5,>8430  ; Rupee loc
+       LI R6,>C00A   ; Rupee sprite
+       BL @OBSLOT
+
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG
+       AI R0,32*17+8
+       LI R1,'X'*256
+       BL @VDPWB
+
+!
+       LI R4,ITEMID   ; Set item id so NPC will flicker
+       MOV R7,R5      ; Restore position
+       MOV R8,R6      ; Restore sprite
+
+       JMP CAVNP2
+
+* Rupee blink
+RUPEBL
+       CI R6,RUPEEY
+       JEQ !
+       CI R6,RUPEEB
+       JNE !!
+!      MOV @COUNTR,R0
+       ANDI R0,>0007
+       JNE !
+       LI R0,RUPEEY^RUPEEB
+       XOR R0,R6
+!      RT
+
+
+
+CAVERT B @OBNEXT
+
+       ; DATA sprite/color, HFLAGS
+ITMTBL DATA SHLDSC,MAGSHD  ; magic shield
+       DATA ASWORC,ASWORD  ; white sword
+       DATA WSWORC,WSWORD  ; white sword
+       DATA MSWORC,MSWORD  ; master sword
+       DATA ARRWSC,ARROWS  ; arrows
+ITMTB2 ; DATA sprite/color, HFLAGS2
+       DATA BOMBSC,BOMBSA  ; bombs available
+       DATA BCDLSC,BCANDL  ; blue candle
+       DATA LTTRSC,LETTER  ; letter
+       DATA BPTNSC,BLUPOT  ; blue potion
+       DATA BLURSC,BLURNG  ; blue ring
+       DATA BAITSC,BAIT    ; bait
+       DATA RPTNSC,REDPOT  ; red potion
+       DATA KEY_SC,0       ; key
+       DATA HRTCSC,0       ; heart container
+
+* Cave item object, check hero collision, enough money, already have it
+* R4: object id
+* R5: location
+* R6: sprite and color
+CAVITM
+       BL @RUPEBL
+       MOV @HEROSP,R0
+       C R0,R5       ; compare exact same location
+       JNE CAVERT
+
+       MOV @OBJPTR,R0
+       SRL R0,1      ; Get object byte offset
+       AI R0,ENEMHP
+       BL @VDPRB
+       MOV R1,R2     ; R2 = item cost
+
+       LI R0,SDRUPE
+       BL @VDPRB     ; R1 = current rupees
+       AB @RUPEES+1,R1  ; add rupee delta
+       CB R2,R1
+       JH CAVERT     ; Not enough rupees?
+
+       LI R3,HFLAGS   ; Pointer to flags
+       SETO R7        ; Set hero sprite to one-or-two handed
+
+       ; compare sprites to determine item
+       CI R6,ASWORC    ; wood sword?
+       JNE !
+       BL @SETITM
+       CLR R2
+       LI R0,ASWORD
+       JMP HAVITM
+!
+       CI R6,WSWORC    ; white sword?
+       JNE !
+       LI R0,SDHART
+       BL @VDPRB
+       CI R1,>0500     ; need at least 5 hearts
+       JL CAVERT
+       BL @SETITM
+       CLR R2
+       LI R0,WSWORD
+       JMP HAVITM
+!
+       CI R6,MSWORC    ; master sword?
+       JNE !
+       LI R0,SDHART
+       BL @VDPRB
+       CI R1,>0C00     ; need at least 12 hearts
+       JL CAVERT
+       BL @SETITM
+       CLR R2
+       LI R0,MSWORD
+       JMP HAVITM
+!
+       CI R6,SHLDSC    ; magic shield?
+       JNE !
+       LI R0,MAGSHD
+       CLR R7
+       JMP HAVITM
+!
+       CI R6,KEY_SC    ; key
+       JNE !
+       LI R0,SDKEYS
+       BL @VDPRB
+       AI R1,>0100
+       BL @VDPWB
+       JMP HLDITM
+!
+       CI R6,BCDLSC    ; blue candle
+       JNE !
+       LI R0,BCANDL
+       INCT R3         ; use HFLAG2
+       JMP HAVITM
+
+!
+HAVITM
+       CZC *R3,R0  ; already have it?
+       JNE CAVERT
+
+HAVIT2
+       SOC R0,*R3  ; set bit for having item
+
+HLDITM
+       SB R2,@RUPEES ; Subtract price from rupee deltas
+
+       LI R0,>0800
+       MOV R7,R7
+       JEQ !
+       AI R5,-4           ; one handed
+       SOC R0,@HEROSP+2
+       SOC R0,@HEROSP+6
+       JMP !!
+!
+       SZC R0,@HEROSP+2   ; two handed
+       SZC R0,@HEROSP+6
+!
+
+
+
+       ; TODO hold up item
+       LI R0,50*>0400   ; special counter for holding item
+       MOVB R0,@HURTC
+
+       ;TODO stop TEXTER and remove text
+
+       ; change cave items to flicker
+       LI R1,LASTOB
+       LI R2,LASTSP+2
+!      MOV *R1+,R0
+       ANDI R0,>003F
+
+       CI R0,CAVEID
+       JNE !
+       LI R0,SOFFID   ; sprite off next frame
+       MOV R0,@-2(R1)
+       JMP !!!
+!
+       CI R0,TEXTID
+       JNE !
+       CLR @-2(R1)         ; turn off cave rupee or texter
+       JMP !!
+!
+       CI R0,ITEMID
+       JNE !
+       MOV *R2,R0      ; get sprite color
+       SLA R0,12
+       ORI R0,FLICID   ; items will flicker
+       MOV R0,@-2(R1)
+!
+       C *R2+,*R2+     ; R2 += 4
+       CI R1,OBJECT+64
+       JNE -!!!!
+
+
+
+       ; save scratch
+       LI R0,SCHSAV
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW
+
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG
+       MOV R0,R7
+
+       ; get a strip of spaces
+       AI R0,32*7+4
+       LI R1,SCRTCH
+       LI R2,24
+       BL @VDPR
+
+       ; erase text
+       LI R8,3      ; number of rows
+!      AI R0,32
+       LI R1,SCRTCH
+       LI R2,24
+       BL @VDPW
+       DEC R8
+       JNE -!
+
+       AI R0,32*7
+       LI R1,SCRTCH
+       LI R2,24
+       BL @VDPW
+
+
+       ; copy current screen to flipped screen
+       LI R8,25    ; number of rows
+!      MOV R7,R0
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR
+
+       LI R0,SCRFLG
+       XOR R7,R0
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPW
+
+       AI R7,32
+       DEC R8
+       JNE -!
+
+       ; erase behind merchant
+       LI R0,SCR1TB+(32*11)+15
+       LI R1,>2000    ; space
+       BL @VDPWB
+       MOVB R1,*R15
+       AI R0,32
+       BL @VDPWB
+       MOVB R1,*R15
+
+       ; restore scratch
+       LI R0,SCHSAV
+       LI R1,SCRTCH
+       LI R2,32
+       BL @VDPR
+
+       ; TODO move this item over hero's head
+       AI R5,->1000
+       LI R4,FLICID
+
+       BL @STATUS
+       JMP TEXTRT
+
+
+
+* Flickering sprite (after cave item collected)
+* R4[15:12] saved sprite color
+* R4[11:6] counter up to 63, then turns off
+FLICKR
+
+       MOV R4,R0
+       SRL R0,12
+       JNE !
+       ; non-flickering sprites last twice as long (128 frames)
+       MOV @COUNTR,R1
+       ANDI R1,1
+       JNE TEXTRT
+!
+       XOR R0,R6
+
+       AI R4,>0040     ; increment counter
+       MOV R4,R0
+       ANDI R0,>0FC0   ; until wrap
+       JNE TEXTRT
+
+       B @SPROFF
+
+
+* Text writer object, writes one char every 6 frames
+* R4[15:6] counter
+* R5[7:0] screen offset
+* R6[13:0] pointer to text in VDP RAM
+TEXTER
+       MOV @COUNTR,R0
+       CI R0,>2000     ; Only update every 6 frames, when COUNTR is 1xxx
+       JHE TEXTRT
+       CLR R1       ; Initial offset zero
+!      A R1,R5      ; Add offset (1-31)
+       MOV R6,R0
+       INC R6         ; Next character
+       BL @VDPRB
+       CI R1,>2000
        JHE !
-       RT
-!      B *R2        ; Jump alternate return address
+       SRL R1,8
+       JNE -!
+       B @SPROFF    ; Zero byte - end of text
+!      MOV @FLAGS,R2
+       ANDI R2,SCRFLG   ; Get current screen ptr
+       MOV R5,R0
+       ANDI R0,>00FF    ; Get screen offset
+       AI R0,8*32+4     ; Add text offset in cave 8,4
+       A R2,R0
+       BL @VDPWB
+       INC R5
+
+       LI R0,SND100   ; Text writing sound
+       MOV R0,@SOUND1
+
+TEXTRT B @OBNEXT
+
+
 
 
 
@@ -486,6 +953,19 @@ BSPLSD DATA >FEFF,>FF01,>00FF,>0101     ; Beam splash direction data NW,NE,SW,SE
 REVMSK ; Reverse direction mask, same as DATA >0002
 MAGICD DATA >0002,>FFFE,>0200,>FE00     ; Magic beam direction (move by 2)
 MAGICC BYTE >07,>04,>06,>01             ; Magic colors: cyan, dark blue, dark red, black
+
+BOUNDS
+       SWPB R5
+       CI R5,>1000          ; Check left edge of screen
+       JL SPROFF
+       CI R5,>E000         ; Check right edge of screen
+       JH SPROFF
+       SWPB R5
+       CI R5,>2800         ; Check top edge of screen
+       JL SPROFF
+       CI R5,>A000          ; Check bottom edge of screen
+       JH SPROFF
+       RT
 
 * Beam sword shoots when link is at full hearts, cycle colors white,cyan,red,brown
 * R4[9..8] = color bits
@@ -519,7 +999,7 @@ BSWDRT
        JL !
        JMP BSWPOP
 BSWDUP
-       CI R5,>1800         ; Check left edge of screen
+       CI R5,>1800         ; Check top edge of screen
        JH !
        JMP BSWPOP
 BSWDDN
@@ -609,8 +1089,8 @@ MAGIC2
        JMP BSWRD3
 
 
-       ; Arrow spark
-ASPARK
+
+ASPARK ; Arrow spark
        LI R0,>0040
        C R0,R4
        JH SPROFF
@@ -698,11 +1178,11 @@ HEART
 GETITM
        ANDI R4,3
        JNE !
-       LI R0,>0100       ; Get 1 rupee
+       LI R2,1       ; Get 1 rupee
        JMP GETRUP
 !      DEC R4
        JNE !
-       LI R0,>0500       ; Get 5 rupees
+       LI R2,5       ; Get 5 rupees
        JMP GETRUP
 !      DEC R4
        JNE !
@@ -711,14 +1191,16 @@ GETITM
        INC R0
        SLA R0,9
        AB R0,@HP         ; Get heart
+
+       LI R0,SND160      ; Heart sound effect
+       MOV R0,@SOUND1
 !
 DOSTAT BL @STATUS
-       B @SPROFF
-GETRUP AB R0,@RUPEES   ; Add R0 to rupees
-       JNC DOSTAT      ; Overflow?
-       SETO R0         ; Reset rupess to 255
-       MOVB R0,@RUPEES
-       JMP DOSTAT
+!      B @SPROFF
+GETRUP
+       A R2,@RUPEES
+       JMP -!
+
 
        ; Rupee yellow, blue; 5 rupee blue blue; heart blue red
 RUPEEC BYTE >0A,>05,>05,>05,>04,>06
@@ -747,6 +1229,9 @@ FLMDO2 CI R1,>9000  ; Green bush
        LI R1,SDCAVE ; Save data - opened secret caves
        BL @SETBIT   ; Set bit R0 in VDP at R1
 
+       LI R0,SND191   ; Secret sound effect
+       MOV R0,@SOUND2
+
        JMP FLAME0
 
 FLAME4
@@ -763,7 +1248,7 @@ FLAME4
        MOV R6,@SPRLST+2(R1) ; Save sprite id & color
 
        ; save R12
-       LI R0,MAPSAV+1
+       LI R0,R12SAV
        MOV R12,R1
        BL @VDPWB
        MOVB @R12LB,*R15
@@ -774,7 +1259,7 @@ FLAME4
        BL @BANKSW
 
        ; restore R12
-       LI R0,MAPSAV+1
+       LI R0,R12SAV
        BL @VDPRB
        MOVB R1,R12
        MOVB @VDPRD,@R12LB
@@ -818,6 +1303,9 @@ FLAME3 JMP BOMNXT
 
 
 
+
+
+
 * Bomb jump  0  1   2  3
 BOMBJ  BYTE -16,16,-32,32
 
@@ -832,9 +1320,19 @@ BOMB   LI R0,>0100
        SRL R0,8
        CI R0,36       ; Bomb explode
        JNE !!!
+
+       LI R0,SND_62   ; Bomb explode sound effect
+       MOV R0,@SOUND3
+       LI R0,SND_63
+       MOV R0,@SOUND4
+
        LI R6,CLOUD1   ; cloud 1, white
 
        MOV R5,R7
+
+       MOV @FLAGS,R0
+       ANDI R0,DUNLVL
+       JNE DUNBOM
 
        MOV @DOOR,R3    ; Check for door collision
        LI R2,BOMDOR
@@ -904,6 +1402,7 @@ BOMB2
        BL @VDPREG
 BOMNXT B @OBNEXT
 
+
 BOMDOR LI R2,BOMDO2
        MOV @DOOR,R5
        MOV R5,R0
@@ -921,28 +1420,144 @@ BOMDO2 CI R1,>8000  ; Green brick
        LI R1,SDCAVE ; Save data - opened secret caves
        BL @SETBIT   ; Set bit R0 in VDP at R1
 
+       LI R0,SND191   ; Secret
+       MOV R0,@SOUND2
+
 !      MOV R7,R5
        JMP BOMB0
 
-       ; Set bit R0 in VDP at address R1
-       ; Modifies R0-R3
-SETBIT MOV R0,R2
-       LI R3,>8000
-       ANDI R0,7
+DUNBOM
+       ; save R12
+       LI R0,R12SAV
+       MOV R12,R1
+       BL @VDPWB
+       MOVB @R12LB,*R15
+
+       LI R0,BANK2
+       LI R1,MAIN
+       LI R2,6         ; dungeon bomb
+       BL @BANKSW
+
+       ; restore R12
+       LI R0,R12SAV
+       BL @VDPRB
+       MOVB R1,R12
+       MOVB @VDPRD,@R12LB
+
+       B @BOMB0
+
+* Set cave item bit for current location
+* Modifies R0-R2
+SETITM
+       LI R1,SDITEM ; Save data - cave items collected
+       MOV @FLAGS,R0
+       ANDI R0,DUNLVL
        JEQ !
-       SRL R3,R0  ; R3 = 0x80 >> (bit & 7)
-!
+       LI R1,SDDUNG ; Save data - dungeon items collected
+!      MOVB @MAPLOC,R0
+       SRL R0,8
+       ;B @SETBIT   ; Set bit R0 in VDP at R1
+       ; and return from there
+
+* Set bit R0 in VDP at address R1
+* Modifies R0-R2
+SETBIT MOV R0,R2
        SRL R2,3
        A R2,R1    ; R1 += (bit >> 3)
+       LI R2,>8000
+       ANDI R0,7
+       JEQ !
+       SRL R2,R0  ; R3 = 0x80 >> (bit & 7)
+!
        MOVB @R1LB,*R14
        MOVB R1,*R14
        MOV R1,R0   ; Save address for VDPWB
        MOVB @VDPRD,R1
-       SOC R3,R1   ; R1 |= R3
+       SOC R2,R1   ; R1 |= R3
        B @VDPWB
 
 
+* Changing lake colors every 8 frames
+LAKE   MOV R4,R1
+       ANDI R1,>01C0
+       JNE !
+       MOV R4,R1
+       SRL R1,9
+       MOVB @LAKEC(R1),R1
+       LI R0,CLRTAB+28   ; water palette
+       BL @VDPWB
+       MOVB R1,*R15
+       CI R4,LAKEID+>1200
+       JEQ !!
+!
+       AI R4,>0040
+       JMP BOMNXT   ; goto OBNEXT
+!
+       ; draw dry pond
+       MOV @FLAGS,R0
+       ANDI R0,SCRFLG
+       AI R0,SCR1TB+(9*32)+10+VDPWM
+       LI R7,LAKECH
+       LI R2,8
+!      MOVB *R7+,R1
+       BL @VDPWB
+       LI R3,10
+!      MOVB *R7,*R15
+       DEC R3
+       JNE -!
+       INC R7
+       MOVB *R7+,*R15
 
+       AI R0,32
+       DEC R2
+       JNE -!!
+
+       ; draw red stairs
+       LI R5,>6860
+       LI R1,>7071   ; red stairs
+       LI R2,>7273
+       BL @STORCH   ; Draw doorway
+
+       LI R0,SND191   ; Secret
+       MOV R0,@SOUND2
+
+       B @SPROFF
+
+       ; flute-lake animation colors for color table
+LAKEC  BYTE >4B,>5B,>7B,>EB,>DB,>6B,>8B,>9B,>AB,>4B
+       ; chars to replace lake chars after animation (left, mid, right)
+LAKECH BYTE >68,>69,>6D
+       BYTE >6A,>16,>6E
+       BYTE >6A,>16,>6E
+       BYTE >6A,>17,>6E
+       BYTE >6A,>16,>6E
+       BYTE >6A,>17,>6E
+       BYTE >6A,>17,>6E
+       BYTE >6B,>6C,>6F
+
+
+TORNAD ; tornado
+       CI R4,>0C00+TORNID
+       JH TORNA1
+       AI R4,>0100
+
+       CI R4,>0200+TORNID
+       JNE !
+       LI R6,CLOUD2
+!      CI R4,>0700+TORNID
+       JNE !
+       LI R6,CLOUD3
+!      CI R4,>0C00+TORNID
+       JNE !
+       LI R6,>F804  ; tornado sprite
+!
+       B @OBNEXT
+TORNA1 INCT R5
+       MOV R5,R0
+       ANDI R0,>00FF
+       CI R0,>00F0
+       JNE -!
+       B @SPROFF
 
 * bits right,left,down,up (screen edge tests, index by 3-bit direction)
 BMRNGF BYTE >8,>A,>2,>6   ; Right, downright, down, downleft
@@ -1015,14 +1630,24 @@ BMOVE2 A R3,R5
 BMOVE1 A R3,R5
 BMOVE0
 
+
+!
        MOV @COUNTR,R0
-       ANDI R0,3
-       JNE BMRNXT     ; Animate every 4th frame
+       ANDI R0,>3000
+       JNE BMRNXT     ; Animate every 6th frame
 
        MOV R6,R1
        SRL R1,10
        ANDI R1,3
        MOVB @BMRNGS(R1),R6
+
+       SRL R1,2
+       JOC BMRNXT
+
+       LI R0,SND_52     ; Boomerang sound effect
+       MOV R0,@SOUND3
+       LI R0,SND_53     ; Boomerang sound effect
+       MOV R0,@SOUND4
 
        JMP BMRNXT
 BMRNG2
@@ -1087,7 +1712,7 @@ COLIDE
 * Enemy direction in R2: 0=right 2=left 4=down 6=up
 * Modifies R0,R3
 LNKHIT
-       MOV @HURTC,R0     ; Can't get hurt again if still flashing
+       MOVB @HURTC,R0     ; Can't get hurt again if still flashing
        JNE -!
 
        MOV @HEROSP,R3    ; Get hero pos in R3
@@ -1138,26 +1763,30 @@ LNKHI3
        CI R1,ARRWID
        JEQ LNKHI4
 
+       CI R1,ZBULID&>003F
+       JEQ !
        CI R1,BSWDID
-       JNE !
-
+       JNE LNKHI5
+!
        MOV @HFLAGS,R3
-       ANDI R3,MAGSHD      ; Beam sword can only be blocked with magic shield
+       ANDI R3,MAGSHD      ; Beam sword and zora bullet can only be blocked with magic shield
        JEQ ARRHIT
 
 LNKHI4
-
        ; check sprite for action, can't block if hero attacking
        MOV @HEROSP+2,R3    ; Get hero sprite offset and color
        ANDI R3,>F000       ; Get sprite upper nibble
        JNE ARRHIT          ; Is zero? (hero walking sprites)
-
 
        ; bullets bounce off if facing the right way (and have magic shield in some cases)
 
        ; enemy arrow
        MOV @FLAGS,R3
        ANDI R3,DIR_XX     ; R3 = hero direction >0300
+
+       CI R1,ZBULID&>003F
+       JEQ ZBHIT      ; zora bullet hit?
+
        SRL R3,7
        XOR @REVMSK,R3
        C R2,R3   ; check reverse direction
@@ -1165,6 +1794,10 @@ LNKHI4
 
        ; successful block
        MOV @BOUNCD(R2),R4  ; change to beam splash id
+LNKBLK
+       LI R0,SND240    ; Tink sound
+       MOV R0,@SOUND1
+
        RT                 ; return with no damage
 
 BOUNCD DATA BSPLID,BSPLID+>40,BSPLID+>40,BSPLID+>80  ; Reflected bounce NW,NE,NE,SW
@@ -1172,10 +1805,15 @@ BOUNCD DATA BSPLID,BSPLID+>40,BSPLID+>40,BSPLID+>80  ; Reflected bounce NW,NE,NE
 ARRHIT ; Arrow disappear (same as SPROFF)
        CLR R4
        LI R5,>D200
-!
+LNKHI5
 
-       AI R0,>C000      ; add 48<<10 frames hurt counter
-       MOV R0,@HURTC
+       AI R0,48*>0400      ; add 48<<10 frames hurt counter
+       MOVB R0,@HURTC
+
+       LI R0,SND302    ; Link hurt sound
+       MOV R0,@SOUND3
+       LI R0,SND303    ; Link hurt sound
+       MOV R0,@SOUND4
 
        SB @EDAMAG(R1),@HP  ; Subtract enemy attack damage
        JGT !
@@ -1185,124 +1823,32 @@ ARRHIT ; Arrow disappear (same as SPROFF)
        ; fall thru (zero hp is in bank0)
 !      B @STATUS
 
+ZBHIT  ; zora bullet, check for block
+       LI R5,>D200
+
+       SWPB R3
+       CLR R2
+       MOVB @ZBHITA(R3),R2
+       JLT !
+       ; test sign bit = 0
+       CZC R2,R4
+       JNE ARRHIT
+       CLR R4
+       JMP LNKBLK
+!      ; test sign bit = 1
+       CZC R2,R4
+       JEQ ARRHIT
+       CLR R4
+       JMP LNKBLK
+ZBHITA BYTE >82,>02,>84,>04      ; rt lt dn up
+
+
+
 AFAIRY
 BADNXT JMP BADNXT
 
 
 
-* Rupee blink
-RUPEEB
-       CI R6,>C00A
-       JEQ !
-       CI R6,>C005
-       JNE !!
-!      MOV @COUNTR,R0
-       ANDI R0,>0007
-       JNE !
-       LI R0,(>C00A^>C005)
-       XOR R0,R6
-!      RT
-
-* Cave item object, check hero collision, enough money, already have it
-* R4: object id
-* R5: location
-* R6: sprite and color
-CAVITM
-       BL @RUPEEB
-       MOV @HEROSP,R0
-       C R0,R5
-       JNE TEXTRT
-       MOV @OBJPTR,R0
-       SRL R0,1      ; Get object byte offset
-       AI R0,ENEMHP
-       BL @VDPRB     ; R1 = item price
-       CB R1,@RUPEES
-       JH TEXTRT     ; Not enough rupees?
-
-       ;TODO already have it?
-
-       SB R1,@RUPEES ; Subtract price from rupees
-       BL @STATUS    ; Update status
-
-       ; TODO hold up item  (TODO this needs to be in bank 0)
-       LI R0,BANK4
-       LI R1,MAIN
-       LI R2,9
-       BL @BANKSW
-
-       ; Put sprites in VDP in order
-       LI R0,SPRTAB
-       LI R1,SPRLST
-       LI R2,32*4
-       BL @VDPW
-
-
-       ; TODO this should be in bank0
-
-       LI R9,32
-!      BL @VSYNCM
-       ;BL @COUNT
-       LI R0,SPRTAB+(14*4)
-       LI R1,>5700
-       BL @VDPWB
-
-       BL @VSYNCM
-       ;BL @COUNT
-       LI R0,SPRTAB+(14*4)
-       LI R1,>D000
-       BL @VDPWB
-
-       DEC R9
-       JNE -!
-
-       LI R9,64
-!      BL @VSYNCM
-       ;BL @COUNT
-
-       DEC R9
-       JNE -!
-
-       ; Back to normal sprites
-       LI R0,BANK4
-       LI R1,MAIN
-       LI R2,2
-       MOV @FLAGS,R3
-       ANDI R3,DIR_XX
-       BL @BANKSW       ; TODO this needs to be in bank 0
-
-
-       ; TODO NPC disappears
-       ; TODO set bit for collected item
-       B @SPROFF
-
-* Text writer object, writes one char every 6 frames
-* R4[15:6] counter
-* R5[7:0] screen offset
-* R6[13:0] pointer to text in VDP RAM
-TEXTER
-       MOV @COUNTR,R0
-       CI R0,>2000     ; Only update every 6 frames, when COUNTR is 1xxx
-       JHE TEXTRT
-       CLR R1       ; Initial offset zero
-!      A R1,R5      ; Add offset (1-31)
-       MOV R6,R0
-       INC R6         ; Next character
-       BL @VDPRB
-       CI R1,>2000
-       JHE !
-       SRL R1,8
-       JNE -!
-       B @SPROFF    ; Zero byte - end of text
-!      MOV @FLAGS,R2
-       ANDI R2,SCRFLG   ; Get current screen ptr
-       MOV R5,R0
-       ANDI R0,>00FF    ; Get screen offset
-       AI R0,8*32+4     ; Add text offset in cave 8,4
-       A R2,R0
-       BL @VDPWB
-       INC R5
-FARYRT
-TEXTRT B @OBNEXT
 
 
 
@@ -1319,6 +1865,10 @@ FAIRY
        ANDI R0,>FF00
        JNE !
        ; initialize fairy position and sprite
+
+       LI R0,SND121   ; Fairy sound
+       MOV R0,@SOUND2
+
        LI R5,>5378  ; Position
        LI R6,FARYSC ; Fairy Sprite and color
 
@@ -1374,9 +1924,13 @@ FAIRY6 ; filling hero hearts mode
        CI R0,23*>200
        JNE FARYRT      ; only every 22 frames
 
-       CLR R9
-       MOVB @HEARTS,R9        ; R9 = max hearts - 1
-       AI   R9,>100
+       ;CLR R9
+       ;MOVB @HEARTS,R9        ; R9 = max hearts - 1
+       ;AI   R9,>100
+       LI R0,SDHART
+       BL @VDPRB
+       MOV R1,R9
+
        MOV  @HFLAGS,R0
        LI   R10,1             ; R10 = 1 hp per half-heart
        ANDI R0,BLURNG+REDRNG  ; test either ring
@@ -1418,29 +1972,6 @@ FAIRY8
        JMP -!
 
 
-* Add sine of R1 to R5
-* R1 = 0..44..88 ~ 0..pi..2pi
-AR5SIN
-       CI R1,44
-       JHE NEGSIN
-       CI R1,23
-       JL !
-       NEG R1
-       AI R1,44
-!      AB @SINTBL(R1),R5
-       RT
-NEGSIN
-       CI R1,67
-       JL !
-       NEG R1
-       AI R1,88+44
-!      SB @SINTBL-44(R1),R5
-       RT
-
-SINTBL ; sine table - 23 bytes to pi/2, scaled to 53
-       BYTE >00,>04,>08,>0B,>0F,>13,>16,>19,>1D,>20,>23
-       BYTE >25,>28,>2A,>2D,>2F,>30,>32,>33,>34,>34,>35,>35
-       EVEN
 
 * Hearts that spin around fairy in pond (counterclockwise)
 * R4[15..8] = countdown 0..88
@@ -1466,8 +1997,32 @@ HEART2
 !
        SWPB R5
        BL @AR5SIN   ; Add cosine to Y
-       JMP PEAHRT
+FARYRT
+       B @OBNEXT
 
+* Add sine of R1 to R5
+* R1 = 0..44..88 ~ 0..pi..2pi
+AR5SIN
+       CI R1,44
+       JHE NEGSIN
+       CI R1,23
+       JL !
+       NEG R1
+       AI R1,44
+!      AB @SINTBL(R1),R5
+       RT
+NEGSIN
+       CI R1,67
+       JL !
+       NEG R1
+       AI R1,88+44
+!      SB @SINTBL-44(R1),R5
+       RT
+
+SINTBL ; sine table - 23 bytes to pi/2, scaled to 53
+       BYTE >00,>04,>08,>0B,>0F,>13,>16,>19,>1D,>20,>23
+       BYTE >25,>28,>2A,>2D,>2F,>30,>32,>33,>34,>34,>35,>35
+       EVEN
 
 
 * Store the current sprite in object HP and set to cloud
@@ -1547,10 +2102,29 @@ BOULD3 S R3,R4       ; Decrement counter
        AI R4,30*>100   ; Bounce
 !
        BL @LNKHIT
+       B @OBNEXT
+
+GHINI  ; Ghini - same movement as peahat
+       CI R4,>E000
+       JLE PEAHAT  ; done flickering
+       AI R4,->0100
+       CI R4,>E000
+       JH !
+       LI R4,GHINID+(17*>400)+(2*>0080)  ; set to inital state
+!
+       LI R0,15^4
+       XOR R0,R6   ; Flicker between transparent and white
        JMP PEAHRT
 
-
-
+PEAHA4
+       BL @SPAWN
+       LI R6,>2009    ; Set sprite and color (ECOLOR+2)
+       ORI R4,(17*>0400)+(6*>0080)   ; Set initial counter=17 and direction to spin-up=6
+       CI R9,GHINI
+       JNE PEAHRT
+       LI R6,GHINIC    ; Ghini sprite white
+       ORI R4,(17*>0400)+(2*>0080)   ; Set initial counter=17 and direction to spin-down=2
+       JMP PEAHRT
 
 * Peahat animation loop: 2 2 1 2 1  (01011011)
 * And moves by 1 only when animation changes
@@ -1558,6 +2132,8 @@ BOULD3 S R3,R4       ; Decrement counter
 PEAHAD DATA >0001,>0101,>0100,>00FF  ; 0 Right, 1 downright, 2 down, 3 downleft
        DATA >FFFF,>FEFF,>FF00,>FF01  ; 4 Left,  5 upleft,    6 up,   7 upright
 PEAHAA DATA >DAAA,>AAAA,>AA4A,>4A4A,>4911,>1111,>1080,>8080 ; animation
+GHINSP BYTE >24,>24,>20,>20,>20,>28,>2C,>2C
+
 * R4:  6 bits animation counter
 *      3 bits direction
 *      1 bits hurt/stun flag
@@ -1567,14 +2143,15 @@ PEAHAA DATA >DAAA,>AAAA,>AA4A,>4A4A,>4911,>1111,>1080,>8080 ; animation
 *  ascending: 128 frames, counter=2..17   init=17
 *  flying: 8 frames, count=1
 PEAHAT
+KEESE  ; Keese - same movement as peahat
        MOV R4,R1
        MOV @COUNTR,R2  ; R2=counter
        INV R2          ; counting down by default
        SRL R1,10      ; Get counter bits
-       JEQ PEAHA3    ; If zero do setup
+       JEQ PEAHA4    ; If zero do setup
        CI R1,1
-       JNE !         ; flying normally?
-       MOV R2,R1
+       JNE !
+       MOV R2,R1     ; flying normally
        ANDI R1,7     ; use 3 bits from counter
        JMP PEAHA2
 
@@ -1590,7 +2167,7 @@ PEAHAT
        AI R4,->0400  ; Decrement landed counter
 !      BL @HITEST    ; can only be hit while landed
 PEAHRT
-       JMP OBNXT
+       B @OBNEXT
 
 PEAHA0 NEG R1        ; descending
        AI R1,27+17   ; reverse descending counter 27..42 -> 17..2
@@ -1611,6 +2188,7 @@ PEAHA1 JNE !
 PEAHA2
        BL @LNKHIT    ; Modifies R0,R3
 
+
        MOV R1,R0
        SRL R1,4
        A  R1,R1
@@ -1620,8 +2198,14 @@ PEAHA2
        SLA R1,R0      ; Put animation bit in carry status
        JNC OBNXT      ; Don't animate or move if bit not set
 
+       CI R9,GHINI
+       JEQ PEAHA3     ; don't animate ghini
+
        LI R1,>0400
        XOR R1,R6      ; Toggle animation
+
+
+PEAHA3 ; peahat/ghini/keese movement
        MOV R4,R1
        ANDI R1,>0380  ; Get direction bits (8 directions)
        SRL R1,6
@@ -1654,24 +2238,27 @@ PEAHA2
        MOV R4,R1
        ANDI R1,>0380    ; R1 = direction bits
        ANDI R0,7        ; 2 in 8 chance to change direction
-       JEQ !            ; Turn right
-       DEC R0
-       JNE OBNXT
+       JNE !            ; Turn left
+       AI R1,>0080      ; Turn right
+       JMP PEAHAL
+
+!      DEC R0
+       JNE OBNXT        ; random was 2..7
        AI R1,>FF80      ; Turn left
 PEAHAL ANDI R1,>0380    ; Mask off direction overflow
        ANDI R4,>FC7F    ; Mask off old direction
        SOC R1,R4        ; Store new direction
-       JMP OBNXT
-!      AI R1,>0080      ; Turn right
-       JMP PEAHAL
+       JMP GHINIT
 PEAHAR LI R0,>0200      ; Reverse direction
        XOR R0,R4
        MOV R2,R5        ; Restore old position
-       JMP OBNXT
-PEAHA3
-       BL @SPAWN
-       LI R6,>2009    ; Set sprite and color (ECOLOR+2)
-       ORI R4,(17*>0400)+(6*>0080)   ; Set initial counter=17 and direction to spin-up=6
+       MOV R4,R1
+       ANDI R1,>0380    ; Mask direction
+GHINIT ; Ghini turn
+       CI R9,GHINI
+       JNE OBNXT
+       SRL R1,7
+       MOVB @GHINSP(R1),R6
        JMP OBNXT
 
 
@@ -1830,17 +2417,7 @@ OCTOR4 ; cloud animation
        JMP OBNXT
 
 !      AI R6,>0400
-       JMP OBNXT2
 
-
-GHINI
-       MOV R4,R0
-       SRL R0,8      ; Get initial counter
-       JNE !          ; If zero do setup
-       BL @SPAWN
-       LI R6,>200F    ; Ghini sprite white
-       AI R4,>0100
-!
 OBNXT2
        B @OBNEXT
 
@@ -2013,7 +2590,7 @@ LEMOV6
        SRL R0,12
        DEC R0
        JEQ LEMOVE
-       JMP OBNXT3
+       B @OBNEXT
 
 !      CI R1,19        ; Pulsing?
        JEQ LPULSE
@@ -2026,7 +2603,7 @@ LEMOV6
 !      CI R1,34        ; Pulsing?
        JNE LEEVR2
 
-LPULSE LI R6,PULSE     ; Pulsing sprite
+LPULSE LI R6,PULSEC    ; Pulsing sprite
 
 LEEVR2
        CI R1,16        ; Normal?
@@ -2036,7 +2613,7 @@ LEEVR2
        MOV @COUNTR,R0
        ANDI R0,1
        JEQ LEMOVE      ; Move every other frame
-       JMP OBNXT3
+LEEVRT B @OBNEXT
 !
        MOV R4,R0
        ANDI R0,>0040
@@ -2081,9 +2658,11 @@ ZORA2  BL @RANDOM      ; Get a random coordinate
        MOV R0,R5       ; Save location if it's good
        BL @TESTCH
        JMP ZORA2
-ZORA3  ANDI R1,>F000
-       CI R1,>E000     ; Is it water?
-       JNE ZORA2
+ZORA3  ; char underneat was solid
+       CI R1,>E000
+       JL ZORA2
+       CI R1,>EC00     ; Is it water?
+       JHE ZORA2
 
        AI R4,>0C00     ; Set counter to 11
        JMP ZORA4
@@ -2112,19 +2691,171 @@ ZORA5
        CI R4,>0A00
        JHE !           ; Pulsing
        BL @HITEST
+
+       ; bullet spawn?
+       CI R4,>0800+ZORAID
+       JNE !!
+       MOV @COUNTR,R0
+       ANDI R0,>000F
+       CI R0,3
+       JNE !!
+
+       ; spawn bullet
+       MOV R4,R2
+       MOV R6,R3
+       LI R4,ZBULID  ; zora bullet id
+       LI R6,ZBULSC  ; bullet sprite and color
+       BL @OBSLOT
+       MOV R2,R4
+       MOV R3,R6
+
        JMP OBNXT3
 
 !      BL @ANIM11
 
+!
        JMP OBNXT3
 
 
+* Zora bullet
+* R4[15:11] : counter 16-0
+* R4[10..9] : sign bits y, x
+* R4[8..6] : angle 0-6
+ZORABL
+       ; animate colors
+       MOV @COUNTR,R7
+       ANDI R7,3
+       MOVB @ZBLCLR(R7),@R6LB
+
+       MOV R4,R0
+       ANDI R0,>F800  ; R0=counter
+       JEQ ZORAB2
+       LI R0,>0800
+       S R0,R4
+       C R4,R0
+       JHE OBNXT3
+
+       ; calculate the angle to hero
+       MOV @HEROSP,R0
+       MOV R0,R1
+       ANDI R0,>FF00   ; R0=yyyyyyyy00000000
+       SB R5,R0
+
+       SLA R1,8   ; R1=xxxxxxxx00000000
+       SB @R5LB,R1
+
+       CB @HEROSP,R5
+       JHE !
+       ORI R4,>0400   ; set y sign bit
+       NEG R0
+!
+       CB @HEROSP+1,@R5LB
+       JHE !
+       ORI R4,>0200  ; set x sign bit
+       NEG R1
+!
+
+       CLR R3
+       LI R7,>0040
+       C R0,R1
+       JH !!
+       JNE !
+       AI R4,3*>0040 ; angle 3
+       JMP OBNXT3
+!
+       MOV R0,R2
+       JEQ OBNXT3     ; angle 0
+       DIV R1,R2
+       CI R2,>298B
+       JLE OBNXT3
+       A R7,R4        ; angle 1
+       CI R2,>7D35;>6A0A
+       JLE OBNXT3
+       A R7,R4        ; angle 2
+       CI R2,>D1D7;>B883
+       JLE OBNXT3
+       A R7,R4        ; angle 3
+       JMP OBNXT3
+
+!      AI R4,6*>0040  ; angle 6
+       MOV R1,R2
+       JEQ OBNXT3
+       DIV R0,R2
+       CI R2,>298B
+       JLE OBNXT3
+       S R7,R4        ; angle 5
+       CI R2,>7D35;>6A0A
+       JLE OBNXT3
+       S R7,R4        ; angle 4
+       CI R2,>D1D7;>B883
+       JLE OBNXT3
+       S R7,R4        ; angle 3
 OBNXT3 B @OBNEXT
 
 
+ZORAB2
 
+       MOV R4,R1       ; get angle offset from table
+       SRL R1,5
+       ANDI R1,>000E
+       MOV @DELTAS(R1),R1
 
+       MOV R1,R2
+       ANDI R2,>0101
+       SZC R2,R1
+       SRL R1,1
+       INV R2
+       MOV @COUNTR,R0
+       ANDI R0,1
+       MOVB @R0LB,R0
+       SZC R2,R0
+       A R0,R1
 
+       LI R2,>FF00
+       MOV R4,R0
+       ANDI R0,>0400
+       JEQ !          ; moving down
+       XOR R2,R1      ; negate y offset
+       AI R1,>0100
+!
+       MOV R4,R0
+       ANDI R0,>0200
+       JEQ !          ; moving right
+       SWPB R2        ; R2 = >00FF
+       COC R2,R0
+       JEQ !          ; x offset is zero (don't adjust y)
+       XOR R2,R1      ; negate x offset
+       AI R1,1->100   ; adjust underflow into y
+!
+       A R1,R5
+
+       BL @BOUNDS
+       BL @LNKHIT
+       JMP OBNXT3
+
+DELTAS DATA >0003, >0103, >0203, >0202, >0302, >0301, >0300    ; angle 0-6
+
+ZBLCLR BYTE 6,1,14,4    ; red, black, lightblue/gray, darkblue
+
+* dX dY spd angle   (rel-angle) mid-angle  mid-frac    mid-dec mid-hex r4
+*  3  0 3   0                    9.21745   0.162277223 10635   298B     0
+*  3  1 3.2 18.4349 (18.4349)   26.0625    0.489083629 32053   7D35     1
+*  3  2 3.6 33.6901 (15.2552)   39.34505   0.819803477 53727   D1D7     2
+*  2  2 2.8 45      (11.3099)   54.21745   1.387424641                  3
+*  2  3 3.6 56.3099 (11.3099)   63.9375    2.044640100
+*  1  3 3.2 71.5651 (15.2552)   80.78255   6.162294265                  5
+*  0  3 3   90      (18.4349)                                           6
+
+*  2  1 2.2 26.5651 (8.1302)    35.78255   0.720838105 47236   B883     2  C000
+*  1  2 2.2 63.4349 (18.4349)   67.5       2.414213562                  4
+
+*  45654
+* 23   32
+* 1     1
+* 0     0
+* 1     1
+* 23   32
+*  45654
 
 * dead - little 6 big 6 little 6
 * R4[15..8] = counter, initially 18
@@ -2160,6 +2891,16 @@ ROCK
 
        MOV R5,R2
        S @HEROSP,R2
+
+       CI R2,->0100    ; hero pushing from the side
+       JLT !
+       CI R2,>0100    ; hero pushing from the side
+       JGT !
+       CI R2,->0010
+       JLT !!
+       CI R2,>0010
+       JGT !!
+!
        CI R2,>1000
        JGT !          ; hero overlapping rock?
        CI R2,->0800
@@ -2171,6 +2912,16 @@ ROCK
        A R1,R5       ; move rock
        JMP OBNXT3
 ROCK2
+       MOV @FLAGS,R0
+       ANDI R0,DUNLVL
+       JEQ !
+       ; dungeon block
+       LI R1,>8486
+       LI R2,>8587
+       BL @STORCH    ; draw block
+       JMP DEAD2     ; SPROFF
+
+!      ; overworld rock
        CI R6,>1C06   ; red rock?
        JNE !
        LI R1,>9C9E   ; red rock
@@ -2178,10 +2929,14 @@ ROCK2
        BL @STORCH
        LI R1,>7071   ; red stairs
        LI R2,>7273
-       JMP !!
-!
-       LI R1,>9496   ; green rock
+       JMP !!!
+!      LI R1,>9496   ; green rock
        LI R2,>9597
+       CI R6,>1C01   ; gravestone?
+       JNE !
+       LI R1,>F4F6   ; grave
+       LI R2,>F5F7
+!
        BL @STORCH
        LI R1,>7879   ; green stairs
        LI R2,>7A7B
@@ -2189,22 +2944,40 @@ ROCK2
        MOV @DOOR,R5
        BL @STORCH    ; draw door
 
+       CI R6,>1C01   ; gravestone?  don't store cave bit
+       JEQ DEAD2
+
        MOVB @MAPLOC,R0
        SRL R0,8
        LI R1,SDCAVE ; Save data - opened secret caves
        BL @SETBIT   ; Set bit R0 in VDP at R1
+
+       LI R0,SND191   ; Secret
+       MOV R0,@SOUND2
 
        JMP DEAD2    ; SPROFF
 
 
 
 * test if sword is hitting enemy, and if enemy is hitting hero (LNKHIT)
+* this is kinda spaghetti gotos
 * modifies R0-R3 R7 R8
 HITEST
        ; currently getting knocked back or stunned?
        MOV R4,R0
        SRC R0,7   ; Get hurt/stun bit in carry flag
-       JOC HSBIT
+       JNC HITES0
+       JMP HSBIT
+
+STBIT  ; Stun counter is nonzero
+
+       ORI R1,VDPWM     ; Set stun/HP write address in VDP
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       MOVB @R2LB,*R15  ; Save decremented counter
+       JNE !   ; counter nonzero
+       ANDI R4,~>0040  ; Clear stun bit
+!
 
 HITES0
        ; get position of sword sprite
@@ -2228,57 +3001,12 @@ HITES1
        LI R0,BPOPID         ; Beam Sword Pop ID
        SOC R0,@BSWDOB       ; Set sword beam to sword pop
 
-!      MOV @OBJPTR,R1       ; Get object idx
-       SRL R1,1
-       AI R1,ENEMHP
-       MOVB @R1LB,*R14
-       MOVB R1,*R14
-       CLR R2
-       MOVB @VDPRD,R2       ; Enemy HP in R2
-
-       MOV @HFLAGS,R0       ;
-       ANDI R0,WSWORD+MSWORD ; Get sword bits
-       AI  R0,>0100         ; R0 = >100,>200,>400 based on sword power
-       S   R0,R2            ; Subtract sword damage from enemy hp
-       JGT HURT             ; Jump if hp is greater than zero
-
-!
-
-       BL @RANDOM
-       ANDI R0,>0007
-       JNE !
-
-       LI R4,RUPYID         ; Rupee spawn
-       JMP SPITEM
-
-!      DEC R0
-       JNE !
-
-       LI R4,BRPYID         ; 5 Rupee spawn
-       JMP SPITEM
-
-!      DEC R0
-       JNE !
-
-       LI R4,HARTID         ; Heart spawn
-       JMP SPITEM
-
-!
-       LI R4,DEADID          ; Change object type to DEAD, counter to 19
-       CLR R6                ; Clear sprite and color transparent
-OBNXT4
-       B @OBNEXT
-
-* Spawn item
-SPITEM
-       MOV R4,R6
-       ANDI R6,>003F
-       A R6,R6
-       MOV @ECOLOR(R6),R6               ; Set color and sprite index
-       BL @OBSLOT
-       JMP -!
+!      JMP SUBHP
 
 BMRHIT
+       LI R0,SND_70         ; Bump sound
+       MOV R0,@SOUND1
+
        CLR R0
        MOVB R0,@BMRGOB       ; Set boomerang state to returning
 
@@ -2294,26 +3022,41 @@ BMRHIT
        MOVB R2,*R15         ; Enemy stun counter in R2
        MOVB R0,*R15         ; Clear Enemy hurt counter
 
-       JMP HITES2
-
-
 HITES2 AI R7,4      ; Next object
        JNE HITES1
 
        MOV R4,R0
        SRC R0,7   ; Get hurt/stun bit in carry flag
-       JOC OBNXT4  ; Stun bit doesn't return to object movement
-
+       JNC !  ; Stun bit doesn't return to object movement
+       B @OBNEXT
+!
        B  @LNKHIT  ; Test enemy hitting hero
 
-HITES3 RT
+SUBHP  ; subtract damage from enemy HP
+       MOV @OBJPTR,R1       ; Get object idx
+       SRL R1,1
+       AI R1,ENEMHP
+       MOVB @R1LB,*R14
+       MOVB R1,*R14
+       CLR R2
+       MOVB @VDPRD,R2       ; Enemy HP in R2
 
+       ; TODO adjust damamge based on weapon
+       MOV @HFLAGS,R0       ;
+       ANDI R0,WSWORD+MSWORD ; Get sword bits
+       AI  R0,>0100         ; R0 = >100,>200,>400 based on sword power
+       S   R0,R2            ; Subtract sword damage from enemy hp
+       JEQ ENEHP0           ; enemy HP is zero
+       JLT ENEHP0           ; or negative
 
 HURT   ; Enemy hit by sword or beam
        ORI R1,VDPWM
        MOVB @R1LB,*R14
        MOVB R1,*R14
        MOVB R2,*R15         ; Store updated HP in VDP
+
+       LI R0,SND_70         ; Bump sound
+       MOV R0,@SOUND1
 
        ORI R4,>0040         ; Set hurt/stun bit
 
@@ -2326,6 +3069,7 @@ HURT   ; Enemy hit by sword or beam
        AI R1,ENEMHS         ; Get counters from VDP
        JMP HURT2
 
+* Modifies R1,R2 R0,R3(if hurt)
 HSBIT   ; Enemy is hurt or stunned
        MOV @OBJPTR,R1       ; Get object idx
        AI R1,ENEMHS         ; Get counters from VDP
@@ -2382,17 +3126,66 @@ HURT2  AI R2,-256           ; Decrement counter
        BL @KNOCKB
        B @OBNEXT
 
+HITES3 RT
 
 
-STBIT  ; Stun counter is nonzero
+ENEHP0 ; enemy HP is zero
 
-       ORI R1,VDPWM     ; Set stun/HP write address in VDP
-       MOVB @R1LB,*R14
-       MOVB R1,*R14
-       MOVB @R2LB,*R15  ; Save decremented counter
-       JNE !   ; counter nonzero
-       ANDI R4,~>0040  ; Clear stun bit
-!      B @HITES0
+       LI R0,SND111         ; Enemy poof sound
+       MOV R0,@SOUND2
+
+       ; TODO get enemy drop table
+
+       BL @RANDOM
+       ANDI R0,>0007
+       JNE !
+
+       LI R4,RUPYID         ; Rupee spawn
+       JMP SPITEM
+
+!      DEC R0
+       JNE !
+
+       LI R4,BRPYID         ; 5 Rupee spawn
+       JMP SPITEM
+
+!      DEC R0
+       JNE !
+
+       LI R4,HARTID         ; Heart spawn
+* Spawn item
+SPITEM
+       MOV R4,R6
+       ANDI R6,>003F
+       A R6,R6
+       MOV @ECOLOR(R6),R6               ; Set color and sprite index
+       BL @OBSLOT
+
+!
+
+       ; TODO get enemy type and decrement enemy screen count
+
+       ; decrement enemy counter
+       LI R2,>1000    ; add 1 to nibble
+       MOVB @MAPLOC,R0
+       SRL R0,9
+       JNC !
+       SRL R2,4       ; R2=>0100
+!
+       AI R0,SDENEM         ; use overworld enemy counts
+       MOV @FLAGS,R1
+       ANDI R1,DUNLVL
+       JEQ !
+       AI R0,DNENEM-SDENEM   ; use dungeon enemy counts
+!
+       BL @VDPRB
+       S R2,R1
+       BL @VDPWB
+
+       LI R4,DEADID          ; Change object type to DEAD, counter to 19
+       CLR R6                ; Clear sprite and color transparent
+
+       B @OBNEXT
 
 
 
@@ -2536,6 +3329,9 @@ ARMOS
        LI R1,>7071    ; Red stairs
        LI R2,>7273    ; Red stairs
 
+       LI R0,SND191   ; Secret sound effect
+       MOV R0,@SOUND2
+
        JMP !!!
 !
        ; ground, either yellow or gray
@@ -2547,8 +3343,8 @@ ARMOS
        MOV R1,R2
        JMP !!
 !
-       CLR R1           ; yellow background
-       CLR R2
+       LI R1,>1414           ; yellow background
+       MOV R1,R2
 !
        BL @STORCH
 
@@ -2598,150 +3394,8 @@ ARMOS3
        B @LEMOV2
 
 
-* Cave item
-* bits[15..12] counter
-* bits[11..6] item number, 6 bits
-* bits[5..0] object id
-* item number:
-*   0 fire
-*   1 npc
-*
-* counter:
-*   16..13 poof
-*   12..7 dissolve 1
-*   6..1 dissolve 2
-*   0 item appearing
-CAVNPC
-       MOV R4,R0
-       SRL R0,12
-       JNE !
-       BL @RUPEEB  ; Rupee blink
-       JMP CAVNP2
-
-!      AI R4,->1000
-
-       CI R0,13
-       JNE !
-       LI R6,CLOUD1   ; poof, white
-!
-       CI R0,12
-       JNE !
-       AI R6,>0400   ; dissolve 1
-!
-       CI R0,6
-       JNE !
-       AI R6,>0400   ; dissolve 2
-!
-       DEC R0
-       JNE CAVNP2
-
-       CI R5,>5878    ; NPC position? otherwise flame
-       JEQ !
-
-       LI R6,>F008    ; Fire sprite
-       LI R1,>2020    ; Fire background chars
-       LI R2,>5E5F    ; Fire background chars
-       BL @STORCH     ; Store characters R1,R2 at R5 in name table
-CAVNP2 B @OBNEXT
-
-!      ; Load NPC, text and items
-
-       MOVB @CAVTYP,R3
-       SRL R3,8          ; R3 = cave type
-       MOV R3,R10        ; R10 = item index
-
-       DEC R3
-       A R3,R3
-
-       MOV R5,R7      ; Save NPC pos
-       MOV @CAVDAT(R3),R9 ; Get NPC type and text offset
-
-       MOV R9,R2
-       SRL R2,11
-       AI R2,NPCSPR
-       MOV *R2+,R8       ; Get primary sprite
-       MOV *R2+,R6       ; Get secondary sprite
-       BL @OBSLOT        ; Spawn secondary sprite
-       MOV *R2+,R1       ; Get background chars
-       MOV *R2+,R2       ; Get background chars
-       BL @STORCH        ; Draw background characters
-
-       ; TODO case >10, letter must be shown to old woman
 
 
-       LI R4,TEXTID   ; Cave message texter
-       LI R5,>D200    ; Counter
-       MOV R9,R6
-       ANDI R6,>03FF
-       AI R6,CAVTXT   ; Cave text in VDP RAM
-       BL @OBSLOT
-
-       ; load items
-       LI R3,CAVTBL   ; Table of item groups
-!      MOV *R3+,R6
-       MOV R6,R9
-       SLA R9,7      ; Get group bit in carry
-       JNC -!
-       DEC R10        ; Decrement item index until zero
-       JNE -!
-
-       LI R2,CAVLOC   ; Spawn cave items
-!      CLR R4
-       MOV *R2+,R5    ; Sprite location
-       JEQ !
-       ANDI R6,>FC0F  ; Get sprite
-       LI R4,ITEMID   ; Object ID
-       BL @OBSLOT     ; Note: returns object offset in R1
-
-       MOV R1,R0
-       SRL R0,2       ; Convert double-word offset to byte offset
-       AI R0,ENEMHP   ; R0 = Object HP address
-
-       SRL R9,11      ; Get item price index
-       MOVB @IPRICE(R9),R1 ; R1 = item price
-       BL @VDPWB      ; Store item price in object HP
-
-       MOVB R1,R4
-       JEQ !          ; Don't draw if zero
-
-       ; Convert pixel coordinate YYYYYYYY XXXXXXXX R5
-       ; to character coordinate        YY YYYXXXXX R0
-       ANDI R5,>F8F8
-       MOV R5,R0
-       SRL R0,3
-       MOVB R0,R5
-       SRL R5,3
-       MOV @FLAGS,R0
-       ANDI R0,SCRFLG
-       A R5,R0
-
-       AI R0,VDPWM+(3*32)-1  ; Adjust position to 3 lines down and 1 left
-       BL @NUMBRJ     ; Display item price R1 right-justified at R0
-
-!      MOV *R3+,R6
-       MOV R6,R9
-       SLA R9,7      ; Get group bit in carry
-       JNC -!!
-
-       MOVB R4,R4
-       JEQ !         ; Draw rupee and X
-       LI R4,CAVEID
-       LI R5,>8430  ; Rupee loc
-       LI R6,>C00A   ; Rupee sprite
-       BL @OBSLOT
-
-       MOV @FLAGS,R0
-       ANDI R0,SCRFLG
-       AI R0,32*17+8
-       LI R1,'X'*256
-       BL @VDPWB
-
-!
-       LI R4,CAVEID   ; Restore object id
-       MOV R7,R5      ; Restore position
-       MOV R8,R6      ; Restore sprite
-
-       JMP CAVNP2
 
 
 * Enemy hurt colors: 2 frames each
