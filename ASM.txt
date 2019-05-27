@@ -132,6 +132,16 @@ A000-  High memory expansion (upper 24k)
   Volume v: +1 = -2dB (>F = off)
   Noise n: 0=6991Hz 1=3496Hz 2=1748Hz 3=gen3 +4=White noise (otherwise periodic; freq/15)
 
+  Tone channels seems to be positive polarity
+  Noise channel seems to be negative polarity
+
+  Tone3=XXX Noise=3
+   _   _   _   _   _   _   _   _   _   _   _   _   _   _       _
+  | | | | | | | | | | | | | | | | | | | | | | | | | | | |     | |
+  | |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |  ___| |
+   0   1   2   3   4   5   6   7   8   9   a   b   c   d| |e   0
+                                                        |_|
+
 8800   VDP RAM read data register
 8802   VDP RAM read status register
 8C00   VDP RAM write data register
@@ -154,8 +164,8 @@ VDP Registers  (bit indexes are reversed)
 6  Sprite Descriptor Table div >800 (0000,0800 ... 3800)
 7  Foreground and background color nibbles
     -------- -------- -------- -------- -------- -------- -------- --------
-VR0 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [Bitmap] [Extvid]
-VR1 [4K/16K] [ Blank] [Int on] [Multic] [ Text ] [   0  ] [Size 4] [Mag 2x]
+VR0 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [M3 bmp] [Extvid]
+VR1 [4K/16K] [ Blank] [Int on] [M1 txt] [M2 mul] [   0  ] [Size 4] [Mag 2x]
 VR2 [   0  ] [   0  ] [   0  ] [   0  ] [ Screen Image Table / >400       ]
 VR3 [ Color Table / >40                                                   ]
  bm [ Addr ] [ Address mask                                               ]
