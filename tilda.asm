@@ -50,7 +50,7 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 ; 0320:033F Save area scratchpad/sprite list (>20)
 ; 0340:035F Color Table (32 bytes = >20)
 ; 0360:037F Music Save pointers (8 bytes) MapSav(1),Ecount(1),R12SAV(2),LadPos(6)
-;           Recent map location (8 bytes)
+;           Recent map locations (8 bytes)
 ; 0380:03FF Sprite List Table (32*4 bytes = >80)
 ; 0400:071F Screen Table B (32*25 = >320)
 ; 0720:073F
@@ -68,8 +68,12 @@ R13LB  EQU  WRKSP+27          ; Register 13 low byte address
 ; 2B60:     Cave texts
 
 ; TODO  Dark dungeon pattern table (256*8 bytes = 800)
-
-
+; TODO HUD/menu Sprite Pattern Table
+       ; Map dot, items B, Swords, Half-heart, menu cursor
+; TODO HUD/menu Sprite List Table
+       ; Map dot, Item B, Sword, Half-Heart, 5th sprites
+; TODO HUD/menu Pattern Table (maybe)
+       ; Map background, item border, heart, ti-force pieces
 
 SCR1TB EQU  >0000    ; Name Table 32*25 bytes (double-buffered)
 SCHSAV EQU  >0320    ; Save area for SCRTCH scratchpad/screen list
@@ -99,7 +103,7 @@ DARKPT EQU  >1800    ; TODO Dark Pattern Table for dark dungeons
 LEVELA EQU  >2380    ; Name table for level A 32*25 (copied to SCR1TB or SCR2TB) TODO move to >2000
 MENUSC EQU  >2640    ; Name table for menu screen
 PATSAV EQU  >28E0    ; Pattern table backup for menu screen 32*22 bytes
-CAVTXT EQU  >2B90    ; Cave text
+CAVTXT EQU  >2BA0    ; Cave text
 
 SDATA  EQU  >2E00    ; Save Data
 SDNAME EQU  SDATA    ; Save Data - save file name, 8 bytes
@@ -123,11 +127,11 @@ SDEND  EQU  SDATA+248
 
 DNENEM EQU  >2F00    ; Dungeon enemy counts, 4 bits * 256 = 128 bytes (cleared when entering dungeon)
 
-ENEMDT EQU  >0760    ; Enemy drop table, status flags
+ENEMDT EQU  >0760    ; Enemy damage done to here, enemy drop table (8 bits total)
 ENEMHS EQU  >07A0    ; Enemy hurt/stun counters interleaved:
                      ; stun: count=6bits
                      ; hurt: direction=2bits count=6bits
-ENEMHP EQU  >07E0    ; Enemy HP
+ENEMHP EQU  >07E0    ; Enemy HP (8 bits)
 
 CNDLUS EQU  >0008    ; TODO Candle used, once per screen (blue candle only, locate at Flame HP)
 
@@ -297,6 +301,10 @@ SCRFLG EQU  >0400            ; Double-buffered screen flag, NOTE: must be equal 
 ENEDGE EQU  >0800            ; TODO Enemies load from edge of screen
 DUNLVL EQU  >F000            ; Current dungeon level 1-9 (0=overworld)
 
+; TODO enemy kill counter up to 10
+; TODO additional bomb/fairy counter?
+; TODO Bait active flag (draws enemies to it)
+; TODO Clock active flag (keep enemies frozen in place, flashing state)
 
 
 SWRDOB EQU  OBJECT+12       ; Sword animation counter
@@ -307,7 +315,7 @@ FLAMOB EQU  OBJECT+20       ; Flame counter
 BOMBOB EQU  OBJECT+22       ; Bomb counter
 LASTOB EQU  OBJECT+24
 
-SPRLST EQU  WRKSP+128       ; 127 bytes sprite list, copied to VDP by SPRUPD
+SPRLST EQU  WRKSP+128       ; 128 bytes sprite list, copied to VDP by SPRUPD
 MPDTSP EQU  SPRLST          ; 0 Address of status bar sprites (mapdot, item, sword, half-heart)
 HARTSP EQU  SPRLST+4        ; 1 Life bar half-heart sprite
 ITEMSP EQU  SPRLST+8        ; 2 Selected item
@@ -328,21 +336,24 @@ SCRTCH EQU  SPRLST+96       ; 32 bytes scratchpad for screen scrolling (overlaps
 
 
 ; Sprite function array (64 bytes), for each sprite:
-;   index byte of sprite function to call: 6 bits, flags hurt and stun: 1 bits
+;   index byte of sprite function to call: 6 bits, flags hurt and stun: 1 bit
 ;   other byte of data (counter, direction, etc)
   
 ;   function called with data in registers:
 ;   R4   data from sprite function array (function idx, counter, etc)
 ;   R5   YYXX word sprite location (Y is adjusted down 1 line)
-;   R6   IDCL sprite index, color and early bit
+;   R6   SI.C sprite index, color and early clock bit
   
 ;   (direction could be encoded in sprite index if done carefully, or sprite function index)
+; TODO 6 bits in R6 are not used:
+;  lowest 2 bits of sprite index are ignored in 16x16 sprite mode
+;  4 bits between sprite index and early clock bit are not used
 
 
 ; TODO attack animation & Magic Rod could be shared in 0x with walking animation
 ; Sprite patterns (16x16 pixels, total of 64) (four per line, 4*8 bytes per sprite)
 ; 0x Link (fg and outline, 2 frame animation)  (replaced when changing direction)
-; 1x Link Attack (fg and outline)   Wand (same direction), Raft/Pushed block
+; 1x Link Attack (fg and outline)   MagicRod (same direction), Raft/Pushed block
 ; 2x reserved for enemies (moblin 1-4, pulsing ground 1-2, peahat 1-2, ghini 1-4
 ; 3x reserved for enemies (moblin 5-8, leever 1-3, tektite 1-2, rock 1-2
 ; 4x reserved for enemies (octorok 1-4, lynel 1-4,
@@ -456,6 +467,7 @@ LTTRSC EQU >2804    ; Letter
 BPTNSC EQU >2C04    ; Blue Potion
 RPTNSC EQU >2C06    ; Red Potion
 HRTCSC EQU >2006    ; Heart container
+BOW_SC EQU >180B    ; Bow
 
 
 NSWORC EQU >7C00    ; No sword A-box sprite
@@ -499,6 +511,7 @@ FLICID EQU >0028 ; Flicker ID
 CARTAD EQU >6000 ; Cartridge address in memory (TODO use >A000 for geneve)
        AORG CARTAD   ; Cartridge header in all banks
 HEADER
+       .IFDEF USE_GROM
        BYTE >AA     ; Standard header
        BYTE >00     ; Version number 1
        BYTE 0;>01     ; Number of programs (optional)
@@ -507,12 +520,22 @@ HEADER
        DATA 0;PRGLST  ; Pointer to program list
        DATA >0000   ; Pointer to DSR list
        DATA >0000   ; Pointer to subprogram list  (this doubles as next program list entry)
+       .ELSE
+       BYTE >AA     ; Standard header
+       BYTE >00     ; Version number 1
+       BYTE >01     ; Number of programs (optional)
+       BYTE >00     ; Reserved (for FG99 this can be G,R,or X)
+       DATA >0000   ; Pointer to power-up list
+       DATA PRGLST  ; Pointer to program list
+       DATA >0000   ; Pointer to DSR list
+       DATA >0000   ; Pointer to subprogram list  (this doubles as next program list entry)
 
-;PRGLST DATA >0000   ; Next program list entry
-;       DATA START   ; Program address
-;       BYTE CRTNME-CRTNM       ; Length of name
-;CRTNM  TEXT 'LEGEND OF TILDA'
-;CRTNME
+PRGLST DATA >0000   ; Next program list entry
+       DATA START   ; Program address
+       BYTE CRTNME-CRTNM       ; Length of name
+CRTNM  TEXT 'LEGEND OF TILDA'
+CRTNME
+       .ENDIF
        EVEN
 
 BANK0  EQU  CARTAD

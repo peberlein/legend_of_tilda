@@ -571,7 +571,8 @@ http://www.zeldaspeedruns.com/loz/generalknowledge/item-drops-chart
 http://www.zeldaspeedruns.com/loz/tech/forced-item-drops
 https://kb.speeddemosarchive.com/The_Legend_of_Zelda
 
-
+Rate  80    104   152   104  out of 256
+      31%   41%   59%   41%
 Group A     B     C     D
 0   Rupee Bomb  Rupee Heart
 1   Heart Rupee Heart Fairy
@@ -583,6 +584,7 @@ Group A     B     C     D
 7   Rupee Bomb  Rupee Heart
 8   Rupee Heart Rupee Rupee
 9   Heart Heart BlRup Heart
+
 
 A - OctorokR, TektiteR, MoblinR, LeeverB, WizzrobeB
 B - OctorokB, MoblinB, LynelB, GoriyaR, Gibdo, Vire, DarknutR, WizzrobeR
@@ -627,6 +629,7 @@ Flute (Tornado)
          299  off
 
 Warps to previously completed dungeon (triforce collected)  (See http://zelda.wikia.com/wiki/Recorder )
+Up/Right goes to next dungeon, Down/Left goes to previous
 What if no triforces are collected?
 
 Flute (level 7)
@@ -797,6 +800,8 @@ Drops: bombs(4),
   Drop table and forced item drops (bomb 10th drops bomb)
 Flute (Tornado)
 Tektite AI
+Traps: move by 2,2,2,1 (fast) until striking another center of screen
+       move by 0,1 (slow) until return to starting position
 Bomb counter decrement
 Enemy collision with Arrow, Candle, Bomb
 Magic Rod (damage amount)
@@ -818,7 +823,6 @@ TODO:
 Finish caves and stores
 Bracelet under armos
 Edge spawning for octorok/moblin/lynel
-Title screen music
 Smooth scrolling text after title screen
 Bait (attracts enemies, or give to Grumble Grumble)
 Show letter to old woman for potions
@@ -830,6 +834,7 @@ Dungeon map item (minimap in upper left)
 Dungeon minimap (scroll within 8x6)
 Dungeon menu map
 Short attack animation with boomerang/bomb/arrow/candle/bait
+Reset the color table pointer during screen transition
 
 Continue/save/retry screen
 Character selection / enter your name
@@ -841,7 +846,13 @@ Peahat should not hurt link while flashing and not on ground
 Link sword retract
 Low-health beeping
 Red Leevers should be more aggressive
-
+Move status bar sprites to separate patterns & table (frees up extra enemy sprites)
+  Use 5-sprites-per-line to switch sprite pattern table and list at the end of status bar
+Fix armos and octorok sprite pattern overlapping near dungeon 2 entrance
+Too many enemy types for 6-bit ID, separate enemies and other entities
+  10 enemy slots, remainder spawned entity slots (bullets, items, spawned enemies)
+  enemy functions will return to next enemy loop
+  entity functions will return to next entity loop
 
 (unlikely)Free up 14 bytes in CPU RAM for unrolled VDP copy (or 8 bytes without unroll)
 !    MOV *R1+,*R15
@@ -915,5 +926,6 @@ Hearts increment by 3 or 1 (fairy or heart)
 Zora shouldn't spawn on water corner near dock
 Rupees increment or decrement by 1
 Add Zora bullet (blocked by magic shield, at either angle diagonal)
+Title screen music
 
 

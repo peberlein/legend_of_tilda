@@ -90,7 +90,7 @@ TITLE
        LI R0,>0700
        BL @BGCOL
 
-       B @INITSD    ; skip title screen
+       ;B @INITSD    ; skip title screen
 
 
        ; load title screen music, and clear sound effects
@@ -632,7 +632,7 @@ SDINIT ; Initial save data
        BYTE 250         ; Initial Rupees
        BYTE 2           ; Initial Keys
        BYTE >23         ; Initial Max bombs / Bombs
-       DATA RAFT+LADDER+BMRANG  ; HFLAGS
+       DATA RAFT+LADDER+BMRANG+ASWORD  ; HFLAGS
        DATA 0                  ; HFLAG2
        DATA 0           ; Dungeon Compasses collected
        DATA 0           ; Dungeon Maps collected

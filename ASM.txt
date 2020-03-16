@@ -228,6 +228,7 @@ Interrupts must be disabled (LIMI 0) while doing anything with VDP, since ISR
 will read the status register and disrupt any concurrent VDP read/writes.
 
 
+
 Reading Keyboard or joystick  (see http://www.unige.ch/medecine/nouspikel/ti99/keyboard.htm)
 To read a key, set R12 and CRU, then set R12 and TB or read CRU
 Set column scan line: 
@@ -455,3 +456,28 @@ Interrupt Mask - set to 0 or 1, disallow interrupts - set to 2 to 15, allow inte
 
 
 PAB structure
+
+
+
+
+Useful functions in TI ROM:
+
+Reads R2 bytes from VDP read data to address in R3
+18A0  DCE0  MOVB @>8800,*R3+
+18A2  8800
+18A4  0602  DEC  R2
+18A6  15FC  JGT  >18A0
+18A8  045B  B    *R11
+
+Copy bytes from R7 to buffer at R6, R5=-count?
+1FC0  DD97  MOVB *R7,*R6+
+1FC2  0585  INC  R5
+1FC4  16FD  JNE  >1FC0
+1FC6  045B  B    *R11
+
+Copy 1 byte from VDP read data to R8LB
+1FD2  D220  MOVB @>8800,R8
+1FD4  8800
+1FD6  0988  SRL  R8,8
+1FD8  045B  B    *R11
+

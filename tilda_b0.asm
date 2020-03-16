@@ -66,7 +66,8 @@ RESTRT
        ;LI R0,MAPSAV
        ;BL @VDPWB
        ;LI R0,>3200   ; dungeon 4 room
-       ;MOVB R0,@MAPLOC
+       LI R0,>3700
+       MOVB R0,@MAPLOC
 
        LI R0,>0600           ; Initial HP
        MOV @HFLAGS,R1
@@ -79,6 +80,7 @@ RESTRT
 !
        MOVB R0,@HP
 
+       ; TODO this shouldn't be necessary
        LI R2,BOMBSA
        SZC R2,@HFLAG2     ; clear bombs available
        LI R0,SDBOMB
@@ -86,8 +88,6 @@ RESTRT
        JEQ !
        SOC R2,@HFLAG2     ; set bombs available
 !
-
-
 
 
        LI R9,32-6
@@ -891,7 +891,14 @@ GODUNG
        LI R0,MAPSAV    ; Save overworld map location in VDP ram
        MOVB @MAPLOC,R1
        BL @VDPWB
-       
+
+       LI R0,DNENEM+VDPWM   ; clear dungeon enemies counts
+       MOVB @R0LB,*R14
+       MOVB R0,*R14
+       LI R1,128            ; 256 nibbles
+!      CLR *R15
+       DEC R1
+       JNE -!
 
        SRL R2,8
        AI R2,->20            ; R2=dungeon level 1-9
@@ -2468,7 +2475,7 @@ PUTSCR
        RT
 
 * Copy screen at R0 into scratchpad 32 bytes
-* Modifies R1,R2,R6
+* Modifies R1,R2,R15
 READ32
        MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
        MOVB R0,*R14         ; Send high byte of VDP RAM read address
@@ -2532,7 +2539,7 @@ SCROLL
 
        A  R5,R10
 
-       BL @VMUSIC
+       ;BL @VMUSIC
 
        DEC R9
        JNE -!
@@ -2545,6 +2552,7 @@ SCROLL
 
        A  R5,R4
 
+       BL @VSYNCM
        BL @VSYNCM
        BL @FLIP
        B *R7           ; Return to saved address
@@ -2599,6 +2607,7 @@ SCRLLT
        BL @VSYNCM
        LI   R8,32           ; Scroll through 32 columns
        LI R4,LEVELA+31
+       LI R6,VDPRD
 
        ; Shift 31 columns to the right, fill in leftmost column from new
 SCRLL2
@@ -2624,13 +2633,14 @@ SCRLL2
        AI R4,32
        AI R10,32
 
-       BL @VMUSIC
+       ;BL @VMUSIC
 
        DEC R9
        JNE -!
 
        AI R4,(-32*22)-1
 
+       BL @VSYNCM
        BL @VSYNCM
        BL @FLIP
 
@@ -2654,6 +2664,7 @@ SCRLRT
        BL @VSYNCM
        LI   R8,32           ; Scroll through 31 columns
        LI R4,LEVELA
+       LI R6,VDPRD
 
        ; Shift 31 columns to the left, fill in rightmost column from new
 SCRLR2
@@ -2680,13 +2691,14 @@ SCRLR2
        AI R4,32
        AI R10,32
 
-       BL @VMUSIC
+       ;BL @VMUSIC
 
        DEC R9
        JNE -!
 
        AI R4,(-32*22)+1
 
+       BL @VSYNCM
        BL @VSYNCM
        BL @FLIP
 
@@ -2781,9 +2793,12 @@ WIPE
        BL @VDPREG
 
        LI   R8,16           ; Scroll through 16 columns
+       LI R6,VDPRD
 
 WIPE2
 
+       BL @VSYNCM
+       BL @VSYNCM
        BL @VSYNCM
        BL @VSYNCM
        BL @VSYNCM
@@ -2843,6 +2858,18 @@ WIPE2
        DEC R8
        JNE WIPE2
 
+
+       ; clear recent map locations
+       LI R0,RECLOC+VDPWM
+       MOVB @R0LB,*R14
+       MOVB R0,*R14
+       CLR R1
+       LI R2,8
+!      MOVB R1,*R15
+       DEC R2
+       JNE -!
+
+
        BL @SCHRST      ; restore scratchpad
        LI R3,DIR_UP
        B *R13          ; return to saved address
@@ -2857,7 +2884,7 @@ CLRCAV
        AI  R0,(32*7)+4+VDPWM  ; Calculate right column dest pointer with write flag
 !      MOVB @R0LB,*R14
        MOVB R0,*R14
-       LI R9,24
+       LI R9,24     ; clear 24 chars per line
 !      MOVB R1,*R15
        DEC R9
        JNE -!
@@ -3359,6 +3386,8 @@ LMUSIC
 MUSICO DATA OWMUS1,OWMUS2,OWMUS3,OWMUS4 ; Overworld music pointers
 MUSICD DATA DNMUS1,DNMUS2,DNMUS3,0      ; Dungeon music pointers
 MUSIC9 DATA D9MUS1,D9MUS2,D9MUS3,0      ; Dungeon level 9 music pointers
+
+
 
 
 

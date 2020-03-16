@@ -47,6 +47,13 @@ LOADSC
        DEC R1
        JNE -!
 
+       ; TODO will this work in dark rooms
+       LI R0,>0300+(CLRTAB/>40) ; VDP Register 3: Color Table
+       BL @VDPREG
+       LI R0,>07F1          ; VDP Register 7: White on Black
+       BL @VDPREG
+
+
 
        ; Copy the top 3 rows from the current screen to the flipped screen
        LI   R6,VDPRD        ; Keep VDPRD address in R6

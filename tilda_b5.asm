@@ -35,12 +35,18 @@ OBJTAB DATA OBNEXT,PEAHAT,TKTITE,TKTITE  ; 0-3 - - Red Blue
        DATA BULLET,ARROW,ASPARK,CAVNPC   ; 1C-1F
        DATA RUPEE, BRUPEE,HEART,AFAIRY   ; 20-23
        DATA TEXTER,ROCK,LAKE,TORNAD      ; 24-27
-       DATA FLICKR,FAIRY ; 28-2B
+       DATA FLICKR,FAIRY,CLOUD,STALFO ; 28-2B
        ; 2C-2F
        ; 30-33
        ; 34-37
        ; 38-3B
        ; 3C-3F
+
+       ; some of these could probably be combined
+       ;DATA STALFO,KEESE,DRKNUT,TRAP,
+       ;DATA GORIYA,LIKLIK,POLSVC,WIZROB,
+       ;DATA WALLMA,ROPE,VIRE,PATRA
+       ;DATA ZOL,GEL,GIBDO,STATUE
 
        ; TODO combine RUPEE,BRUPEE,HEART,FAIRY, other collectible items
 
@@ -125,13 +131,117 @@ DONE
        B    @BANKSW
 
 
+; Get hurt/stun counters in R0
+GET_HS
+       MOV @OBJPTR,R0       ; Get object idx
+       AI R0,ENEMHS         ; Get counters from VDP
+       MOVB @R0LB,*R14
+       MOVB R0,*R14
+       NOP
+       MOVB @VDPRD,R0       ; Enemy stun counter in R0
+       MOVB @VDPRD,@R0LB    ; Enemy hurt counter in R0
+       RT
+
+* Cloud appearing, delay based on sprite slot number
+* choose random location, then change sprite and id
+* saved sprite/id stored in hurt/stun counters: ssssssnn nnnncccc
+* two flags to set direction in sprite index or id
+* 1+ frames full cloud (octorok 32+16*N, lynel 1, otherwise 1+N)
+* 6 frames mid cloud
+* 6 frames low cloud
+CLOUD
+       CLR R0
+       MOVB R4,R0
+       JNE CLOUD2
+       ; do initialization
+
+       MOV R6,R3      ; get id in R3
+       ANDI R3,>03F0  ; mask id
+       SRL R3,4       ; shift into position
+
+       MOV @OBJPTR,R0
+       AI R0,-LASTOB
 
 
+       ;CI R3,
 
+       ; move current sprite to hurt/stun counter
+       ; set cloud sprite and color
+       BL @SAVESP    ; save R6 to hurt/stun counter, modifies R1
 
+       ; pick a random location
+CLOUD1
+       BL @RANDOM           ; Get a random screen location
+       ANDI R0,>70F0
+       AI R0,>2800
+       MOV R0,R2
+       ANDI R2,>00F0
+       CI R2,>0010     ; Don't spawn too far left
+       JLE CLOUD1
+       CI R2,>00E0     ; or right
+       JHE CLOUD1
 
+       MOV R0,R5       ; Don't spawn on solid ground
+       LI R2,CLOUD1
+       AI R0,>0800
+       BL @TESTCH
+       MOV R5,R0
+       AI R0,>0808
+       BL @TESTCH
 
+       C @DOOR,R5      ; Don't spawn on a door
+       JEQ CLOUD1
 
+       MOV R5,R0       ; Don't spawn too close to the hero
+       S @HEROSP,R0
+       ABS R0
+       CI R0,>2000
+       JHE !
+       SWPB R0
+       ABS R0
+       CI R0,>2000
+       JLT CLOUD1
+!
+       ; is octorok?  32+16*N
+       ; is lynel?    1
+       ; otherwise    1 + N
+
+CLOUD2
+       AI R0,->100
+       MOVB R0,R4
+       JNE !
+       ; spawn enemy
+
+       ; move hurt/stun counter to current sprite and id
+       BL @GET_HS      ; R4 = sprite and id
+
+       ; clear hurt/stun counter
+       CLR R6
+       BL @SAVESP      ; modifies R1
+       MOV R4,R6
+       ANDI R6,>FC0F   ; mask off id
+       SZC R6,R4
+       SRL R4,4        ; shift into position
+
+       ; bit 6 indicates random direction in sprite
+       ; bit 7 indicates random direction in R4
+
+       B @DONE
+!
+       CI R0,>0C00
+       JNE !
+       LI R6,CLOUD2
+       JMP !!
+!
+       CI R0,>0600
+       JNE !
+       LI R6,CLOUD1
+!
+       B @DONE
+* octorok 32 + 16*N
+* moblin 1 + N
+* lynel 1
+* dungeon enemy 1 + N
 
 
 * Draw the byte number in R1 as (right-justified) [space][space]n or [space]nn or nnn
@@ -485,6 +595,13 @@ CAVTBL ; SSSSSSGx PPPPCCCC  S=sprite index G=group bit P=price index C=color
 IPRICE BYTE 0,5,10,20,30,40,50,60,68,80,90,100,130,160,250
        EVEN
 
+;ISPRIT DATA SHLDSC    ; 3
+;       DATA ASWORC   ; 4
+;       DATA WSWORC    ; 5
+;       DATA MSWORC
+;       DATA BOW_SC
+;       DATA ARRWSC
+;       DATA LADD
 
 
 
@@ -653,21 +770,37 @@ RUPEBL
 CAVERT B @OBNEXT
 
        ; DATA sprite/color, HFLAGS
-ITMTBL DATA SHLDSC,MAGSHD  ; magic shield
-       DATA ASWORC,ASWORD  ; white sword
-       DATA WSWORC,WSWORD  ; white sword
-       DATA MSWORC,MSWORD  ; master sword
-       DATA ARRWSC,ARROWS  ; arrows
-ITMTB2 ; DATA sprite/color, HFLAGS2
-       DATA BOMBSC,BOMBSA  ; bombs available
-       DATA BCDLSC,BCANDL  ; blue candle
-       DATA LTTRSC,LETTER  ; letter
-       DATA BPTNSC,BLUPOT  ; blue potion
-       DATA BLURSC,BLURNG  ; blue ring
-       DATA BAITSC,BAIT    ; bait
-       DATA RPTNSC,REDPOT  ; red potion
-       DATA KEY_SC,0       ; key
-       DATA HRTCSC,0       ; heart container
+;ITMTBL DATA SHLDSC,MAGSHD  ; magic shield
+;       DATA ASWORC,ASWORD  ; white sword
+;       DATA WSWORC,WSWORD  ; white sword
+;       DATA MSWORC,MSWORD  ; master sword
+;       DATA BOW_SC,BOW
+;       DATA ARRWSC,ARROWS  ; arrows
+;       DATA LADDSC,LADDER
+;       DATA RAFTSC,RAFT
+;       DATA MKEYSC,MAGKEY
+;       DATA BOOMSC,BMRANG
+;       DATA FLUTSC,FLUTE
+;       DATA SARRSC,SARROW
+;
+;ITMTB2 ; DATA sprite/color, HFLAGS2
+;       DATA BOMBSC,BOMBSA  ; bombs available
+;       DATA MBMRSC,MAGBMR
+;       DATA BCDLSC,BCANDL  ; blue candle
+;       DATA LTTRSC,LETTER  ; letter
+;       DATA BPTNSC,BLUPOT  ; blue potion
+;       DATA MRODSC,MAGROD
+;       DATA BLURSC,BLURNG  ; blue ring
+;       DATA REDRSC,REDRNG
+;       DATA BKMGSC,BOOKMG
+;       DATA PBRCSC,PBRACE
+;       DATA RCDLSC,RCANDL
+;       DATA BAITSC,BAIT    ; bait
+;       DATA RPTNSC,REDPOT  ; red potion
+;       DATA KEY_SC,0       ; key
+;       DATA HRTCSC,0       ; heart container
+;       DATA COMPSC,COMPAS
+;       DATA MNMPSC,MINMAP
 
 * Cave item object, check hero collision, enough money, already have it
 * R4: object id
@@ -2026,6 +2159,7 @@ SINTBL ; sine table - 23 bytes to pi/2, scaled to 53
 
 
 * Store the current sprite in object HP and set to cloud
+* Modifies R1
 SAVESP
        MOV @OBJPTR,R1       ; Get object idx
        AI R1,ENEMHS+VDPWM   ; Use HP/stun counters from VDP
@@ -3186,7 +3320,6 @@ SPITEM
        CLR R6                ; Clear sprite and color transparent
 
        B @OBNEXT
-
 
 
 

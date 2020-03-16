@@ -30,8 +30,9 @@ MAIN
        JEQ FFANIM             ; Flame/Fairy animation
 
        CI R2,10
-       JEQ LENEMY             ; Load enemies
-
+       JNE !
+       B @LENEMY             ; Load enemies
+!
 
        LI R3,SPRITE            ; Pointer to compressed sprites
        LI R4,SPRPAT+(28*32)    ; Start output at item sprites
@@ -44,7 +45,7 @@ DECOM0
 DONE
        LI   R0,BANK0         ; Load bank 0
        MOV  @OBJPTR,R1       ; Jump to our return address
-       B    @BANKSW
+       JMP    BANKSW
 
 
 
@@ -62,12 +63,11 @@ FFANIM
        LI R9,2                 ; 2 sprites
        JMP DECOM0
 
+LDUNG0
+       CLR @MOVE12
+       B @DONE
 
-
-
-
-       ; Load dungeon enemies  R0=FLAGS
-LDUNGE
+LDUNGE ; Load dungeon enemies  R0=FLAGS R1=MAPLOC R9=LASTOB
        ANDI R0,INCAVE
        ;JNE LDCAVE  ; TODO
 
@@ -77,7 +77,149 @@ LDUNGE
        DEC R2
        JNE -!
 
-       JMP DONE
+
+       ; get enemy group index
+       MOV R1,R0
+       AI R0,SDENEM*2   ; R0 = save data overworld enemies counts
+       MOV R1,R2
+       A R2,R2
+       AI R2,OENEMY    ; R2 = overworld enemy table
+
+       MOV @FLAGS,R1
+       ANDI R1,DUNLVL  ; test for dungeon or overworld
+       JEQ !           ; overworld
+       AI R0,(DNENEM*2)-(SDENEM*2)   ; dungeon enemies counts
+       AI R2,DENEMY-OENEMY
+!
+
+       MOV *R2,R4   ; R4 = xyy   x=enemy count, yy=enemy index or group & flags
+       JEQ LDUNG0   ; zero enemies
+
+       ; get saved count
+       SRL R0,1      ; R0 = save data enemy counts + map offset
+       JOC !         ; odd, use lower nibble
+       BL @VDPRB     ; R1 = saved count nibbles
+       SRL R1,4      ; even, use upper nibble
+       JMP !!
+!
+       BL @VDPRB     ; R1 = saved count nibbles
+!      ANDI R1,>0F00   ; R1 = saved enemy count
+       JNE !!
+
+       ; zero count, check for recent list
+       LI R0,RECLOC
+       MOVB @R0LB,*R14      ; Send low byte of VDP RAM write address
+       MOVB R0,*R14         ; Send high byte of VDP RAM write address
+       LI R0,8              ; number of recent location slots
+!      CB @MAPLOC,@VDPRD    ; is current map location on list?
+       JEQ LDUNG0           ; visited recently, so no enemies
+       DEC R0
+       JNE -!
+       JMP !!
+
+!      ; count is nonzero
+       C R1,R4     ; sanity check
+       JH !        ; skip if saved count is greater than expected
+
+       ; replace R4 with saved count
+       ANDI R4,>00FF
+       SOC R1,R4
+!
+       ; R2 = pointer to entry in OENEMY or DENEMY
+       ; R4 = current count and enemy type/group
+       ; TODO R2 should be adjusted if group
+
+       MOV R2,@MOVE12 ; save for loading sprites
+       ANDI R4,>0F00
+       MOV R4,@HURTC  ; save for loading sprites
+
+       LI R3,LASTOB   ; R3 = start filling enemies here
+!
+       MOV *R2+,R6     ; get enemy count and enemy type
+
+       MOV R6,R7
+       ANDI R7,>0F00   ; R7 = count
+       SZC R7,R6       ; enemy type
+       SLA R6,3        ; table entries are 8 bytes
+       AI R6,ENDATA    ; array of data 8 bytes each
+!
+       MOV R3,R0
+       MOV R3,R1
+       MOV *R6+,*R3+    ; copy enemy type
+       AI R1,((SPRLST+2)/2)-OBJECT  ; point to sprite and color
+       SLA R1,1
+       MOV *R6+,*R1    ; copy enemy sprite
+
+       ; next *R1 bytes are damage(4) drop(4) hp(8) stun(8) hurt(8)
+       AI R0,(ENEMDT*2)-OBJECT
+       MOVB *R6+,R1
+       BL @VDPWB
+       AI R0,ENEMHP-ENEMDT-VDPWM
+       MOVB *R6+,R1
+       BL @VDPWB
+       AI R0,(ENEMHS/2)-ENEMHP-VDPWM
+       SLA R0,1
+       MOVB *R6+,R1
+       BL @VDPWB
+       MOVB *R6+,*R15
+
+       AI R6,-8      ; rewind table entry
+
+       AI R4,->100    ; decrement enemy counter
+       JEQ !          ; done if zero
+
+       AI R7,->100    ; decrement group counter
+       JNE -!         ; next in same group
+
+       JMP -!!        ; next group
+
+!
+       MOV @MOVE12,R1
+LOADSP ; load sprite patterns
+       MOV *R1,R5      ; get enemy count and type
+       ANDI R5,>00FF   ; enemy type
+       SLA R5,3        ; table entries are 8 bytes
+       MOV @ENDATA+8(R5),R4   ; src idx(8) dst(4) count(4)
+
+       MOV R4,R2
+       SRL R2,8        ; R2 = src idx
+
+       MOV R4,R9
+       ANDI R9,>000F    ; R9 = count
+       JEQ !!            ; sanity check
+
+       ANDI R4,>00F0
+       SLA R4,1
+       AI R4,SPRPAT+(8*32)   ; R4 = (dest index+8)*32
+
+       ; decompress overworld enemy sprites
+       LI R3,SPR64 ; overworld mob sprites start at 64
+       LI R7,MODES+32
+
+       MOV @FLAGS,R0
+       ANDI R0,DUNLVL
+       JEQ !        ; not in dungeon
+
+       ; decompress dungeon enemy sprites
+       LI R3,SPR128 ; dungeon mob sprites start at 128
+       LI R7,MODES+64
+!
+       ; R2 = sprite index, R3 = SPRXXX, R4 = VDP address, R7 = mode, R9 = count
+       BL @DECOMX       ; decompress sprites
+!
+       MOV @MOVE12,R1
+       INCT @MOVE12
+       MOV *R1,R2   ; get next group byte
+       ANDI R2,>0F00
+       S R2,@HURTC
+       JLT LOADSP   ; enemy count zero
+
+       CLR @MOVE12
+       CLR @HURTC
+       B @DONE
+
+
+
 
        ; Load dungeon cave or tunnel
 LDCAVE
@@ -94,23 +236,31 @@ LCAVE  ; load cave
        JNE -!
 
 
-       LI R5,SPRPAT+(76*32)   ; copy cave item sprites
-       LI R9,SPRPAT+(8*32)    ; into enemies spots
-       LI R4,14               ; copy 14 sprite patterns
-!      MOV R5,R0
-       BL @READ32
-       MOV R9,R0
-       BL @PUTSCR
-       AI R5,32
-       AI R9,32
-       DEC R4
-       JNE -!
+;       LI R5,SPRPAT+(76*32)   ; copy cave item sprites
+;       LI R9,SPRPAT+(8*32)    ; into enemies spots
+;       LI R4,14               ; copy 14 sprite patterns
+;!      MOV R5,R0
+;       BL @READ32
+;       MOV R9,R0
+;       BL @PUTSCR
+;       AI R5,32
+;       AI R9,32
+;       DEC R4
+;       JNE -!
+;
+;       LI R0,ENESPR+(20*32)   ; Copy Moblin sprite
+;       BL @READ32
+;       MOV R9,R0
+;       BL @PUTSCR
 
-       LI R0,ENESPR+(20*32)   ; Copy Moblin sprite
-       BL @READ32
-       MOV R9,R0
-       BL @PUTSCR
+       LI R2,48             ; copy cave item sprites
+       LI R4,SPRPAT+(8*32)  ; into enemies spots
+       LI R9,14             ; copy 14 sprites
+       BL @DECOM1
 
+       LI R2,20          ; Copy Moblin sprite
+       LI R9,1
+       BL @DECOMO
 
        LI R2,3            ; 2 fires and 1 npc
 
@@ -143,7 +293,7 @@ LCAVE  ; load cave
        JNE -!
 CAVERT
        MOV @HEROSP,R5        ; Get hero YYXX
-       JMP DONE
+       B @DONE
 
 
 
@@ -158,7 +308,9 @@ LENEMY
        MOV @FLAGS,R0
        MOV R0,R7
        ANDI R7,DUNLVL
-       JNE LDUNGE           ; Load dungeon enemies
+       JEQ !
+       B @LDUNGE           ; Load dungeon enemies
+!
        ANDI R0,INCAVE
        JNE LCAVE            ; Load overworld cave items instead
 
@@ -305,30 +457,6 @@ RECENT ; keep track of recent map locations visited
 
 
 
-GETCNT ; get saved enemy count in R0
-       MOV @FLAGS,R0
-       ANDI R0,DUNLVL
-       JEQ !
-       LI R0,DNENEM
-       JMP !!
-!
-       LI R0,SDENEM
-!
-       MOVB @MAPLOC,R1
-       SRL R1,9
-       JOC !
-       A R0,R1
-       MOVB *R1,R0
-       SRL R0,12
-       JMP !!
-!
-       A R0,R1
-       MOVB *R1,R0
-       SWPB R0
-!      ANDI R0,>000F
-       RT
-
-
 
 * R3 = pointer to compressed sprites data
 * R4 = sprite pattern address in VDP
@@ -358,6 +486,92 @@ ENEMYP DATA >0000  ; 0 Fairy
        DATA >0E22  ; D Rock                (2 sprites)
        DATA >2315  ; E Red Leever          (5 sprites, all vertical symmetry)
        DATA >2315  ; F Blue Leever         (5 sprites, all vertical symmetry)
+
+       ; D1: keese, stalfos, trap, zol, goriya, wallmaster, aquamentus
+       ; D2: keese, rope, goriya, B goriya, trap, zol, statues, moldorm, dodongo
+       ; D3: keese, darknut, trap, gel/zol, bubble, manhandla
+       ; D4: keese, vire, trap, gel/zol, likelike, bubble, manhandla, gleeok
+       ; D5: keese, gibdo, darknut, B darknut, gel/zol, polsvoice, statues, dodongo, digdogger
+       ; D6: keese, trap, gel/zol, wizzrobe, B wizzrobe, vire, likelike, gleeok, bubble, gohma
+       ; D7: keese, stalfos, rope, trap, goriya, B goriya, dodongo, digdogger, moldorm, aquamentas, wallmaster, bubble
+       ; D8: keese, gibdo, bubble, darknut, B darknut, pols voice, statues, manhandla, gohma, gleeok
+       ; D9: keeze, patra, trap, likelike, wizzrobe, B wizzrobe, bubble, gel/zol, moldorm, statue, vire,
+
+
+; 00-03  Keese, Trap, Zol, Gel
+; 04-07  Rope, Vire, Bubble, Gibdo
+; 08-0B  LikeLike, Pols Voice, Darknut, Blue Darknut
+; 0C-0F  Stalfos, Wallmaster, Goriya, Blue Goriya
+; 10-13  Wizzrobe, Blue Wizzrobe, Aquamentas, Aquamentas2
+; 14-17  Dodongo, Digdogger, Gleeok2, Gleeok3
+; 18-1B  Gleeok4, Gohma-1, Gohma-3, Manhandla
+; 1C-1F  Moldorm, Lanmola, Patra,
+
+
+
+DENEMP DATA >0002  ; 0 Keese      12345678
+       DATA >0000  ; 1 Trap       1234 67 9
+       DATA >0000  ; 2 Zol        1 3456  9
+       DATA >0000  ; 3 Gel          3456  9
+       DATA >0000  ; 4 Rope        2    7
+       DATA >0000  ; 5 Vire          4 6  9
+       DATA >0000  ; 6 Bubble       34 6  9
+       DATA >0000  ; 7 Darknut      3 5  8
+       DATA >0000  ; 8 Likelike      4 6  9
+       DATA >0000  ; 9 Pols Voice     5  8
+       DATA >0000  ; A Statues     2  5  89
+       DATA >0000  ; B
+
+       ; 1,2,7
+       DATA >0222  ; C Stalfos    1,7
+       DATA >0000  ; D Wallmaster 1,7
+       DATA >0000  ; E Goriya     1,2,7
+       DATA >0000  ; F B Goriya   2,7
+
+       ; 5,6,8,9
+       DATA >0000  ; D Gibdo      5,8
+       DATA >0000  ; C B Darknut  5,8
+       DATA >0000  ; E Wizzrobe   6,9
+       DATA >0000  ; F B Wizzrobe 6,9
+
+DBOSSP DATA >0000  ; 0 none
+       DATA >0000  ; 1 Aquamentas1 1,7
+       DATA >0000  ; 2 Dodongo     2,7
+       DATA >0000  ; 3 Dodongo x3  2,7
+       DATA >0000  ; 4 Digdogger   5,7
+       DATA >0000  ; 5 Gleeok-2    4
+       DATA >0000  ; 6 Gleeok-3    6
+       DATA >0000  ; 7 Gleeok-4    8
+       DATA >0000  ; 8 Gohma-1     6
+       DATA >0000  ; 9 Gohma-3     8
+       DATA >0000  ; A Manhandla   3,4,8
+       DATA >0000  ; B Moldorm x2  2,7
+       DATA >0000  ; C Lanmola-1   9
+       DATA >0000  ; D Lanmola-2   9
+       DATA >0000  ; E Patra       9
+       DATA >0000  ; F Old man/grumble grumble
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
        ; initial HP for enemies
 INITHP BYTE 0,2,1,1     ; Armos Peahat RedTektite BlueTektite
@@ -459,23 +673,210 @@ ENEMYS BYTE >00,>01,>01,>02,>03,>04,>05,>06,>02,>00,>87,>08,>09,>09,>00,>00
        BYTE >0D,>26,>1B,>19,>2D,>90,>11,>00,>21,>1D,>1E,>9F,>9F,>93,>A1,>98
 
 
-DENEMY BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       ; New group idea
+       ; count(2 bits) 1..4  index(5 bits)
 
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
-       BYTE >00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00,>00
+       ; group index (7 bits)
+
+       ; Dungeon enemy groups XY -> Y=pattern index, X=count-1 / +8 if group, or Y=bosstype X=0
+DENEMG BYTE >20    ;01 3 keese
+       BYTE >50    ;02 6 keese
+       BYTE >60    ;03 7 keese
+       BYTE >70    ;04 8 keese
+       BYTE >A0,>A0,>90  ;05 3 keese, 3 bubble, 2 gel
+
+       BYTE >21    ;06 3 stalfos/gibdo
+       BYTE >41    ;07 5 stalfos/gibdo
+       BYTE >51    ;08 6 stalfos/gibdo
+       BYTE >51    ;09 7 stalfos/gibdo
+       BYTE >A0,>90,>80,>10 ;0A 3 stalfos/gibdo, 2 darknut, 1 B darknut, 2 bubble
+       BYTE >90,>90,>90 ;0B 2 keese, 2 stalfos/gibdo, 2 pols voice
+
+       BYTE >24    ;0C 3 zols
+       BYTE >34    ;0D 4 zols
+       BYTE >44    ;0E 5 zols
+       BYTE >54    ;0F 6 zols
+       BYTE >64    ;10 7 zols
+       BYTE >74    ;11 8 zols
+       BYTE >20    ;12 3 gels
+       BYTE >40    ;13 5 gels
+       BYTE >50    ;14 6 gels
+
+       BYTE >34    ;15 4 traps
+       BYTE >B4,>30    ;16 4 traps, 4 keese
+       BYTE >B4,>10    ;17 4 traps, 2 gel
+       BYTE >54    ;18 6 traps
+
+       BYTE >20    ;19 3 vire
+       BYTE >40    ;1A 5 vire
+       BYTE >50    ;1B 6 vire
+       BYTE >A0,>10 ;1C 3 vire, 2 bubble
+
+       BYTE >20    ;1D 3 darknuts
+       BYTE >40    ;1E 5 darknuts
+       BYTE >60    ;1F 7 darknuts
+
+       BYTE >00,>20 ;20 5 wallmasters/B darknut, 3 bubble
+       BYTE >40    ;21 5 wallmasters/B darknuts
+       BYTE >50    ;22 6 wallmasters/B darknuts
+       BYTE >90,>90,>10 ;23 2 pols voice, 2 darknut, 2 B darknut
+
+       BYTE >30    ;24 4 polsvoice
+       BYTE >40    ;25 5 polsvoice
+       BYTE >60    ;26 7 polsvoice
+
+       BYTE >90,>90,>10   ;27 2 keese, 2 pols voice, 2 stalfo/gibdo
+
+       BYTE >22    ;28 3 rope
+       BYTE >42    ;29 5 rope
+       BYTE >52    ;2A 6 rope
+       BYTE >62    ;2B 7 rope
+
+       BYTE >10    ;2C 2 wizzrobes/goriya
+       BYTE >20    ;2D 3 wizzrobes/goriya
+       BYTE >30    ;2E 4 wizzrobes/goriya
+       BYTE >40    ;2F 5 wizzrobes/goriya
+       BYTE >50    ;30 6 wizzrobes/goriya
+
+       BYTE >80,>10  ;31 1 wizzrobes/goriya, 2 B wizzrobes/B goriya
+       BYTE >80,>A0,>20  ;32 1 wizzrobes/goriya, 3 B wizzrobes/B goriya, 3 bubble
+       BYTE >90,>10  ;33 2 wizzrobes/goriya, 2 B wizzrobes/B goriya
+       BYTE >90,>90,>34  ;34 2 wizzrobes/goriya, 2 B wizzrobes/B goriya, 4 trap
+       BYTE >90,>90,>90,>10  ;35 2 wizzrobes, 2 B wizzrobes, 2 bubble, 2 likelike
+       BYTE >90,>90,>80,>20  ;36 2 wizzrobes, 2 B wizzrobes, 1 bubble, 3 likelike
+       BYTE >90,>20  ;37 2 wizzrobes/goriya, 3 B wizzrobes/B goriya
+       BYTE >90,>A0,>20  ;38 2 wizzrobes/goriya, 3 B wizzrobes/B goriya, 3 bubble
+       BYTE >90,>B0,>20  ;39 2 wizzrobes/goriya, 4 B wizzrobes/B goriya, 3 bubble
+       BYTE >A0,>20  ;3A 3 wizzrobes/goriya, 3 B wizzrobes/B goriya
+
+       BYTE >90,>80,>20  ;3B 2 B wizzrobes, 1 bubble, 3 likelike
+       BYTE >A0,>90  ;3C 3 B wizzrobes/B goriya, 2 bubble
+       BYTE >A0      ;3D 3 B wizzrobes/B goriya
+       BYTE >40      ;3E 5 B wizzrobes/B goriya
+       BYTE >50      ;3F 6 B wizzrobes/B goriya
+
+       BYTE >10      ;40 2 likelike
+       BYTE >50      ;41 6 likelike
+       BYTE >90,>10  ;42 2 likelike, 2 bubble
+       BYTE >A0,>30  ;43 4 likelike, 4 trap
+       BYTE >90,>90,>10  ;44 2 likelike, 2 bubble, 2 gel
+
+       ;TODO boss types
+
+; enemy types:
+; overworld: 16
+       ; Blue Lynel, Red Lynel, Blue Moblin, Red Moblin
+       ; Red Octorok, Red Octorok Fast, Blue Octorok, Blue Octorok Fast
+       ; Blue Tektite, Red Tektite, Blue Leever, Red Leever
+       ; Peahat, Rock, Ghini, Lake Fairy
+
+; dungeon enemies 24
+       ; Blue Goriya, Red Goriya, Red Darknut, Blue Darknut
+       ; Vire, Zol, Gel1, Gel2
+       ; Pols Voice, LikeLike, Gibdo, Trap
+       ; Blue Keese, Red Keese, Dark Keese,
+       ; Bubble, Blue Bubble, Red Bubble,
+       ; Blue Wizzrobe, Red Wizzrobe, Patra Big, Patra Small
+; dungeon bosses 24
+       ; Dodongo, Manhandla, Aquamentus, Ganon
+       ; Blue Gohma, Red Gohma, Digdogger 3, Digdogger 1
+       ; Red Lanmola, Blue Lanmola, Moldorm,
+       ; Gleeok 1, Gleeok 2, Gleeok 3, Gleeok 4
+       ; Zelda, Flame1, Flame2,
+       ; Old mans, Hungry Goriya
+
+
+
+
+OENEMY ; overworld enemy table
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+
+DENEMY ; 3 bits enemy count, 1 bit statue projectiles, 1 bit group flag, 6 bits enemy type/group
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>411,>320,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>31E,>000,>124,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>00F,>313,>513,>320,>81F,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>610,>51E,>810,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>31E,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>310,>000,>51E,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+       DATA >000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000,>000
+
+
+       ; enemy table
+       ; ID (16), sprite(16), damage(4), drop(4), HP(8), src pat(8), dst pat(4), count(4)
+ENDATA DATA FARYID,FARYSC,>0000, >0000  ; Fairy?
+       DATA >0001, >0000, >0402, >0002  ; 01 Peahat
+       DATA >0002, >0000, >0101, >0222  ; 02 Red Tektite
+       DATA >0003, >0000, >0301, >0222  ; 03 Blue Tektite
+       DATA >0004, >0000, >0101, >0449  ; 04 Red Octorok
+       DATA >0005, >0000, >0202, >0449  ; 05 Blue Octorok
+       DATA >0006, >0000, >0101, >0449  ; 06 Fast Red Octorok
+       DATA >0007, >0000, >0202, >0449  ; 07 Fast Blue Octorok
+       DATA >0008, >0000, >0102, >1008  ; 08 Red Moblin
+       DATA >0009, >0000, >0203, >1008  ; 09 Blue Moblin
+       DATA >000A, >0000, >0404, >1848  ; 0A Red Lynel
+       DATA >000B, >0000, >0206, >1848  ; 0B Blue Lynel
+       DATA GHINID,>0000, >0309, >2804  ; 0C Ghini
+       DATA ROCKID,>0000, >0000, >0E22  ; 0D Rock
+       DATA >000E, >0000, >0302, >2315  ; 0E Red Leever
+       DATA >000F, >0000, >0104, >2315  ; 0F Blue Leever
+       
+       DATA >0000, >0000, >0001, >0202  ; 10 Keese
+       DATA >0000, >0000, >0000, >1701  ; 11 Trap
+       DATA >0000, >0000, >0301, >3404  ; 12 Zol (big)
+       DATA >0000, >0000, >0001, >3402  ; 13 Gel (little)
+       DATA >0000, >0000, >0301, >1C04  ; 14 Rope
+       DATA >0000, >0000, >0202, >0206  ; 15 Vire
+       DATA >0000, >0000, >0000, >0000  ; 16 Bubble
+       DATA >0000, >0000, >0000, >0000  ; 17 Bubble Blue
+       DATA >0000, >0000, >0000, >0000  ; 18 Bubble Red
+       DATA >0000, >0000, >0207, >2402  ; 19 Gibdo
+       DATA >0000, >0000, >0009, >1403  ; 1A Likelike
+       DATA >0000, >0000, >0309, >2602  ; 1B Pols Voice
+       DATA >0000, >0000, >0204, >3808  ; 1C Darknut
+       DATA >0000, >0000, >0308, >3808  ; 1D Blue Darknut
+       DATA >0008, >0000, >0302, >0002  ; 1E Stalfos
+       DATA >0000, >0000, >0302, >3002  ; 1F Wallmaster
+       DATA >0000, >0000, >0203, >2808  ; 20 Goriya
+       DATA >0000, >0000, >0405, >2808  ; 21 Blue Goriya
+       DATA >0000, >0000, >0204, >1806  ; 22 Wizzrobe
+       DATA >0000, >0000, >0109, >1806  ; 23 Blue Wizzrobe
+       DATA >0000, >0000, >0406, >0000  ; 24 Aquamentas
+       DATA >0000, >0000, >0402, >0000  ; 25 Dodongo
+       DATA >0000, >0000, >0408, >0000  ; 26 Digdogger
+       DATA >0000, >0000, >0408, >0000  ; 27 Gleeok 1
+       DATA >0000, >0000, >0408, >0000  ; 28 Gleeok 2
+       DATA >0000, >0000, >0408, >0000  ; 29 Gleeok 3
+       DATA >0000, >0000, >0408, >0000  ; 2A Gleeok 4
+       DATA >0000, >0000, >0401, >0000  ; 2B Gohma 1
+       DATA >0000, >0000, >0403, >0000  ; 2C Gohma 3
+       DATA >0000, >0000, >0404, >0000  ; 2D Manhandla
+       DATA >0000, >0000, >0402, >0000  ; 2E Moldorm
+       DATA >0000, >0000, >0404, >0000  ; 2F Red Lanmola
+       DATA >0000, >0000, >0408, >0000  ; 30 Blue Lanmola
+       DATA >0000, >0000, >0409, >1004  ; 31 Patra
+       DATA >0000, >0000, >0010, >0000  ; 32 Ganon
+       DATA >0000, >0000, >0000, >0000  ; 33 Zelda
+       DATA >0000, >0000, >0000, >3202  ; 34 Old Man
+       DATA >0000, >0000, >0000, >0000  ; 35 Hungry Goriya
+       
+       
 
 
 * Get bit R0 in VDP at address R1, returns bit in C
@@ -509,25 +910,70 @@ PUTSCR
        RT
 
 * Copy screen at R0 into scratchpad 32 bytes
-* Note: R6 must be VDPRD address
 * Modifies R1,R2
 READ32
        MOVB @R0LB,*R14      ; Send low byte of VDP RAM read address
        MOVB R0,*R14         ; Send high byte of VDP RAM read address
        LI R1,SCRTCH        ; Dest pointer to scratchpad ram
        LI R2,8             ; Read 32 bytes to scratchpad
-       LI R6,VDPRD        ; Keep VDPRD address in R6
-!      MOVB *R6,*R1+
-READ3  MOVB *R6,*R1+
-       MOVB *R6,*R1+
-       MOVB *R6,*R1+
+       LI R15,VDPRD        ; Keep VDPRD address in R15
+!      MOVB *R15,*R1+
+READ3  MOVB *R15,*R1+
+       MOVB *R15,*R1+
+       MOVB *R15,*R1+
        DEC R2
        JNE -!
+       LI R15,VDPWD        ; Restore VDPWD address in R15
        RT
 
 
-* Decompression sizes in
-;SIZTBL
+
+
+DECOMO ; decompress overworld enemy sprites
+       LI R3,SPR64 ; overworld mob sprites start at 64
+       LI R7,MODES+32
+       JMP DECOMX
+
+* Sprite decompression entry point
+* R2 = sprite index
+* R4 = sprite pattern address in VDP
+* R9 = count of sprites to decompress
+DECOM1 ; decompress sprites
+       LI R3,SPR0
+       LI R7,MODES
+
+DECOMX
+       MOV R11,R10      ; sprite decompressor returns to R10
+
+
+       ; R3 = pointer to compressed sprites data
+       ; R7 = pointer to next compression type nibbles
+       ; R8 = current compression type nibble word
+
+       CLR R8
+       MOV R2,R2  ;  if R2 is zero, start decompression immediately
+       JEQ !!!
+
+!      SLA R8,4        ; Get next code from R8
+       JNE !
+       MOV *R7+,R8     ; Refill R8 if empty
+!      MOV R8,R1
+       ANDI R1,>F000   ; Get offset into jump table
+       SRL R1,12
+       CLR R0
+       MOVB @SIZTBL(R1),R0
+       SWPB R0
+       A R0,R3         ; offset to next sprite
+
+       DEC R2
+       JNE -!!
+
+!
+       LI R5,NEXTDC   ; SETVDP will branch to R5
+       JMP SETVDP
+
+* Decompression sizes in sprite compressor (spritec.c)
+SIZTBL BYTE 0,32,0,0, 0,0,0, 0,0,0, 8,8,16,16,16,16
 
 * Decompression jump table
 JMPTBL DATA DONE,NORMAL,HFLIP1,VFLIP1,HFLIP2,VFLIP2,VFLIP3,CLKWS1
@@ -772,15 +1218,18 @@ DECOM2
        LI R5,!
        JMP SETVDP      ; This will return to R5
 NEXTSP
-       AI R4,32
+       AI R4,32        ; next vdp sprite
        DEC R9          ; decrement sprite count
        JNE !
        B *R10          ; Return to saved address
 
-!      SLA R8,4        ; Get next code from R8
+!
+NEXTDC
+       SLA R8,4        ; Get next code from R8
        JNE !
        MOV *R7+,R8     ; Refill R8 if empty
-!      MOV R8,R1
+!
+       MOV R8,R1
        ANDI R1,>F000   ; Get offset into jump table
        SRL R1,11
        MOV @JMPTBL(R1),R1      ; Get jump table entry

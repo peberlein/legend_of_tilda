@@ -18,7 +18,7 @@ DAN2DC
        LI R12,1   ; R12 = 2 (max offset bits initial value, minus 8)
 !      INC R12
        BL @D2RBIT   ; R12 = (count of 1 bits) + 2
-       DATA -!
+       JOC -!
 D2LIT ; literal
        MOVB *R5+,R1
        MOV R7,R0
@@ -26,7 +26,7 @@ D2LIT ; literal
        INC R7
 D2LZLP ; LZ loop
        BL @D2RBIT
-       DATA D2LIT
+       JOC D2LIT
        ; length = read_elias_gamma()
        CLR R4      ; len (number of bits in elias_gamma)
        LI R3,1     ; elias_gamma
@@ -34,7 +34,7 @@ D2LZLP ; LZ loop
        CI R4,17
        JEQ D2_L17
        BL @D2RBIT
-       DATA !      ; if carry, increment counter
+       JOC !      ; if carry, increment counter
        JMP -!
 D2_L17
        ; elias_gamma = 0; so length = 0, done!
@@ -46,7 +46,7 @@ D2_IEG ; increment elias_gamma
        JEQ !
        SLA R3,1
        BL @D2RBIT
-       DATA D2_IEG   ; if carry, increment elias_gamma
+       JOC D2_IEG   ; if carry, increment elias_gamma
        JMP -!
 !      ; R3 = elias_gamma = length (known to be nonzero)
        ; offset = read_offset(length)
@@ -58,20 +58,20 @@ D2_IEG ; increment elias_gamma
        JLE !  ; if (option > 2)
 
        BL @D2RBIT
-       DATA D2OFF3
+       JOC D2OFF3
 !
        CI R3,1
        JLE !  ; if (option > 1)
 
        BL @D2RBIT
-       DATA D2OFF2
+       JOC D2OFF2
 !
        BL @D2RBIT
-       DATA D2OFF1
+       JOC D2OFF1
 
        INC R9
        BL @D2RBIT
-       DATA D2_OFF
+       JOC D2_OFF
        CLR R9
 D2_OFF
        ; offset = R9
@@ -187,30 +187,23 @@ D2RBTS
        MOV R11,R0  ; Save return address
 !      SLA R9,1
        BL @D2RBIT
-       DATA D2RBT2
-       JMP D2RBT3
-D2RBT2 INC R9
+       JNC D2RBT3
+       INC R9
 D2RBT3 DEC R4
        JNE -!
        B *R0   ; Return to saved address
-
-* read_bit, jump to *R11+ if set, return otherwise
-* Modifies R2
-D2RBIT
-       MOV *R11+,R2
-D2RBI2
-       SLA R8,1
-       JEQ D2RFIL
-       JNC !
-       B *R2
-!      RT
 
 * read_bit refill bits
 D2RFIL
        LI R8,>0080
        MOVB *R5+,R8
-       JMP D2RBI2
 
+* read_bit, jump to *R11+ if set, return otherwise
+* Modifies R2
+D2RBIT
+       SLA R8,1
+       JEQ D2RFIL
+       RT
 
 * vdp to vdp copy
 * aguments: dest, source, len bytes to copy
