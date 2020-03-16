@@ -227,7 +227,7 @@ int main(int argc, char *argv[])
 		"Hsymmetry",
 		"Vsymmetry",
 		};
-	int csizes[] = { 0, 32, 0,0,0,0,0,0,0, 8,8,16,16,16,16 };
+	int csizes[] = { 0, 32, 0,0,0,0,0, 0,0,0, 8,8,16,16,16,16 };
 
 	printf("SPRITE\n");
 	for (i = 0; i < index; i++) {
