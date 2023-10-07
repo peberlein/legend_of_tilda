@@ -536,4 +536,4 @@ COPY8  ; Copy 8 bytes from R3 to VDP
        COPY 'sprites.asm'
 
 FFSPR1 EQU SPRITE+>E8
-FFSPR2 EQU SPRITE+>148
+FFSPR2 EQU SPRITE+>140
