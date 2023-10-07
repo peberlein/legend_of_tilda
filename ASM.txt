@@ -1,0 +1,483 @@
+A	add words (src, dst)
+AB	add bytes (src, dst)
+ABS	absolute value
+AI	add immediate (wr, imm)
+ANDI	and immediate (wr, imm)
+B	branch
+BL	branch and link
+BLWP	branch and load WP
+C	compare words
+CB	compare bytes
+CI	compare immediate (wr, imm)
+CKOF	clock off
+CKON	clock on
+CLR	clear operand
+COC	compare ones corresponding (OR) (src, wr)
+CZC	compare zeros corresponding (AND) (src, wr)
+DEC	decrement
+DECT	decrement by two
+DIV	divide (src, wr dst) (div 32-bit dst+1 & dst by src, with rem in dst+1)
+IDLE	idle
+INC	increment
+INCT	increment by two
+INV	invert
+JEQ	jump equal              (EQ=1)
+JGT	jump greater than       (A>=1, signed)
+JH	jump if logical high    (L>=1 and EQ=0)
+JHE	jump high or equal      (L>=1 or EQ=1)
+JL	jump if logical low     (L>=0 and EQ=0)
+JLE	jump if low or equal    (L>=0 or EQ=1)
+JLT	jump less than          (A>=0 and EQ=0)
+JMP	unconditional jump
+JNC	jump no carry           (C=0)
+JNE	jump not equal          (EQ=0)
+JNO	jump no overflow        (OV=0)
+JOC	jump on carry           (C=1)
+JOP	jump odd parity         (OP=1)
+LDCR	load CRU
+LI	load immediate (wr dst, imm)
+LIMI	load interrupt mask register
+LREX	load or restart execution
+LWPI	load WP immediate
+MOV	move words (src, dst)
+MOVB	move bytes (src, dst)
+MPY	multiply (src, wr dst) (wr dst+1 gets lower 16 bits)
+NEG	negate
+NOP	no operation (pseudo: JMP $+2)
+ORI	or immediate (wr, imm)
+RSET	reset
+RT	return (pseudo: B *R11)
+RTWP	return with WP
+S	subtract words (src, dst)
+SB	subtract bytes (src, dst)
+SBO	set CRU bit to one
+SBZ	set CRU bit to zero
+SETO	set to one
+SLA	shift left arithmetic (wr, scnt) (use WR0 lower nibble if scnt=0)
+SOC	set ones corresponding (OR) (src, dst)
+SOCB	set ones corresponding byte (src, dst)
+SRA	shift right arithmetic (wr, scnt) (use WR0 lower nibble if scnt=0)
+SRC	shift right circular (wr, scnt) (use WR0 lower nibble if scnt=0)
+SRL	shift right logical (wr, scnt) (use WR0 lower nibble if scnt=0)
+STCR	store CRU
+STST	store status (wr)
+STWP	store workspace pointer (wr)
+SWPB	swap bytes
+SZC	set zeros corresponding (NAND) (src, dst)
+SZCB	set zeros corresponding byte (src, dst)
+TB	test CRU bit
+X	execute (indirect instruction in register or memory)
+XOP	extended operation
+XOR	exclusive or (src, wrdst)
+
+
+Directives:
+AORG	absolute origin
+RORG	relocatable origin
+DORG	dummy origin
+BSS	block starting with symbol
+BES	block ending with symbol
+EVEN	word boundary
+PSEG	program segment
+PEND	program segment end
+
+CSEG	common segment
+CEND	common segment end
+DSEG	data segment
+DEND	data segment end
+
+UNL	no source list
+LIST	list source
+PAGE	page eject
+TITL	page title
+IDT	program identifier
+
+EQU	define assembly-time constant
+BYTE	initialize byte
+DATA	initialize word
+TEXT	initialize text
+
+DEF	external definition
+REF	external reference
+COPY	copy
+LOAD	force load
+SREF	secondary reference
+
+DXOP	define extended operation
+END	program end
+
+
+CPU RAM is 256 bytes (sidecar expansion is 32k)
+VPU RAM is 16k on TI994a
+
+Memory Map: 8k blocks in 64k address space
+0000-  Console ROM (8k)
+2000-  Low Memory Expansion (lower 8k, when connected)
+4000-  Peripheral mapped ROMs for DSR (8k)
+6000-  Application ROMs in command module (cartridge, 8k)
+8000-  Memory mapped devices
+A000-  High memory expansion (upper 24k)
+
+8300-83FF  256 bytes RAM
+83C2   ISRCTL * Four flags: disable all, skip sprite, skip sound, skip QUIT
+83C4   USRISR * Interrupt service routine hook address
+
+8400   TMS9919 sound chip register
+  Generator  Frequency  Volume
+  Tone 1     >8z >xy    >9v
+  Tone 2     >Az >xy    >Bv
+  Tone 3     >Cz >xy    >Dv
+  Noise      >En        >Fv
+  Frequency = 111860.8 Hz / xyz
+  Volume v: +1 = -2dB (>F = off)
+  Noise n: 0=6991Hz 1=3496Hz 2=1748Hz 3=gen3 +4=White noise (otherwise periodic; freq/15)
+
+  Tone channels seems to be positive polarity
+  Noise channel seems to be negative polarity
+
+  Tone3=XXX Noise=3
+   _   _   _   _   _   _   _   _   _   _   _   _   _   _       _
+  | | | | | | | | | | | | | | | | | | | | | | | | | | | |     | |
+  | |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |_| |  ___| |
+   0   1   2   3   4   5   6   7   8   9   a   b   c   d| |e   0
+                                                        |_|
+
+8800   VDP RAM read data register
+8802   VDP RAM read status register
+8C00   VDP RAM write data register
+8C02   VDP RAM write address register
+
+9000   Speech
+
+9800   GROM read data
+9802   GROM read address+1
+9C00   GROM write data
+9C02   GROM write address
+
+VDP Registers  (bit indexes are reversed)
+0  000000xx 6=M3 7=Ext vid enable
+1  xxxx0xxx 0=4/16k 1=Blank enable 2=Int enable 3=M1 4=M2 5=Rsv 6=sprite size 7=sprite mag
+2  Screen Image Table address div >400 (0000,0400 ... 3C00)
+3  Color Table address div >40 (0000,0040 ... 3FC0)
+4  Pattern Descriptor Table div >800 (0000,0800 ... 3800)
+5  Sprite Attribute List div >80 (0000,0080 ... 3F80)
+6  Sprite Descriptor Table div >800 (0000,0800 ... 3800)
+7  Foreground and background color nibbles
+    -------- -------- -------- -------- -------- -------- -------- --------
+VR0 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [M3 bmp] [Extvid]
+VR1 [4K/16K] [ Blank] [Int on] [M1 txt] [M2 mul] [   0  ] [Size 4] [Mag 2x]
+VR2 [   0  ] [   0  ] [   0  ] [   0  ] [ Screen Image Table / >400       ]
+VR3 [ Color Table / >40                                                   ]
+ bm [ Addr ] [ Address mask                                               ]
+VR4 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Char pat table / >800  ]
+ bm [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Addr ] [ Address mask  ]
+VR5 [   0  ] [ Sprite attribute table / >80                               ]
+VR6 [   0  ] [   0  ] [   0  ] [   0  ] [   0  ] [ Sprite pat table / >800]
+VR7 [ Text color                      ] [ Background color                ]
+VST [ INTF ] [  5S  ] [   C  ] [  Fifth sprite number                     ]
+
+M3 M2 M1
+ 0  0  0  Graphics Mode I (32x24)
+ 0  0  1  Text Mode (40x24)
+ 0  1  0  Multicolor Mode (64x48 blocks, block is 4x4 pixels)
+ 1  0  0  Bitmap Mode (32x24)
+
+Colors
+0 Transparent   8 Medium Red
+1 Black         9 Light Red
+2 Medium Green  A Dark Yellow
+3 Light Green   B Light Yellow
+4 Dark Blue     C Dark Green
+5 Light Blue    D Magenta
+6 Dark Red      E Gray
+7 Cyan          F White
+
+Screen Image Table
+32x24 1 byte per character
+
+Color Table
+32 bytes fg and bg color nibbles per 8 characters (Gfx Mode I)
+256*8*3 bytes fg and bg color nibbles per 8 pixels! (Gfx Mode II)
+
+Pattern Descriptor Table
+256*8 pixel bitmask (Gfx Mode I)
+256*8*3 pixel bitmask (Gfx Mode II)
+
+Sprite Attribute List (up to 32 entries)
+4 bytes per sprite
+ Y veritical position FF,00..BE  (or D0 for end-of-list)
+ X horizontal position 00..FF
+ pattern code 00..FF (times 8 offset into Sprite Pattern Table)
+ color and early clock bit(>80) (32 pixel shift left)
+
+Sprite Descriptor Table (Sprite Pattern Table) (2048 bytes limit)
+8 bytes per sprite for 8x8  (up to 256 entries)
+32 bytes per sprite for 16x16  (up to 64 entries)
+(in 8x8 chunks: upper-left, lower-left, upper-right, lower right)
+
+Sprite Motion Table (fixed at 0780)
+(Number of moving sprites programmed to 837A)
+(Only works if interrupt is enabled)
+
+A note on reading the VDP status register: polling VSYNC and collision 
+may miss due to clearing the register as is updated by the VDP.
+Might be better to use the ISR instead, or do a delay between reading the
+status register.
+
+Interrupts must be disabled (LIMI 0) while doing anything with VDP, since ISR
+will read the status register and disrupt any concurrent VDP read/writes.
+
+
+
+Reading Keyboard or joystick  (see http://www.unige.ch/medecine/nouspikel/ti99/keyboard.htm)
+To read a key, set R12 and CRU, then set R12 and TB or read CRU
+Set column scan line: 
+LI R1, X        * See chart below
+LI R12,>0024    * Select address lines starting at line 18
+LDCR R1,3       * Send 3 bits to set one 8 of output lines enabled
+LI R12,>0006    * Select address lines to read starting at line 3
+TB X            * Test key bits, see chart
+
+R1      TB 0	TB 1	TB 2	TB 3	TB 4	TB 5	TB 6	TB 7
+0000	=	space	enter		fctn	shift	ctrl
+0100	.	L	O	9	2	S	W	X
+0200	,	K	I	8	3	D	E	C
+0300	M	J	U	7	4	F	R	V
+0400	N	H	Y	6	5	G	T	B
+0500	/	;	P	0	1	A	Q	Z
+0600	Fire1	Left1	Right1	Down1	Up1
+0700	Fire2	Left2	Right2	Down2	Up2
+
+     R1	0000	0100	0200	0300	0400	0500	0600	0700
+TB 0	=	.	,	M	N	/	Fire1	Fire2
+TB 1	space	L	K	J	H	;	Left1	Left2
+TB 2	enter	O	I	U	Y	P	Right1	Right2
+TB 3		9	8	7	6	0	Down1	Down2
+TB 4	fctn	2	3	4	5	1	Up1	Up2
+TB 5	shift	S	D	F	G	A
+TB 6	ctrl	W	E	R	T	Q
+TB 7		X	C	V	B	Z
+
+
+Joystick controller pinout
+TI Pin           Wire    Pin
+1     NC         Red     7
+2 OUT Test J2    White   8
+3 IN  UP         Brown   3
+4 IN  Fire       Yellow  4
+5 IN  Left       Blue    2
+6     NC         Black   5
+7 OUT Test J1    Grey    1
+8 IN  Down       Orange  9
+9 IN  Right      Green   6
+
+
+
+
+Instruction Formats
+Format Operands     [>80][>40][>20][>10][>08][>04][>02][>01][>80][>40][>20][>10][>08][>04][>02][>01]
+I      source,dest  [ Opcode      ][ B ][ Td     ][ destination(reg) ][ Ts     ][ source(reg)      ]
+II     PC-relative  [ Opcode                               ][ PC-relative offset in words          ]
+III    source,reg   [ Opcode                     ][ register         ][ Ts     ][ source(reg)      ]
+IV     source,nbits [ Opcode                     ][ nbits            ][ Ts     ][ source(reg)      ]
+V      reg,count    [ Opcode                               ][ count            ][ register         ]
+VI     dest         [ Opcode                                         ][ Ts     ][ source(reg)      ]
+VII    -            [ Opcode                                              ][ 0   0   0   0   0     ]
+VIII   reg,immed    [ Opcode                                              ][ 0 ][ register         ]
+IX     source,reg   [ Opcode                     ][ register         ][ Ts     ][ source(reg)      ]
+
+Ts and Td define the type of addressing for source and destination operand respectively.
+
+00: Rx
+01: *Rx
+10: @yyyy(Rx) or @yyyy if Rx=0 (This requires an additional memory word to store the yyyy value)
+11: *Rx+
+
+Source and dest contain the workspace register, use in the way indicated by the addressing mode.
+
+Immed operands also require an additional word to store the immediate value.
+
+LI 	>0200 	VIII 	reg,immed 	HGE
+AI 	>0220 	VIII 	reg,immed 	HGECO
+ANDI 	>0240 	VIII 	reg,immed 	HGE
+ORI 	>0260 	VIII 	reg,immed 	HGE
+CI 	>0280 	VIII 	reg,immed 	HGE
+STWP 	>02A0 	VIII 	reg 	        -
+STST 	>02C0 	VIII 	reg 	        -
+LWPI 	>02E0 	VIII 	immed 	        -
+LIMI 	>0300 	VIII 	immed 	        -
+IDLE 	>0340 	VII 	- 	        -
+RSET 	>0360 	VII 	- 	        -
+RTWP 	>0380 	VII 	- 	        All
+CKON 	>03A0 	VII 	- 	        -
+CKOF 	>03C0 	VII 	- 	        -
+LREX 	>03E0 	VII 	- 	        -
+BLWP 	>0400 	VI 	dest 	        -
+B 	>0440 	VI 	dest 	        -
+X 	>0480 	VI 	dest 	        depends
+CLR 	>04C0 	VI 	dest 	        -
+NEG 	>0500 	VI 	dest 	        HGECO
+INV 	>0540 	VI 	dest 	        HGE
+INC 	>0580 	VI 	dest 	        HGECO
+INCT 	>05C0 	VI 	dest 	        HGECO
+DEC 	>0600 	VI 	dest 	        HGECO
+DECT 	>0640 	VI 	dest 	        HGECO
+BL 	>0680 	VI 	dest 	        -
+SWPB 	>06C0 	VI 	dest 	        -
+SETO 	>0700 	VI 	dest 	        -
+ABS 	>0740 	VI 	dest 	        HGECO
+SRA 	>0800 	V 	reg,count 	HGEC
+SRL 	>0900 	V 	reg,count 	HGECO
+SLA 	>0A00 	V 	reg,count 	HGECO
+SRC 	>0B00 	V 	reg,count 	HGEC
+JMP 	>1000 	II 	PC-rel 	        Always
+JLT 	>1100 	II 	PC-rel 	        G=0 E=0
+JLE 	>1200 	II 	PC-rel 	        H=0 E=1
+JEQ 	>1300 	II 	PC-rel 	        E=1
+JHE 	>1400 	II 	PC-rel 	        H=1 E=1
+JGT 	>1500 	II 	PC-rel 	        G=1
+JNE 	>1600 	II 	PC-rel 	        E=0
+JNC 	>1700 	II 	PC-rel 	        C=0
+JOC 	>1800 	II 	PC-rel 	        C=1
+JNO 	>1900 	II 	PC-rel 	        O=0
+JL 	>1A00 	II 	PC-rel 	        H=0 E=0
+JH 	>1B00 	II 	PC-rel 	        H=1 E=0
+JOP 	>1C00 	II 	PC-rel 	        P=1
+SBO 	>1D00 	II 	bit 	        -
+SBZ 	>1E00 	II 	bit 	        -
+TB 	>1F00 	II 	bit 	        E
+COC 	>2000 	III 	source,reg 	E
+CZC 	>2400 	III 	source,reg 	E
+XOR 	>2800 	III 	source,reg 	HGE
+XOP 	>2C00 	IX 	source,xop# 	X
+LDCR 	>3000 	IV 	source,nbits 	HGECOP
+STCR 	>3400 	IV 	dest,nbits 	HGE P
+MPY 	>3800 	IX 	source,reg2 	-
+DIV 	>3C00 	IX 	source,reg2 	O
+SZC 	>4000 	I 	source,dest 	HGE
+SZCB 	>5000 	I 	source,dest 	HGE P
+S 	>6000 	I 	source,dest 	HGECO
+SB 	>7000 	I 	source,dest 	HGECOP
+C 	>8000 	I 	source,dest 	HGE
+CB 	>9000 	I 	source,dest 	HGE P
+A 	>A000 	I 	source,dest 	HGECO
+AB 	>B000 	I 	source,dest 	HGECOP
+MOV 	>C000 	I 	source,dest 	HGE
+MOVB 	>D000 	I 	source,dest 	HGE P
+SOC 	>E000 	I 	source,dest 	HGE
+SOCB 	>F000 	I 	source,dest 	HGEC P
+
+
+Opcode 	Value 	Fmt 	Operands 	Status
+A 	>A000 	I 	source,dest 	HGECO
+AB 	>B000 	I 	source,dest 	HGECOP
+ABS 	>0740 	VI 	dest 	        HGECO
+AI 	>0220 	VIII 	reg,immed 	HGECO
+ANDI 	>0240 	VIII 	reg,immed 	HGE
+B 	>0440 	VI 	dest 	        -
+BL 	>0680 	VI 	dest 	        -
+BLWP 	>0400 	VI 	dest 	        -
+C 	>8000 	I 	source,dest 	HGE
+CB 	>9000 	I 	source,dest 	HGE P
+CI 	>0280 	VIII 	reg,immed 	HGE
+CKOF 	>03C0 	VII 	- 	        -
+CKON 	>03A0 	VII 	- 	        -
+CLR 	>04C0 	VI 	dest 	        -
+COC 	>2000 	III 	source,reg 	E
+CZC 	>2400 	III 	source,reg 	E
+DEC 	>0600 	VI 	dest 	        HGECO
+DECT 	>0640 	VI 	dest 	        HGECO
+DIV 	>3C00 	IX 	source,reg2 	O
+IDLE 	>0340 	VII 	- 	        -
+INC 	>0580 	VI 	dest 	        HGECO
+INCT 	>05C0 	VI 	dest 	        HGECO
+INV 	>0540 	VI 	dest 	        HGE
+JEQ 	>1300 	II 	PC-rel 	        E=1
+JGT 	>1500 	II 	PC-rel 	        G=1
+JH 	>1B00 	II 	PC-rel 	        H=1 E=0
+JHE 	>1400 	II 	PC-rel 	        H=1 E=1
+JL 	>1A00 	II 	PC-rel 	        H=0 E=0
+JLE 	>1200 	II 	PC-rel 	        H=0 E=1
+JLT 	>1100 	II 	PC-rel 	        G=0 E=0
+JMP 	>1000 	II 	PC-rel 	        Always
+JNC 	>1700 	II 	PC-rel 	        C=0
+JNE 	>1600 	II 	PC-rel 	        E=0
+JNO 	>1900 	II 	PC-rel 	        O=0
+JOC 	>1800 	II 	PC-rel 	        C=1
+JOP 	>1C00 	II 	PC-rel 	        P=1
+LDCR 	>3000 	IV 	source,nbits 	HGECOP
+LI 	>0200 	VIII 	reg,immed 	HGE
+LIMI 	>0300 	VIII 	immed 	        -
+LREX 	>03E0 	VII 	- 	        -
+LWPI 	>02E0 	VIII 	immed 	        -
+MOV 	>C000 	I 	source,dest 	HGE
+MOVB 	>D000 	I 	source,dest 	HGE P
+MPY 	>3800 	IX 	source,reg2 	-
+NEG 	>0500 	VI 	dest 	        HGECO
+ORI 	>0260 	VIII 	reg,immed 	HGE
+RSET 	>0360 	VII 	- 	        -
+RTWP 	>0380 	VII 	- 	        All
+S 	>6000 	I 	source,dest 	HGECO
+SB 	>7000 	I 	source,dest 	HGECOP
+SBO 	>1D00 	II 	bit 	        -
+SBZ 	>1E00 	II 	bit 	        -
+SETO 	>0700 	VI 	dest 	        -
+SLA 	>0A00 	V 	reg,count 	HGECO
+SOC 	>E000 	I 	source,dest 	HGE
+SOCB 	>F000 	I 	source,dest 	HGEC P
+SRA 	>0800 	V 	reg,count 	HGEC
+SRC 	>0B00 	V 	reg,count 	HGEC
+SRL 	>0900 	V 	reg,count 	HGECO
+STCR 	>3400 	IV 	dest,nbits 	HGE P
+STST 	>02C0 	VIII 	reg 	        -
+STWP 	>02A0 	VIII 	reg 	        -
+SWPB 	>06C0 	VI 	dest 	        -
+SZC 	>4000 	I 	source,dest 	HGE
+SZCB 	>5000 	I 	source,dest 	HGE P
+TB 	>1F00 	II 	bit 	        E
+X 	>0480 	VI 	dest 	        depends
+XOP 	>2C00 	IX 	source,xop# 	X
+XOR 	>2800 	III 	source,reg 	HGE
+Illegal >0000-01FF,>0320-033F,>0780-07FF,>0C00-0FFF
+
+Status Bits
+Bit 	0 	1 	2 	3 	4 	5 	6 	7 to 11 	12 to 15
+Use 	High 	GT 	Equ 	Carry 	Ovf 	Par 	Xop 	not used 	Interrupt mask
+
+H - High - logically higher than
+G - Greater than - signed arithmetic
+E - Equal
+C - Carry
+O - Overflow - carry for signed arithmetic
+P - Parity - odd count of bits set to 1
+X - Xop - only for XOP instruction
+Interrupt Mask - set to 0 or 1, disallow interrupts - set to 2 to 15, allow interrupts
+
+
+
+PAB structure
+
+
+
+
+Useful functions in TI ROM:
+
+Reads R2 bytes from VDP read data to address in R3
+18A0  DCE0  MOVB @>8800,*R3+
+18A2  8800
+18A4  0602  DEC  R2
+18A6  15FC  JGT  >18A0
+18A8  045B  B    *R11
+
+Copy bytes from R7 to buffer at R6, R5=-count?
+1FC0  DD97  MOVB *R7,*R6+
+1FC2  0585  INC  R5
+1FC4  16FD  JNE  >1FC0
+1FC6  045B  B    *R11
+
+Copy 1 byte from VDP read data to R8LB
+1FD2  D220  MOVB @>8800,R8
+1FD4  8800
+1FD6  0988  SRL  R8,8
+1FD8  045B  B    *R11
+
