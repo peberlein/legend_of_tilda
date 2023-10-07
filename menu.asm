@@ -135,7 +135,7 @@ NOITEM
        JNE -!!
 
        ; FIXME this needs to point to the correct sprite
-       LI R0,SPRPAT+(91*32)  ; Selector sprite
+       LI R0,MENTAB+(>D0*8)  ; Selector sprite
        BL @READ32
        LI R0,SPRPAT+(>6C*8)
        BL @PUTSCR
